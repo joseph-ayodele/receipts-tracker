@@ -1,0 +1,55 @@
+# --- Go build artifacts
+/bin/
+/build/
+/dist/
+/tmp/
+/out/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# --- Test / coverage
+coverage.*
+*.coverprofile
+*.cov
+*.prof
+profile.out
+coverage.html
+
+# --- Go workspace (usually local-only)
+go.work
+go.work.sum
+
+# --- Vendoring (remove this if you intentionally commit vendor/)
+# /vendor/
+
+# --- Tool caches
+.gocache/
+.golangci-cache/
+
+# --- IDEs
+.idea/
+*.iml
+.vscode/
+.history/
+
+# --- OS cruft
+**/.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Env / secrets (keep these local)
+.env
+*.env
+.env.*
+.envrc
+.secrets.*
+db/.env.db
+
+# --- Logs & swap
+*.log
+*.swp
+*~

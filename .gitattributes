@@ -1,0 +1,12 @@
+# default: text, always LF
+*           text eol=lf
+
+# Windows-only scripts that need CRLF
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# binaries
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,74 @@
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: receipts-db-volume
+  labels:
+    app: receipts-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: receipts-db
+  labels:
+    app: receipts-db
+spec:
+  selector:
+    app: receipts-db
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: receipts-db
+  labels:
+    app: receipts-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: receipts-db
+  template:
+    metadata:
+      labels:
+        app: receipts-db
+    spec:
+      containers:
+        - name: postgres
+          image: receipts-app-db
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+          volumeMounts:
+            - name: receipts-db-storage
+              mountPath: /var/lib/postgresql/data
+              subPath: postgres
+      volumes:
+        - name: receipts-db-storage
+          persistentVolumeClaim:
+            claimName: receipts-db-volume
