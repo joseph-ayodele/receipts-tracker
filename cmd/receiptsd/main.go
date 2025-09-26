@@ -1,21 +1,92 @@
 package main
 
 import (
-  "fmt"
+	"context"
+	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"receipts-tracker/gen/receipts/v1"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
+
+	"go.uber.org/zap"
+
+	"receipts-tracker/internal/repository"
+	"receipts-tracker/internal/server"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
-
 func main() {
-  //TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-  // to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-  s := "gopher"
-  fmt.Printf("Hello and welcome, %s!\n", s)
+	// Logger
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+	log := logger.Sugar()
 
-  for i := 1; i <= 5; i++ {
-	//TIP <p>To start your debugging session, right-click your code in the editor and select the Debug option.</p> <p>We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-	// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.</p>
-	fmt.Println("i =", 100/i)
-  }
+	// Env
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL env var is required")
+	}
+
+	// Context with signal
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	// DB Pool
+	cfg := repository.DBConfig{
+		URL:             dbURL,
+		MaxConns:        10,
+		MaxConnLifetime: 30 * time.Minute,
+		MaxConnIdleTime: 5 * time.Minute,
+		HealthTimeout:   3 * time.Second,
+	}
+	pool, err := repository.NewPool(ctx, cfg)
+	if err != nil {
+		log.Fatalf("creating DB pool: %v", err)
+	}
+	defer pool.Close()
+
+	// Healthcheck DB on startup
+	if err := repository.HealthCheck(ctx, pool, cfg.HealthTimeout); err != nil {
+		log.Fatalf("DB health failed: %v", err)
+	}
+	log.Infow("DB health OK")
+
+	// gRPC server
+	grpcServer := grpc.NewServer()
+	// Health service
+	hs := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, hs)
+	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	// Reflection for grpcurl
+	reflection.Register(grpcServer)
+
+	// Business service
+	svc := server.NewReceiptsService(pool, logger)
+	receiptsv1.RegisterReceiptsServiceServer(grpcServer, svc)
+
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("listen: %v", err)
+	}
+	log.Infof("gRPC serving on :%s", port)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("grpc serve: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info("shutting down...")
+	grpcServer.GracefulStop()
+	fmt.Println("stopped.")
 }

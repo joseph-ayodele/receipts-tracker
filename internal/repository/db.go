@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver
+
+	entpkg "receipts-tracker/db/ent"
 )
 
 type Config struct {
@@ -17,43 +19,35 @@ type Config struct {
 	HealthTimeout   time.Duration
 }
 
-// NewPool builds a pgx pool with sensible defaults.
-// It does not ping; use HealthCheck after creation.
-func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
-	if cfg.URL == "" {
-		return nil, errors.New("missing DB URL")
-	}
-
-	pc, err := pgxpool.ParseConfig(cfg.URL)
+// NewEntClient returns an ent client backed by the pgx stdlib driver.
+func NewEntClient(dsn string) (*entpkg.Client, error) {
+	client, err := entpkg.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	if cfg.MaxConns > 0 {
-		pc.MaxConns = cfg.MaxConns
-	}
-	if cfg.MinConns > 0 {
-		pc.MinConns = cfg.MinConns
-	}
-	if cfg.MaxConnLifetime > 0 {
-		pc.MaxConnLifetime = cfg.MaxConnLifetime
-	}
-	if cfg.MaxConnIdleTime > 0 {
-		pc.MaxConnIdleTime = cfg.MaxConnIdleTime
+	// Optional tuning
+	if db, ok := client.DB().(*sql.DB); ok && db != nil {
+		db.SetMaxOpenConns(10)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(30 * time.Minute)
 	}
 
-	return pgxpool.NewWithConfig(ctx, pc)
+	return client, nil
 }
 
-// HealthCheck runs a quick query with a timeout.
-func HealthCheck(ctx context.Context, pool *pgxpool.Pool, timeout time.Duration) error {
-	ctx2 := ctx
-	cancel := func() {}
-	if timeout > 0 {
-		ctx2, cancel = context.WithTimeout(ctx, timeout)
+// HealthCheck pings using database/sql to catch DSN issues early.
+func HealthCheck(ctx context.Context, dsn string, timeout time.Duration) error {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return err
 	}
-	defer cancel()
+	defer db.Close()
 
-	var one int
-	return pool.QueryRow(ctx2, "SELECT 1").Scan(&one)
+	if timeout > 0 {
+		ctx2, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return db.PingContext(ctx2)
+	}
+	return db.PingContext(ctx)
 }

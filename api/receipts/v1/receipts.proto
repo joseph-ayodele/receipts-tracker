@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package receipts.v1;
+
+option go_package = "receipts-tracker/api/gen/receipts/v1;receiptsv1";
+
+// --------- Profiles ---------
+message Profile {
+  string id = 1;
+  string name = 2;
+  string default_currency = 3;
+  string created_at = 4; // RFC3339
+  string updated_at = 5; // RFC3339
+}
+
+message CreateProfileRequest {
+  string name = 1;
+  string default_currency = 2; // optional; if empty -> DB default
+}
+message CreateProfileResponse {
+  Profile profile = 1;
+}
+
+message ListProfilesRequest {}
+message ListProfilesResponse {
+  repeated Profile profiles = 1;
+}
+
+// --------- Receipts (list-only for now) ---------
+message Receipt {
+  string id = 1;
+  string profile_id = 2;
+  string merchant_name = 3;
+  string tx_date = 4;        // YYYY-MM-DD
+  string total = 5;          // decimal string
+  string currency_code = 6;  // e.g., USD
+  string created_at = 7;     // RFC3339
+  string updated_at = 8;     // RFC3339
+}
+
+message ListReceiptsRequest {
+  string profile_id = 1;     // required
+  string from_date = 2;      // optional YYYY-MM-DD
+  string to_date = 3;        // optional YYYY-MM-DD
+}
+message ListReceiptsResponse {
+  repeated Receipt receipts = 1;
+}
+
+// --------- Export (defined; not implemented yet) ---------
+message ExportReceiptsRequest {
+  string profile_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+message ExportReceiptsResponse {
+  bytes xlsx = 1;
+}
+
+service ReceiptsService {
+  rpc CreateProfile(CreateProfileRequest) returns (CreateProfileResponse);
+  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
+  rpc ListReceipts(ListReceiptsRequest) returns (ListReceiptsResponse);
+  rpc ExportReceipts(ExportReceiptsRequest) returns (ExportReceiptsResponse);
+}
