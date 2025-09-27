@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
@@ -38,10 +39,14 @@ func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.Crea
 	}
 	cur = strings.ToUpper(cur)
 
+	slog.Info("creating profile", "name", name, "currency", cur)
+
 	p, err := s.profileRepo.CreateProfile(ctx, name, cur)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create profile: %v", err)
 	}
+
+	slog.Info("profile created successfully", "profile_id", p.ID, "name", p.Name, "currency", p.DefaultCurrency)
 
 	return &receiptspb.CreateProfileResponse{
 		Profile: utils.ToPBProfile(p),
@@ -50,10 +55,16 @@ func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.Crea
 
 // ListProfiles lists all the profileRepo.
 func (s *ProfileService) ListProfiles(ctx context.Context, _ *receiptspb.ListProfilesRequest) (*receiptspb.ListProfilesResponse, error) {
+	slog.Info("listing profiles")
+
 	plist, err := s.profileRepo.ListProfiles(ctx)
 	if err != nil {
+		// DB error already logged in repository layer
 		return nil, status.Errorf(codes.Internal, "list profileRepo: %v", err)
 	}
+
+	slog.Info("profiles listed successfully", "count", len(plist))
+
 	out := make([]*receiptspb.Profile, 0, len(plist))
 	for _, p := range plist {
 		out = append(out, utils.ToPBProfile(p))

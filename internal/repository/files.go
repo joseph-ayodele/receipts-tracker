@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,15 +21,20 @@ type receiptFileRepo struct{ ent *ent.Client }
 func NewReceiptFileRepository(entc *ent.Client) ReceiptFileRepository { return &receiptFileRepo{ent: entc} }
 
 func (r *receiptFileRepo) GetByProfileAndHash(ctx context.Context, profileID uuid.UUID, hash []byte) (*ent.ReceiptFile, error) {
-	return r.ent.ReceiptFile.Query().
+	row, err := r.ent.ReceiptFile.Query().
 		Where(
 			entfile.ProfileID(profileID),
 			entfile.ContentHash(hash),
 		).Only(ctx)
+	if err != nil {
+		slog.Error("failed to get receipt file by profile and hash", "profile_id", profileID, "error", err)
+		return nil, err
+	}
+	return row, nil
 }
 
 func (r *receiptFileRepo) Create(ctx context.Context, profileID uuid.UUID, sourcePath, filename, ext string, size int, hash []byte, uploadedAt time.Time) (*ent.ReceiptFile, error) {
-	return r.ent.ReceiptFile.Create().
+	row, err := r.ent.ReceiptFile.Create().
 		SetProfileID(profileID).
 		SetSourcePath(sourcePath).
 		SetFilename(filename).
@@ -37,6 +43,11 @@ func (r *receiptFileRepo) Create(ctx context.Context, profileID uuid.UUID, sourc
 		SetContentHash(hash).
 		SetUploadedAt(uploadedAt).
 		Save(ctx)
+	if err != nil {
+		slog.Error("failed to create receipt file", "profile_id", profileID, "source_path", sourcePath, "filename", filename, "error", err)
+		return nil, err
+	}
+	return row, nil
 }
 
 func (r *receiptFileRepo) UpsertByHash(ctx context.Context, profileID uuid.UUID, sourcePath, filename, ext string, size int, hash []byte, uploadedAt time.Time) (*ent.ReceiptFile, bool, error) {
@@ -44,5 +55,9 @@ func (r *receiptFileRepo) UpsertByHash(ctx context.Context, profileID uuid.UUID,
 		return existing, true, nil
 	}
 	row, err := r.Create(ctx, profileID, sourcePath, filename, ext, size, hash, uploadedAt)
-	return row, false, err
+	if err != nil {
+		slog.Error("failed to upsert receipt file by hash", "profile_id", profileID, "source_path", sourcePath, "filename", filename, "error", err)
+		return nil, false, err
+	}
+	return row, false, nil
 }

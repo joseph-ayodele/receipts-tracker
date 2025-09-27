@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -21,7 +21,8 @@ import (
 func main() {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		log.Fatal("DB_URL env var is required")
+		slog.Error("missing DB_URL environment variable")
+		os.Exit(1)
 	}
 	addr := os.Getenv("GRPC_ADDR")
 	if addr == "" {
@@ -41,12 +42,13 @@ func main() {
 		DialTimeout:     3 * time.Second,
 	})
 	if err != nil {
-		log.Fatalf("opening DB: %v", err)
+		slog.Error("failed to open database", "error", err, "db_url", dbURL)
+		os.Exit(1)
 	}
 	defer func(entc *ent.Client) {
 		err := entc.Close()
 		if err != nil {
-			log.Printf("closing ent client: %v", err)
+			slog.Error("failed to close ent client", "error", err)
 		}
 	}(entc)
 	defer pool.Close()
@@ -54,7 +56,8 @@ func main() {
 	// gRPC server
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("listen %s: %v", addr, err)
+		slog.Error("failed to listen on address", "addr", addr, "error", err)
+		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
 
@@ -71,14 +74,15 @@ func main() {
 	ingestionService := svc.NewIngestionService(ingestor, profilesRepo)
 	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
 
-	log.Printf("receiptsd listening on %s", addr)
+	slog.Info("receiptsd listening", "addr", addr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("gRPC serve error: %v", err)
+			slog.Error("gRPC serve error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("shutting down...")
+	slog.Info("shutting down gracefully")
 	grpcServer.GracefulStop()
 }

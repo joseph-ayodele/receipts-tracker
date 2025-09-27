@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"time"
@@ -14,9 +14,7 @@ import (
 func main() {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		log.Println("ERROR: DB_URL env var is required")
-		log.Println("  mac/Linux (bash/zsh): export DB_URL=postgres://USER:PASS@HOST:PORT/DB?sslmode=disable")
-		log.Println("  Windows (PowerShell): $env:DB_URL='postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'")
+		slog.Error("missing DB_URL environment variable")
 		os.Exit(2)
 	}
 
@@ -34,30 +32,33 @@ func main() {
 		// StatementTimeout: 2 * time.Second, // optional: server-side cap
 	})
 	if err != nil {
-		log.Fatalf("opening DB: %v", err)
+		slog.Error("failed to open database", "error", err, "db_url", dbURL)
+		os.Exit(1)
 	}
 	defer func(entc *ent.Client) {
 		err := entc.Close()
 		if err != nil {
-			log.Printf("ERROR: closing ent client: %v", err)
+			slog.Error("failed to close ent client", "error", err)
 		}
 	}(entc)
 	defer pool.Close()
 
 	// Health check via pool
 	if err := repo.HealthCheck(ctx, pool, 1*time.Second); err != nil {
-		log.Fatalf("DB health: FAIL (%v)", err)
+		slog.Error("DB health check failed", "error", err)
+		os.Exit(1)
 	}
-	log.Println("DB health: OK")
+	slog.Info("DB health check passed")
 
 	// typed query using ent client
 	cats, err := repo.ListCategories(ctx, entc)
 	if err != nil {
-		log.Fatalf("listing categories: %v", err)
+		slog.Error("failed to list categories", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("categories count: %d", len(cats))
+	slog.Info("categories listed", "count", len(cats))
 	for _, c := range cats {
-		log.Printf("- [%d] %s", c.ID, c.Name)
+		slog.Info("category", "id", c.ID, "name", c.Name)
 	}
 }

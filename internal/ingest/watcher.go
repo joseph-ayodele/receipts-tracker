@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ type WatchConfig struct {
 
 func StartWatcher(ctx context.Context, cfg WatchConfig) (<-chan string, <-chan error, error) {
 	if len(cfg.Roots) == 0 {
+		slog.Error("watcher start failed: no roots provided")
 		return nil, nil, errors.New("no roots provided")
 	}
 	if cfg.AllowedExts == nil {
@@ -38,6 +40,7 @@ func StartWatcher(ctx context.Context, cfg WatchConfig) (<-chan string, <-chan e
 
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
+		slog.Error("failed to create fsnotify watcher", "error", err)
 		return nil, nil, err
 	}
 
@@ -61,6 +64,7 @@ func StartWatcher(ctx context.Context, cfg WatchConfig) (<-chan string, <-chan e
 	}
 	for _, r := range cfg.Roots {
 		if err := addDir(r); err != nil {
+			slog.Error("failed to add root directory", "root", r, "error", err)
 			_ = w.Close()
 			return nil, nil, err
 		}
@@ -69,7 +73,12 @@ func StartWatcher(ctx context.Context, cfg WatchConfig) (<-chan string, <-chan e
 	go func() {
 		defer close(evCh)
 		defer close(errCh)
-		defer w.Close()
+		defer func(w *fsnotify.Watcher) {
+			err := w.Close()
+			if err != nil {
+
+			}
+		}(w)
 
 		var timer *time.Timer
 		pending := map[string]struct{}{}
@@ -90,7 +99,9 @@ func StartWatcher(ctx context.Context, cfg WatchConfig) (<-chan string, <-chan e
 				if e.Op&fsnotify.Create == fsnotify.Create {
 					// If a directory created, start watching it
 					// If it's a file, consider for emit below
-					_ = tryAddDir(w, e.Name)
+					if err := tryAddDir(w, e.Name); err != nil {
+						slog.Warn("failed to add new directory to watcher", "path", e.Name, "error", err)
+					}
 				}
 
 				if allowed(e.Name, cfg.AllowedExts) && (e.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Rename)) != 0 {
@@ -105,6 +116,7 @@ func StartWatcher(ctx context.Context, cfg WatchConfig) (<-chan string, <-chan e
 					}
 				}
 			case err := <-w.Errors:
+				slog.Error("watcher error", "error", err)
 				select {
 				case errCh <- err:
 				default:

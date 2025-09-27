@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,31 +37,31 @@ func (i *FSIngestor) IngestPath(ctx context.Context, profileID uuid.UUID, path s
 
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		log.Printf("abs path error: %v", err)
+		slog.Error("abs path error", "error", err, "path", path)
 		return out, err
 	}
 
 	ext := constants.NormalizeExt(filepath.Ext(abs))
 	if ext == "" || !AllowedExt(ext) {
-		log.Printf("unsupported or missing extension: %q", ext)
+		slog.Warn("unsupported or missing extension", "ext", ext, "path", path)
 		return out, fmt.Errorf("unsupported or missing extension")
 	}
 
 	f, err := os.Open(abs)
 	if err != nil {
-		log.Printf("open error: %v", err)
+		slog.Error("file open error", "error", err, "path", path)
 		return out, err
 	}
 	defer func(f *os.File) {
 		err := f.Close()
 		if err != nil {
-			log.Printf("close file error: %v", err)
+			slog.Error("close file error", "error", err, "path", path)
 		}
 	}(f)
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		log.Printf("hash error: %v", err)
+		slog.Error("hash error", "error", err, "path", path)
 		return out, err
 	}
 	sum := h.Sum(nil)

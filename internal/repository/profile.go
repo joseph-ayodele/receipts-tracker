@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
@@ -23,14 +24,28 @@ func NewProfileRepository(client *ent.Client) ProfileRepository {
 }
 
 func (r *profileRepository) CreateProfile(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error) {
-	return r.client.Profile.Create().SetName(name).SetDefaultCurrency(defaultCurrency).Save(ctx)
+	p, err := r.client.Profile.Create().SetName(name).SetDefaultCurrency(defaultCurrency).Save(ctx)
+	if err != nil {
+		slog.Error("failed to create profile", "name", name, "currency", defaultCurrency, "error", err)
+		return nil, err
+	}
+	return p, nil
 }
 
 func (r *profileRepository) ListProfiles(ctx context.Context) ([]*ent.Profile, error) {
-	return r.client.Profile.Query().Order(profile.ByCreatedAt()).All(ctx)
+	plist, err := r.client.Profile.Query().Order(profile.ByCreatedAt()).All(ctx)
+	if err != nil {
+		slog.Error("failed to list profiles", "error", err)
+		return nil, err
+	}
+	return plist, nil
 }
 
 func (r *profileRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
-	return r.client.Profile.Query().Where(profile.ID(id)).Exist(ctx)
+	exists, err := r.client.Profile.Query().Where(profile.ID(id)).Exist(ctx)
+	if err != nil {
+		slog.Error("failed to check profile existence", "profile_id", id, "error", err)
+		return false, err
+	}
+	return exists, nil
 }
-

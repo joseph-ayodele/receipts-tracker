@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -27,10 +28,12 @@ func NewReceiptService(receiptRepo repository.ReceiptRepository) *ReceiptService
 
 func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListReceiptsRequest) (*receiptspb.ListReceiptsResponse, error) {
 	if strings.TrimSpace(req.GetProfileId()) == "" {
+		slog.Error("list receipts request missing profile_id")
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
 	profileID, err := uuid.Parse(req.GetProfileId())
 	if err != nil {
+		slog.Error("invalid profile_id format for list receipts", "profile_id", req.GetProfileId(), "error", err)
 		return nil, status.Error(codes.InvalidArgument, "profile_id must be a UUID")
 	}
 
@@ -38,6 +41,7 @@ func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListR
 	if fd := strings.TrimSpace(req.GetFromDate()); fd != "" {
 		from, err := utils.ParseYMD(fd)
 		if err != nil {
+			slog.Error("invalid from_date format", "from_date", fd, "error", err)
 			return nil, status.Errorf(codes.InvalidArgument, "from_date invalid (YYYY-MM-DD): %v", err)
 		}
 		fromDate = &from
@@ -45,15 +49,19 @@ func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListR
 	if td := strings.TrimSpace(req.GetToDate()); td != "" {
 		to, err := utils.ParseYMD(td)
 		if err != nil {
+			slog.Error("invalid to_date format", "to_date", td, "error", err)
 			return nil, status.Errorf(codes.InvalidArgument, "to_date invalid (YYYY-MM-DD): %v", err)
 		}
 		toDate = &to
 	}
 
+	slog.Info("listing receipts", "profile_id", profileID, "from_date", fromDate, "to_date", toDate)
 	recs, err := s.receiptRepo.ListReceipts(ctx, profileID, fromDate, toDate)
 	if err != nil {
+		slog.Error("failed to list receipts", "profile_id", profileID, "error", err)
 		return nil, status.Errorf(codes.Internal, "list receiptRepo: %v", err)
 	}
+	slog.Info("receipts listed successfully", "profile_id", profileID, "count", len(recs))
 
 	out := make([]*receiptspb.Receipt, 0, len(recs))
 	for _, r := range recs {
