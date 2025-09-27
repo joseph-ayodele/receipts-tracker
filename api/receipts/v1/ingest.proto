@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package receipts.v1;
+
+option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1;v1";
+
+message IngestRequest {
+  string profile_id = 1; // required (UUID)
+  string path = 2;       // absolute or project-local file path
+}
+
+message IngestResponse {
+  string file_id = 1;           // receipt_files.id (UUID)
+  bool deduplicated = 2;        // true if (profile_id, content_hash) already existed
+  string content_hash_hex = 3;  // hex(sha256)
+  string file_ext = 4;          // normalized ext
+  string uploaded_at = 5;       // RFC3339
+  string source_path = 6;       // echoed canonical path
+}
+
+service IngestionService {
+  rpc Ingest(IngestRequest) returns (IngestResponse);
+}

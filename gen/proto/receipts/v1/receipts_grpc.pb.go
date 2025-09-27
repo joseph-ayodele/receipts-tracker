@@ -19,20 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ReceiptsService_CreateProfile_FullMethodName  = "/receipts.v1.ReceiptsService/CreateProfile"
-	ReceiptsService_ListProfiles_FullMethodName   = "/receipts.v1.ReceiptsService/ListProfiles"
-	ReceiptsService_ListReceipts_FullMethodName   = "/receipts.v1.ReceiptsService/ListReceipts"
-	ReceiptsService_ExportReceipts_FullMethodName = "/receipts.v1.ReceiptsService/ExportReceipts"
+	ReceiptsService_ListReceipts_FullMethodName = "/receipts.v1.ReceiptsService/ListReceipts"
 )
 
 // ReceiptsServiceClient is the client API for ReceiptsService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ReceiptsServiceClient interface {
-	CreateProfile(ctx context.Context, in *CreateProfileRequest, opts ...grpc.CallOption) (*CreateProfileResponse, error)
-	ListProfiles(ctx context.Context, in *ListProfilesRequest, opts ...grpc.CallOption) (*ListProfilesResponse, error)
 	ListReceipts(ctx context.Context, in *ListReceiptsRequest, opts ...grpc.CallOption) (*ListReceiptsResponse, error)
-	ExportReceipts(ctx context.Context, in *ExportReceiptsRequest, opts ...grpc.CallOption) (*ExportReceiptsResponse, error)
 }
 
 type receiptsServiceClient struct {
@@ -41,26 +35,6 @@ type receiptsServiceClient struct {
 
 func NewReceiptsServiceClient(cc grpc.ClientConnInterface) ReceiptsServiceClient {
 	return &receiptsServiceClient{cc}
-}
-
-func (c *receiptsServiceClient) CreateProfile(ctx context.Context, in *CreateProfileRequest, opts ...grpc.CallOption) (*CreateProfileResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateProfileResponse)
-	err := c.cc.Invoke(ctx, ReceiptsService_CreateProfile_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *receiptsServiceClient) ListProfiles(ctx context.Context, in *ListProfilesRequest, opts ...grpc.CallOption) (*ListProfilesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListProfilesResponse)
-	err := c.cc.Invoke(ctx, ReceiptsService_ListProfiles_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *receiptsServiceClient) ListReceipts(ctx context.Context, in *ListReceiptsRequest, opts ...grpc.CallOption) (*ListReceiptsResponse, error) {
@@ -73,24 +47,11 @@ func (c *receiptsServiceClient) ListReceipts(ctx context.Context, in *ListReceip
 	return out, nil
 }
 
-func (c *receiptsServiceClient) ExportReceipts(ctx context.Context, in *ExportReceiptsRequest, opts ...grpc.CallOption) (*ExportReceiptsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ExportReceiptsResponse)
-	err := c.cc.Invoke(ctx, ReceiptsService_ExportReceipts_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ReceiptsServiceServer is the server API for ReceiptsService service.
 // All implementations must embed UnimplementedReceiptsServiceServer
 // for forward compatibility.
 type ReceiptsServiceServer interface {
-	CreateProfile(context.Context, *CreateProfileRequest) (*CreateProfileResponse, error)
-	ListProfiles(context.Context, *ListProfilesRequest) (*ListProfilesResponse, error)
 	ListReceipts(context.Context, *ListReceiptsRequest) (*ListReceiptsResponse, error)
-	ExportReceipts(context.Context, *ExportReceiptsRequest) (*ExportReceiptsResponse, error)
 	mustEmbedUnimplementedReceiptsServiceServer()
 }
 
@@ -101,17 +62,8 @@ type ReceiptsServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedReceiptsServiceServer struct{}
 
-func (UnimplementedReceiptsServiceServer) CreateProfile(context.Context, *CreateProfileRequest) (*CreateProfileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateProfile not implemented")
-}
-func (UnimplementedReceiptsServiceServer) ListProfiles(context.Context, *ListProfilesRequest) (*ListProfilesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListProfiles not implemented")
-}
 func (UnimplementedReceiptsServiceServer) ListReceipts(context.Context, *ListReceiptsRequest) (*ListReceiptsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListReceipts not implemented")
-}
-func (UnimplementedReceiptsServiceServer) ExportReceipts(context.Context, *ExportReceiptsRequest) (*ExportReceiptsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExportReceipts not implemented")
 }
 func (UnimplementedReceiptsServiceServer) mustEmbedUnimplementedReceiptsServiceServer() {}
 func (UnimplementedReceiptsServiceServer) testEmbeddedByValue()                         {}
@@ -134,42 +86,6 @@ func RegisterReceiptsServiceServer(s grpc.ServiceRegistrar, srv ReceiptsServiceS
 	s.RegisterService(&ReceiptsService_ServiceDesc, srv)
 }
 
-func _ReceiptsService_CreateProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateProfileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReceiptsServiceServer).CreateProfile(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ReceiptsService_CreateProfile_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReceiptsServiceServer).CreateProfile(ctx, req.(*CreateProfileRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ReceiptsService_ListProfiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListProfilesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReceiptsServiceServer).ListProfiles(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ReceiptsService_ListProfiles_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReceiptsServiceServer).ListProfiles(ctx, req.(*ListProfilesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ReceiptsService_ListReceipts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListReceiptsRequest)
 	if err := dec(in); err != nil {
@@ -188,24 +104,6 @@ func _ReceiptsService_ListReceipts_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ReceiptsService_ExportReceipts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ExportReceiptsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReceiptsServiceServer).ExportReceipts(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ReceiptsService_ExportReceipts_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReceiptsServiceServer).ExportReceipts(ctx, req.(*ExportReceiptsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // ReceiptsService_ServiceDesc is the grpc.ServiceDesc for ReceiptsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -214,20 +112,8 @@ var ReceiptsService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ReceiptsServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateProfile",
-			Handler:    _ReceiptsService_CreateProfile_Handler,
-		},
-		{
-			MethodName: "ListProfiles",
-			Handler:    _ReceiptsService_ListProfiles_Handler,
-		},
-		{
 			MethodName: "ListReceipts",
 			Handler:    _ReceiptsService_ListReceipts_Handler,
-		},
-		{
-			MethodName: "ExportReceipts",
-			Handler:    _ReceiptsService_ExportReceipts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -4,29 +4,6 @@ package receipts.v1;
 
 option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1;v1";
 
-// --------- Profiles ---------
-message Profile {
-  string id = 1;
-  string name = 2;
-  string default_currency = 3;
-  string created_at = 4; // RFC3339
-  string updated_at = 5; // RFC3339
-}
-
-message CreateProfileRequest {
-  string name = 1;
-  string default_currency = 2; // optional; if empty -> DB default
-}
-message CreateProfileResponse {
-  Profile profile = 1;
-}
-
-message ListProfilesRequest {}
-message ListProfilesResponse {
-  repeated Profile profiles = 1;
-}
-
-// --------- Receipts (list-only for now) ---------
 message Receipt {
   string id = 1;
   string profile_id = 2;
@@ -47,19 +24,6 @@ message ListReceiptsResponse {
   repeated Receipt receipts = 1;
 }
 
-// --------- Export (defined; not implemented yet) ---------
-message ExportReceiptsRequest {
-  string profile_id = 1;
-  string from_date = 2;
-  string to_date = 3;
-}
-message ExportReceiptsResponse {
-  bytes xlsx = 1;
-}
-
 service ReceiptsService {
-  rpc CreateProfile(CreateProfileRequest) returns (CreateProfileResponse);
-  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
   rpc ListReceipts(ListReceiptsRequest) returns (ListReceiptsResponse);
-  rpc ExportReceipts(ExportReceiptsRequest) returns (ExportReceiptsResponse);
 }

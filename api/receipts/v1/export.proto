@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package receipts.v1;
+
+option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1;v1";
+
+message ExportReceiptsRequest {
+  string profile_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+message ExportReceiptsResponse {
+  bytes xlsx = 1;
+}
+
+service ExportService {
+  rpc ExportReceipts(ExportReceiptsRequest) returns (ExportReceiptsResponse);
+}

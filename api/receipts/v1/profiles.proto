@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package receipts.v1;
+
+option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1;v1";
+
+message Profile {
+  string id = 1;
+  string name = 2;
+  string default_currency = 3;
+  string created_at = 4; // RFC3339
+  string updated_at = 5; // RFC3339
+}
+
+message CreateProfileRequest {
+  string name = 1;
+  string default_currency = 2; // optional; if empty -> DB default
+}
+message CreateProfileResponse {
+  Profile profile = 1;
+}
+
+message ListProfilesRequest {}
+message ListProfilesResponse {
+  repeated Profile profiles = 1;
+}
+
+service ProfilesService {
+  rpc CreateProfile(CreateProfileRequest) returns (CreateProfileResponse);
+  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
+}

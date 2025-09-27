@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	receiptspb "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
+	"github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	svc "github.com/joseph-ayodele/receipts-tracker/internal/server"
 )
@@ -56,8 +56,11 @@ func main() {
 
 	profilesRepo := repo.NewProfileRepository(entc)
 	receiptsRepo := repo.NewReceiptRepository(entc)
-	service := svc.New(profilesRepo, receiptsRepo)
-	receiptspb.RegisterReceiptsServiceServer(grpcServer, service)
+
+	profilesService := svc.NewProfileService(profilesRepo)
+	v1.RegisterProfilesServiceServer(grpcServer, profilesService)
+	receiptsService := svc.NewReceiptService(receiptsRepo)
+	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
 
 	fmt.Printf("receiptsd listening on %s\n", addr)
 	go func() {
