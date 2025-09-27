@@ -13,11 +13,8 @@ srv/run:
 	go run ./cmd/receiptsd
 
 .PHONY: proto/gen
-proto/gen:
+ent/generate:
 	go run entgo.io/ent/cmd/ent generate --target gen/ent ./db/ent/schema
 
-
-# Option B: Dockerized protoc (no local install required)
-proto/gen-docker:
-	docker run --rm -v $(PWD):/work -w /work ghcr.io/namely/docker-protoc:1.57_1 \
-	  -I . --go_out=. --go-grpc_out=. api/receipts/v1/receipts.proto
+proto/generate:
+	protoc -I api --go_out=. --go-grpc_out=. api/receipts/v1/receipts.proto

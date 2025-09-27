@@ -6,87 +6,66 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"receipts-tracker/gen/receipts/v1"
+	"syscall"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
 
-	"go.uber.org/zap"
-
-	"receipts-tracker/internal/repository"
-	"receipts-tracker/internal/server"
+	receiptspb "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
+	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
+	svc "github.com/joseph-ayodele/receipts-tracker/internal/server"
 )
 
 func main() {
-	// Logger
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-	log := logger.Sugar()
-
-	// Env
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		log.Fatal("DB_URL env var is required")
+		fmt.Fprintln(os.Stderr, "ERROR: DB_URL env var is required")
+		os.Exit(2)
+	}
+	addr := os.Getenv("GRPC_ADDR")
+	if addr == "" {
+		addr = ":50051"
 	}
 
-	// Context with signal
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// DB Pool
-	cfg := repository.DBConfig{
-		URL:             dbURL,
-		MaxConns:        10,
+	// Open DB (ent client + pgx pool)
+	entc, pool, err := repo.Open(ctx, repo.Config{
+		DSN:             dbURL,
+		MaxConns:        20,
+		MinConns:        5,
 		MaxConnLifetime: 30 * time.Minute,
 		MaxConnIdleTime: 5 * time.Minute,
-		HealthTimeout:   3 * time.Second,
-	}
-	pool, err := repository.NewPool(ctx, cfg)
+		DialTimeout:     3 * time.Second,
+	})
 	if err != nil {
-		log.Fatalf("creating DB pool: %v", err)
+		fmt.Fprintf(os.Stderr, "ERROR: opening DB: %v\n", err)
+		os.Exit(1)
 	}
+	defer entc.Close()
 	defer pool.Close()
 
-	// Healthcheck DB on startup
-	if err := repository.HealthCheck(ctx, pool, cfg.HealthTimeout); err != nil {
-		log.Fatalf("DB health failed: %v", err)
-	}
-	log.Infow("DB health OK")
-
 	// gRPC server
-	grpcServer := grpc.NewServer()
-	// Health service
-	hs := health.NewServer()
-	healthpb.RegisterHealthServer(grpcServer, hs)
-	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-	// Reflection for grpcurl
-	reflection.Register(grpcServer)
-
-	// Business service
-	svc := server.NewReceiptsService(pool, logger)
-	receiptsv1.RegisterReceiptsServiceServer(grpcServer, svc)
-
-	lis, err := net.Listen("tcp", ":"+port)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("listen: %v", err)
+		fmt.Fprintf(os.Stderr, "ERROR: listen %s: %v\n", addr, err)
+		os.Exit(1)
 	}
-	log.Infof("gRPC serving on :%s", port)
+	grpcServer := grpc.NewServer()
 
+	service := svc.New(entc)
+	receiptspb.RegisterReceiptsServiceServer(grpcServer, service)
+
+	fmt.Printf("receiptsd listening on %s\n", addr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("grpc serve: %v", err)
+			fmt.Fprintf(os.Stderr, "gRPC serve error: %v\n", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Info("shutting down...")
+	fmt.Println("shutting down...")
 	grpcServer.GracefulStop()
-	fmt.Println("stopped.")
 }

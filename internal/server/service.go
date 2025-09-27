@@ -3,119 +3,148 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	receiptsv1 "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
-
-	"go.uber.org/zap"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
+	receiptspb "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
+
+	ent "github.com/joseph-ayodele/receipts-tracker/gen/ent"
+	entprofile "github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
+	entreceipt "github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 )
 
-type ReceiptsService struct {
-	receiptsv1.UnimplementedReceiptsServiceServer
-	pool   repository.Pool
-	logger *zap.Logger
+type Service struct {
+	receiptspb.UnimplementedReceiptsServiceServer
+	ent *ent.Client
 }
 
-func NewReceiptsService(pool repository.Pool, logger *zap.Logger) *ReceiptsService {
-	return &ReceiptsService{pool: pool, logger: logger}
+func New(entc *ent.Client) *Service {
+	return &Service{ent: entc}
 }
 
-func (s *ReceiptsService) CreateProfile(ctx context.Context, req *receiptsv1.CreateProfileRequest) (*receiptsv1.CreateProfileResponse, error) {
-	name := req.GetName()
+func (s *Service) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
+	name := strings.TrimSpace(req.GetName())
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
-	defCur := req.GetDefaultCurrency()
+	cur := strings.TrimSpace(req.GetDefaultCurrency())
+	if cur == "" {
+		// Align with DB default 'USD'. If you prefer to let DB default apply instead,
+		// we can remove this and set ent field optional — but this is simplest/explicit.
+		cur = "USD"
+	}
+	// Basic normalization
+	if len(cur) != 3 {
+		return nil, status.Error(codes.InvalidArgument, "default_currency must be 3 letters (ISO 4217)")
+	}
+	cur = strings.ToUpper(cur)
 
-	p, err := repository.CreateProfile(ctx, s.pool, name, defCur)
+	p, err := s.ent.Profile.
+		Create().
+		SetName(name).
+		SetDefaultCurrency(cur).
+		Save(ctx)
 	if err != nil {
-		s.logger.Warn("create profile failed", zap.Error(err))
-		return nil, status.Error(codes.Internal, "create profile failed")
+		return nil, status.Errorf(codes.Internal, "create profile: %v", err)
 	}
 
-	return &receiptsv1.CreateProfileResponse{
-		Profile: &receiptsv1.Profile{
-			Id:              p.ID,
-			Name:            p.Name,
-			DefaultCurrency: p.DefaultCurrency,
-			CreatedAt:       p.CreatedAt.Format(time.RFC3339Nano),
-			UpdatedAt:       p.UpdatedAt.Format(time.RFC3339Nano),
-		},
+	return &receiptspb.CreateProfileResponse{
+		Profile: toPBProfile(p),
 	}, nil
 }
 
-func (s *ReceiptsService) ListProfiles(ctx context.Context, _ *receiptsv1.ListProfilesRequest) (*receiptsv1.ListProfilesResponse, error) {
-	ps, err := repository.ListProfiles(ctx, s.pool)
+func (s *Service) ListProfiles(ctx context.Context, _ *receiptspb.ListProfilesRequest) (*receiptspb.ListProfilesResponse, error) {
+	plist, err := s.ent.Profile.
+		Query().
+		Order(entprofile.ByCreatedAt()).
+		All(ctx)
 	if err != nil {
-		s.logger.Warn("list profiles failed", zap.Error(err))
-		return nil, status.Error(codes.Internal, "list profiles failed")
+		return nil, status.Errorf(codes.Internal, "list profiles: %v", err)
 	}
-	out := make([]*receiptsv1.Profile, 0, len(ps))
-	for _, p := range ps {
-		out = append(out, &receiptsv1.Profile{
-			Id:              p.ID,
-			Name:            p.Name,
-			DefaultCurrency: p.DefaultCurrency,
-			CreatedAt:       p.CreatedAt.Format(time.RFC3339Nano),
-			UpdatedAt:       p.UpdatedAt.Format(time.RFC3339Nano),
-		})
+	out := make([]*receiptspb.Profile, 0, len(plist))
+	for _, p := range plist {
+		out = append(out, toPBProfile(p))
 	}
-	return &receiptsv1.ListProfilesResponse{Profiles: out}, nil
+	return &receiptspb.ListProfilesResponse{Profiles: out}, nil
 }
 
-func (s *ReceiptsService) ListReceipts(ctx context.Context, req *receiptsv1.ListReceiptsRequest) (*receiptsv1.ListReceiptsResponse, error) {
-	profileID := req.GetProfileId()
-	if profileID == "" {
+func (s *Service) ListReceipts(ctx context.Context, req *receiptspb.ListReceiptsRequest) (*receiptspb.ListReceiptsResponse, error) {
+	if strings.TrimSpace(req.GetProfileId()) == "" {
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
-
-	var fromPtr, toPtr *time.Time
-	parseDate := func(s string) (*time.Time, error) {
-		if s == "" {
-			return nil, nil
-		}
-		t, err := time.Parse("2006-01-02", s)
-		if err != nil {
-			return nil, fmt.Errorf("invalid date %q: %w", s, err)
-		}
-		return &t, nil
-	}
-
-	var err error
-	if fromPtr, err = parseDate(req.GetFromDate()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if toPtr, err = parseDate(req.GetToDate()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	recs, err := repository.ListReceipts(ctx, s.pool, profileID, fromPtr, toPtr)
+	profileID, err := uuid.Parse(req.GetProfileId())
 	if err != nil {
-		s.logger.Warn("list receipts failed", zap.Error(err))
-		return nil, status.Error(codes.Internal, "list receipts failed")
+		return nil, status.Error(codes.InvalidArgument, "profile_id must be a UUID")
 	}
 
-	out := make([]*receiptsv1.Receipt, 0, len(recs))
-	for _, r := range recs {
-		out = append(out, &receiptsv1.Receipt{
-			Id:           r.ID,
-			ProfileId:    r.ProfileID,
-			MerchantName: r.MerchantName,
-			TxDate:       r.TxDate.Format("2006-01-02"),
-			Total:        r.Total, // already decimal string
-			CurrencyCode: r.CurrencyCode,
-			CreatedAt:    r.CreatedAt.Format(time.RFC3339Nano),
-			UpdatedAt:    r.UpdatedAt.Format(time.RFC3339Nano),
-		})
+	q := s.ent.Receipt.Query().Where(entreceipt.ProfileID(profileID))
+
+	// Optional date range
+	if fd := strings.TrimSpace(req.GetFromDate()); fd != "" {
+		from, err := parseYMD(fd)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "from_date invalid (YYYY-MM-DD): %v", err)
+		}
+		q = q.Where(entreceipt.TxDateGTE(from))
 	}
-	return &receiptsv1.ListReceiptsResponse{Receipts: out}, nil
+	if td := strings.TrimSpace(req.GetToDate()); td != "" {
+		to, err := parseYMD(td)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "to_date invalid (YYYY-MM-DD): %v", err)
+		}
+		q = q.Where(entreceipt.TxDateLTE(to))
+	}
+
+	recs, err := q.
+		Order(entreceipt.ByTxDate()).
+		All(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list receipts: %v", err)
+	}
+
+	out := make([]*receiptspb.Receipt, 0, len(recs))
+	for _, r := range recs {
+		out = append(out, toPBReceipt(r))
+	}
+	return &receiptspb.ListReceiptsResponse{Receipts: out}, nil
 }
 
-func (s *ReceiptsService) ExportReceipts(context.Context, *receiptsv1.ExportReceiptsRequest) (*receiptsv1.ExportReceiptsResponse, error) {
-	// Implemented in Step 8
-	return nil, status.Error(codes.Unimplemented, "ExportReceipts not implemented yet")
+func (s *Service) ExportReceipts(context.Context, *receiptspb.ExportReceiptsRequest) (*receiptspb.ExportReceiptsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "ExportReceipts not implemented yet (Step 8)")
+}
+
+func toPBProfile(p *ent.Profile) *receiptspb.Profile {
+	return &receiptspb.Profile{
+		Id:              p.ID.String(),
+		Name:            p.Name,
+		DefaultCurrency: p.DefaultCurrency,
+		CreatedAt:       p.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:       p.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func toPBReceipt(r *ent.Receipt) *receiptspb.Receipt {
+	return &receiptspb.Receipt{
+		Id:           r.ID.String(),
+		ProfileId:    r.ProfileID.String(),
+		MerchantName: r.MerchantName,
+		TxDate:       r.TxDate.Format("2006-01-02"),
+		Total:        fmt.Sprintf("%.2f", r.Total),
+		CurrencyCode: r.CurrencyCode,
+		CreatedAt:    r.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:    r.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func parseYMD(s string) (time.Time, error) {
+	t, err := time.ParseInLocation("2006-01-02", s, time.UTC)
+	if err != nil {
+		return time.Time{}, err
+	}
+	// strip time to midnight UTC to match DATE semantics
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), nil
 }
