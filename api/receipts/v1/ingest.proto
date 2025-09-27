@@ -26,14 +26,6 @@ message IngestDirectoryRequest {
   bool skip_hidden = 4;          // optional; default true - skip dotfiles and dot-dirs
 }
 
-message IngestStats {
-  uint32 scanned = 1;       // FS entries visited
-  uint32 matched = 2;       // files matching ext filter
-  uint32 succeeded = 3;     // successful insert or dedup
-  uint32 deduplicated = 4;  // subset of succeeded
-  uint32 failed = 5;        // failures
-}
-
 message IngestDirectoryResponse {
   uint32 scanned = 1;       // FS entries visited
   uint32 matched = 2;       // files matching ext filter

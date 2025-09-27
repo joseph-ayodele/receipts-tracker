@@ -12,20 +12,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type DirectoryIngestor interface {
-	IngestPath(ctx context.Context, profileID uuid.UUID, path string) (fileID string, dedup bool, hex string, ext string, uploadedAt time.Time, sourcePath string, err error)
-	IngestDirectory(ctx context.Context, profileID uuid.UUID, root string, includeExts []string, skipHidden bool) ([]ingest.FileResult, ingest.DirStats, error)
-}
-
 type IngestionService struct {
 	v1.UnimplementedIngestionServiceServer
-	ing DirectoryIngestor
+	ingestor ingest.Ingestor
 }
 
-func NewIngestionService(ing DirectoryIngestor) *IngestionService {
-	return &IngestionService{ing: ing}
+func NewIngestionService(ing ingest.Ingestor) *IngestionService {
+	return &IngestionService{
+		ingestor: ing,
+	}
 }
 
+// Ingest implements v1.IngestionServiceServer
 func (s *IngestionService) Ingest(ctx context.Context, req *v1.IngestRequest) (*v1.IngestResponse, error) {
 	pid := strings.TrimSpace(req.GetProfileId())
 	if pid == "" {
@@ -40,18 +38,19 @@ func (s *IngestionService) Ingest(ctx context.Context, req *v1.IngestRequest) (*
 		return nil, status.Error(codes.InvalidArgument, "path is required")
 	}
 
-	fileID, dedup, hex, ext, uploadedAt, source, err := s.ing.IngestPath(ctx, profileID, path)
+	r, err := s.ingestor.IngestPath(ctx, profileID, path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "ingest: %v", err)
 	}
 
 	return &v1.IngestResponse{
-		FileId:         fileID,
-		Deduplicated:   dedup,
-		ContentHashHex: hex,
-		FileExt:        ext,
-		UploadedAt:     uploadedAt.UTC().Format(time.RFC3339),
-		SourcePath:     source,
+		FileId:         r.FileID,
+		Deduplicated:   r.Deduplicated,
+		ContentHashHex: r.HashHex,
+		FileExt:        r.FileExt,
+		UploadedAt:     r.UploadedAt.UTC().Format(time.RFC3339),
+		SourcePath:     r.SourcePath,
+		Error:          "",
 	}, nil
 }
 
@@ -69,22 +68,13 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 		return nil, status.Error(codes.InvalidArgument, "root_path is required")
 	}
 
-	// normalize include_exts
-	include := make([]string, 0, len(req.GetIncludeExts()))
-	for _, e := range req.GetIncludeExts() {
-		e = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(e)), ".")
-		if e != "" {
-			include = append(include, e)
-		}
-	}
-
 	// default skipHidden := true when field not present (optional bool)
 	skipHidden := true
 	if req.SkipHidden != false {
 		skipHidden = req.GetSkipHidden()
 	}
 
-	results, stats, err := s.ing.IngestDirectory(ctx, profileID, root, include, skipHidden)
+	results, stats, err := s.ingestor.IngestDirectory(ctx, profileID, root, skipHidden)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "ingest directory: %v", err)
 	}
@@ -102,9 +92,9 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 			FileId:         r.FileID,
 			Deduplicated:   r.Deduplicated,
 			ContentHashHex: r.HashHex,
-			//FileExt:        r.FileExt,
-			//UploadedAt:     r.UploadedAt.UTC().Format(time.RFC3339),
-			SourcePath:     r.Path,
+			FileExt:        r.FileExt,
+			UploadedAt:     r.UploadedAt.UTC().Format(time.RFC3339),
+			SourcePath:     r.SourcePath,
 			Error:          r.Err,
 		})
 	}

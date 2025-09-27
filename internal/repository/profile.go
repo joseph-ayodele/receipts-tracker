@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
 )
@@ -10,6 +11,7 @@ import (
 type ProfileRepository interface {
 	CreateProfile(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error)
 	ListProfiles(ctx context.Context) ([]*ent.Profile, error)
+	Exists(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 type profileRepository struct {
@@ -26,5 +28,9 @@ func (r *profileRepository) CreateProfile(ctx context.Context, name, defaultCurr
 
 func (r *profileRepository) ListProfiles(ctx context.Context) ([]*ent.Profile, error) {
 	return r.client.Profile.Query().Order(profile.ByCreatedAt()).All(ctx)
+}
+
+func (r *profileRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	return r.client.Profile.Query().Where(profile.ID(id)).Exist(ctx)
 }
 
