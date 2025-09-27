@@ -26,20 +26,26 @@ func NewProfileService(profileRepo repository.ProfileRepository, logger *slog.Lo
 	}
 }
 
-// CreateProfile creates a new profile with the given name and default currency.
-func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
-	name := strings.TrimSpace(req.GetName())
+// validateProfileInput trims and validates name and currency.
+func validateProfileInput(name, currency string) (string, string, error) {
+	name = strings.TrimSpace(name)
 	if name == "" {
-		return nil, status.Error(codes.InvalidArgument, "name is required")
+		return "", "", status.Error(codes.InvalidArgument, "name is required")
 	}
-	cur := strings.TrimSpace(req.GetDefaultCurrency())
-	if cur == "" {
-		cur = "USD"
-	}
+	cur := strings.TrimSpace(currency)
 	if len(cur) != 3 {
-		return nil, status.Error(codes.InvalidArgument, "default_currency must be 3 letters (ISO 4217)")
+		return "", "", status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
 	}
 	cur = strings.ToUpper(cur)
+	return name, cur, nil
+}
+
+// CreateProfile creates a new profile with the given name and default currency.
+func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
+	name, cur, err := validateProfileInput(req.GetName(), req.GetDefaultCurrency())
+	if err != nil {
+		return nil, err
+	}
 
 	s.logger.Info("creating profile", "name", name, "currency", cur)
 
