@@ -54,7 +54,9 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 
-	service := svc.New(entc)
+	profilesRepo := repo.NewProfileRepository(entc)
+	receiptsRepo := repo.NewReceiptRepository(entc)
+	service := svc.New(profilesRepo, receiptsRepo)
 	receiptspb.RegisterReceiptsServiceServer(grpcServer, service)
 
 	fmt.Printf("receiptsd listening on %s\n", addr)
