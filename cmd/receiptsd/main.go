@@ -19,6 +19,12 @@ import (
 )
 
 func main() {
+	// Setup structured logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		slog.Error("missing DB_URL environment variable")
@@ -61,20 +67,20 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 
-	profilesRepo := repo.NewProfileRepository(entc)
-	receiptsRepo := repo.NewReceiptRepository(entc)
-	receiptsFileRepo := repo.NewReceiptFileRepository(entc)
+	profilesRepo := repo.NewProfileRepository(entc, logger)
+	receiptsRepo := repo.NewReceiptRepository(entc, logger)
+	receiptsFileRepo := repo.NewReceiptFileRepository(entc, logger)
 
-	profilesService := svc.NewProfileService(profilesRepo)
+	profilesService := svc.NewProfileService(profilesRepo, logger)
 	v1.RegisterProfilesServiceServer(grpcServer, profilesService)
-	receiptsService := svc.NewReceiptService(receiptsRepo)
+	receiptsService := svc.NewReceiptService(receiptsRepo, logger)
 	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
 
-	ingestor := ingest.NewFSIngestor(profilesRepo, receiptsFileRepo)
-	ingestionService := svc.NewIngestionService(ingestor, profilesRepo)
+	ingestor := ingest.NewFSIngestor(profilesRepo, receiptsFileRepo, logger)
+	ingestionService := svc.NewIngestionService(ingestor, profilesRepo, logger)
 	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
 
-	slog.Info("receiptsd listening", "addr", addr)
+	logger.Info("receiptsd listening", "addr", addr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			slog.Error("gRPC serve error", "error", err)

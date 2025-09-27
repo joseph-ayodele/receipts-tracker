@@ -19,12 +19,14 @@ type IngestionService struct {
 	v1.UnimplementedIngestionServiceServer
 	ingestor    ingest.Ingestor
 	profileRepo repository.ProfileRepository
+	logger      *slog.Logger
 }
 
-func NewIngestionService(ing ingest.Ingestor, p repository.ProfileRepository) *IngestionService {
+func NewIngestionService(ing ingest.Ingestor, p repository.ProfileRepository, logger *slog.Logger) *IngestionService {
 	return &IngestionService{
 		ingestor:    ing,
 		profileRepo: p,
+		logger:      logger,
 	}
 }
 
@@ -32,32 +34,32 @@ func NewIngestionService(ing ingest.Ingestor, p repository.ProfileRepository) *I
 func (s *IngestionService) Ingest(ctx context.Context, req *v1.IngestRequest) (*v1.IngestResponse, error) {
 	pid := strings.TrimSpace(req.GetProfileId())
 	if pid == "" {
-		slog.Error("ingest request missing profile_id")
+		s.logger.Error("ingest request missing profile_id")
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
 	profileID, err := uuid.Parse(pid)
 	if err != nil {
-		slog.Error("invalid profile_id format for ingest", "profile_id", pid, "error", err)
+		s.logger.Error("invalid profile_id format for ingest", "profile_id", pid, "error", err)
 		return nil, status.Error(codes.InvalidArgument, "profile_id must be a UUID")
 	}
 	
 	path := strings.TrimSpace(req.GetPath())
 	if path == "" {
-		slog.Error("ingest request missing path", "profile_id", profileID)
+		s.logger.Error("ingest request missing path", "profile_id", profileID)
 		return nil, status.Error(codes.InvalidArgument, "path is required")
 	}
 
 	if exists, _ := s.profileRepo.Exists(ctx, profileID); !exists {
-		slog.Error("profile not found for ingest", "profile_id", profileID)
+		s.logger.Error("profile not found for ingest", "profile_id", profileID)
 		return nil, status.Error(codes.InvalidArgument, "profile not found")
 	}
 
-	slog.Info("starting file ingest", "profile_id", profileID, "path", path)
+	s.logger.Info("starting file ingest", "profile_id", profileID, "path", path)
 	r, err := s.ingestor.IngestPath(ctx, profileID, path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "ingest: %v", err)
 	}
-	slog.Info("file ingest succeeded", "profile_id", profileID, "file_id", r.FileID, "deduplicated", r.Deduplicated)
+	s.logger.Info("file ingest succeeded", "profile_id", profileID, "file_id", r.FileID, "deduplicated", r.Deduplicated)
 
 	return &v1.IngestResponse{
 		FileId:         r.FileID,
@@ -73,17 +75,17 @@ func (s *IngestionService) Ingest(ctx context.Context, req *v1.IngestRequest) (*
 func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDirectoryRequest) (*v1.IngestDirectoryResponse, error) {
 	pid := strings.TrimSpace(req.GetProfileId())
 	if pid == "" {
-		slog.Error("ingest directory request missing profile_id")
+		s.logger.Error("ingest directory request missing profile_id")
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
 	}
 	profileID, err := uuid.Parse(pid)
 	if err != nil {
-		slog.Error("invalid profile_id format for ingest directory", "profile_id", pid, "error", err)
+		s.logger.Error("invalid profile_id format for ingest directory", "profile_id", pid, "error", err)
 		return nil, status.Error(codes.InvalidArgument, "profile_id must be a UUID")
 	}
 	root := strings.TrimSpace(req.GetRootPath())
 	if root == "" {
-		slog.Error("ingest directory request missing root_path", "profile_id", profileID)
+		s.logger.Error("ingest directory request missing root_path", "profile_id", profileID)
 		return nil, status.Error(codes.InvalidArgument, "root_path is required")
 	}
 	
@@ -95,17 +97,17 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 	}
 
 	if exists, _ := s.profileRepo.Exists(ctx, profileID); !exists {
-		slog.Error("profile not found for ingest directory", "profile_id", profileID)
+		s.logger.Error("profile not found for ingest directory", "profile_id", profileID)
 		return nil, status.Error(codes.InvalidArgument, "profile not found")
 	}
 
-	slog.Info("starting directory ingest", "profile_id", profileID, "root", root, "skip_hidden", skipHidden)
+	s.logger.Info("starting directory ingest", "profile_id", profileID, "root", root, "skip_hidden", skipHidden)
 	results, stats, err := s.ingestor.IngestDirectory(ctx, profileID, root, skipHidden)
 	if err != nil {
 		// DB and file errors are already logged in repository/ingest layers
 		return nil, status.Errorf(codes.InvalidArgument, "ingest directory: %v", err)
 	}
-	slog.Info("directory ingest completed", "profile_id", profileID, "scanned", stats.Scanned, "matched", stats.Matched, "succeeded", stats.Succeeded, "deduplicated", stats.Deduplicated, "failed", stats.Failed)
+	s.logger.Info("directory ingest completed", "profile_id", profileID, "scanned", stats.Scanned, "matched", stats.Matched, "succeeded", stats.Succeeded, "deduplicated", stats.Deduplicated, "failed", stats.Failed)
 
 	out := &v1.IngestDirectoryResponse{
 		Scanned:      stats.Scanned,

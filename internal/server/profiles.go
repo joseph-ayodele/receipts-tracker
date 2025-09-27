@@ -16,11 +16,13 @@ import (
 type ProfileService struct {
 	receiptspb.UnimplementedProfilesServiceServer
 	profileRepo repository.ProfileRepository
+	logger      *slog.Logger
 }
 
-func NewProfileService(profileRepo repository.ProfileRepository) *ProfileService {
+func NewProfileService(profileRepo repository.ProfileRepository, logger *slog.Logger) *ProfileService {
 	return &ProfileService{
 		profileRepo: profileRepo,
+		logger:      logger,
 	}
 }
 
@@ -39,14 +41,14 @@ func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.Crea
 	}
 	cur = strings.ToUpper(cur)
 
-	slog.Info("creating profile", "name", name, "currency", cur)
+	s.logger.Info("creating profile", "name", name, "currency", cur)
 
 	p, err := s.profileRepo.CreateProfile(ctx, name, cur)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create profile: %v", err)
 	}
 
-	slog.Info("profile created successfully", "profile_id", p.ID, "name", p.Name, "currency", p.DefaultCurrency)
+	s.logger.Info("profile created successfully", "profile_id", p.ID, "name", p.Name, "currency", p.DefaultCurrency)
 
 	return &receiptspb.CreateProfileResponse{
 		Profile: utils.ToPBProfile(p),
@@ -55,7 +57,7 @@ func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.Crea
 
 // ListProfiles lists all the profileRepo.
 func (s *ProfileService) ListProfiles(ctx context.Context, _ *receiptspb.ListProfilesRequest) (*receiptspb.ListProfilesResponse, error) {
-	slog.Info("listing profiles")
+	s.logger.Info("listing profiles")
 
 	plist, err := s.profileRepo.ListProfiles(ctx)
 	if err != nil {
@@ -63,7 +65,7 @@ func (s *ProfileService) ListProfiles(ctx context.Context, _ *receiptspb.ListPro
 		return nil, status.Errorf(codes.Internal, "list profileRepo: %v", err)
 	}
 
-	slog.Info("profiles listed successfully", "count", len(plist))
+	s.logger.Info("profiles listed successfully", "count", len(plist))
 
 	out := make([]*receiptspb.Profile, 0, len(plist))
 	for _, p := range plist {

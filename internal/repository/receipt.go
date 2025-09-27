@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,10 +16,14 @@ type ReceiptRepository interface {
 
 type receiptRepository struct {
 	client *ent.Client
+	logger *slog.Logger
 }
 
-func NewReceiptRepository(client *ent.Client) ReceiptRepository {
-	return &receiptRepository{client: client}
+func NewReceiptRepository(client *ent.Client, logger *slog.Logger) ReceiptRepository {
+	return &receiptRepository{
+		client: client,
+		logger: logger,
+	}
 }
 
 func (r *receiptRepository) ListReceipts(ctx context.Context, profileID uuid.UUID, fromDate, toDate *time.Time) ([]*ent.Receipt, error) {
@@ -29,5 +34,10 @@ func (r *receiptRepository) ListReceipts(ctx context.Context, profileID uuid.UUI
 	if toDate != nil {
 		q = q.Where(receipt.TxDateLTE(*toDate))
 	}
-	return q.Order(receipt.ByTxDate()).All(ctx)
+	recs, err := q.Order(receipt.ByTxDate()).All(ctx)
+	if err != nil {
+		r.logger.Error("failed to list receipts", "profile_id", profileID, "error", err)
+		return nil, err
+	}
+	return recs, nil
 }

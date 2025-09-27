@@ -23,12 +23,14 @@ import (
 type FSIngestor struct {
 	ProfileRepo repository.ProfileRepository
 	FilesRepo   repository.ReceiptFileRepository
+	logger      *slog.Logger
 }
 
-func NewFSIngestor(p repository.ProfileRepository, f repository.ReceiptFileRepository) *FSIngestor {
+func NewFSIngestor(p repository.ProfileRepository, f repository.ReceiptFileRepository, logger *slog.Logger) *FSIngestor {
 	return &FSIngestor{
 		ProfileRepo: p,
 		FilesRepo:   f,
+		logger:      logger,
 	}
 }
 
@@ -37,31 +39,31 @@ func (i *FSIngestor) IngestPath(ctx context.Context, profileID uuid.UUID, path s
 
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		slog.Error("abs path error", "error", err, "path", path)
+		i.logger.Error("abs path error", "error", err, "path", path)
 		return out, err
 	}
 
 	ext := constants.NormalizeExt(filepath.Ext(abs))
 	if ext == "" || !AllowedExt(ext) {
-		slog.Warn("unsupported or missing extension", "ext", ext, "path", path)
+		i.logger.Warn("unsupported or missing extension", "ext", ext, "path", path)
 		return out, fmt.Errorf("unsupported or missing extension")
 	}
 
 	f, err := os.Open(abs)
 	if err != nil {
-		slog.Error("file open error", "error", err, "path", path)
+		i.logger.Error("file open error", "error", err, "path", path)
 		return out, err
 	}
 	defer func(f *os.File) {
 		err := f.Close()
 		if err != nil {
-			slog.Error("close file error", "error", err, "path", path)
+			i.logger.Error("close file error", "error", err, "path", path)
 		}
 	}(f)
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		slog.Error("hash error", "error", err, "path", path)
+		i.logger.Error("hash error", "error", err, "path", path)
 		return out, err
 	}
 	sum := h.Sum(nil)
