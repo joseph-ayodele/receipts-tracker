@@ -9,12 +9,18 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/migrate"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
 // Client is the client that holds all ent builders.
@@ -24,6 +30,14 @@ type Client struct {
 	Schema *migrate.Schema
 	// Category is the client for interacting with the Category builders.
 	Category *CategoryClient
+	// ExtractJob is the client for interacting with the ExtractJob builders.
+	ExtractJob *ExtractJobClient
+	// Profile is the client for interacting with the Profile builders.
+	Profile *ProfileClient
+	// Receipt is the client for interacting with the Receipt builders.
+	Receipt *ReceiptClient
+	// ReceiptFile is the client for interacting with the ReceiptFile builders.
+	ReceiptFile *ReceiptFileClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -36,6 +50,10 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Category = NewCategoryClient(c.config)
+	c.ExtractJob = NewExtractJobClient(c.config)
+	c.Profile = NewProfileClient(c.config)
+	c.Receipt = NewReceiptClient(c.config)
+	c.ReceiptFile = NewReceiptFileClient(c.config)
 }
 
 type (
@@ -126,9 +144,13 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:      ctx,
-		config:   cfg,
-		Category: NewCategoryClient(cfg),
+		ctx:         ctx,
+		config:      cfg,
+		Category:    NewCategoryClient(cfg),
+		ExtractJob:  NewExtractJobClient(cfg),
+		Profile:     NewProfileClient(cfg),
+		Receipt:     NewReceiptClient(cfg),
+		ReceiptFile: NewReceiptFileClient(cfg),
 	}, nil
 }
 
@@ -146,9 +168,13 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:      ctx,
-		config:   cfg,
-		Category: NewCategoryClient(cfg),
+		ctx:         ctx,
+		config:      cfg,
+		Category:    NewCategoryClient(cfg),
+		ExtractJob:  NewExtractJobClient(cfg),
+		Profile:     NewProfileClient(cfg),
+		Receipt:     NewReceiptClient(cfg),
+		ReceiptFile: NewReceiptFileClient(cfg),
 	}, nil
 }
 
@@ -178,12 +204,20 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	c.Category.Use(hooks...)
+	c.ExtractJob.Use(hooks...)
+	c.Profile.Use(hooks...)
+	c.Receipt.Use(hooks...)
+	c.ReceiptFile.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Category.Intercept(interceptors...)
+	c.ExtractJob.Intercept(interceptors...)
+	c.Profile.Intercept(interceptors...)
+	c.Receipt.Intercept(interceptors...)
+	c.ReceiptFile.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -191,6 +225,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *CategoryMutation:
 		return c.Category.mutate(ctx, m)
+	case *ExtractJobMutation:
+		return c.ExtractJob.mutate(ctx, m)
+	case *ProfileMutation:
+		return c.Profile.mutate(ctx, m)
+	case *ReceiptMutation:
+		return c.Receipt.mutate(ctx, m)
+	case *ReceiptFileMutation:
+		return c.ReceiptFile.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -257,7 +299,7 @@ func (c *CategoryClient) UpdateOne(_m *Category) *CategoryUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *CategoryClient) UpdateOneID(id int) *CategoryUpdateOne {
+func (c *CategoryClient) UpdateOneID(id uuid.UUID) *CategoryUpdateOne {
 	mutation := newCategoryMutation(c.config, OpUpdateOne, withCategoryID(id))
 	return &CategoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -274,7 +316,7 @@ func (c *CategoryClient) DeleteOne(_m *Category) *CategoryDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *CategoryClient) DeleteOneID(id int) *CategoryDeleteOne {
+func (c *CategoryClient) DeleteOneID(id uuid.UUID) *CategoryDeleteOne {
 	builder := c.Delete().Where(category.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -291,17 +333,33 @@ func (c *CategoryClient) Query() *CategoryQuery {
 }
 
 // Get returns a Category entity by its id.
-func (c *CategoryClient) Get(ctx context.Context, id int) (*Category, error) {
+func (c *CategoryClient) Get(ctx context.Context, id uuid.UUID) (*Category, error) {
 	return c.Query().Where(category.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *CategoryClient) GetX(ctx context.Context, id int) *Category {
+func (c *CategoryClient) GetX(ctx context.Context, id uuid.UUID) *Category {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryReceipts queries the receipts edge of a Category.
+func (c *CategoryClient) QueryReceipts(_m *Category) *ReceiptQuery {
+	query := (&ReceiptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(category.Table, category.FieldID, id),
+			sqlgraph.To(receipt.Table, receipt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, category.ReceiptsTable, category.ReceiptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.
@@ -329,12 +387,752 @@ func (c *CategoryClient) mutate(ctx context.Context, m *CategoryMutation) (Value
 	}
 }
 
+// ExtractJobClient is a client for the ExtractJob schema.
+type ExtractJobClient struct {
+	config
+}
+
+// NewExtractJobClient returns a client for the ExtractJob from the given config.
+func NewExtractJobClient(c config) *ExtractJobClient {
+	return &ExtractJobClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `extractjob.Hooks(f(g(h())))`.
+func (c *ExtractJobClient) Use(hooks ...Hook) {
+	c.hooks.ExtractJob = append(c.hooks.ExtractJob, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `extractjob.Intercept(f(g(h())))`.
+func (c *ExtractJobClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ExtractJob = append(c.inters.ExtractJob, interceptors...)
+}
+
+// Create returns a builder for creating a ExtractJob entity.
+func (c *ExtractJobClient) Create() *ExtractJobCreate {
+	mutation := newExtractJobMutation(c.config, OpCreate)
+	return &ExtractJobCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ExtractJob entities.
+func (c *ExtractJobClient) CreateBulk(builders ...*ExtractJobCreate) *ExtractJobCreateBulk {
+	return &ExtractJobCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ExtractJobClient) MapCreateBulk(slice any, setFunc func(*ExtractJobCreate, int)) *ExtractJobCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ExtractJobCreateBulk{err: fmt.Errorf("calling to ExtractJobClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ExtractJobCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ExtractJobCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ExtractJob.
+func (c *ExtractJobClient) Update() *ExtractJobUpdate {
+	mutation := newExtractJobMutation(c.config, OpUpdate)
+	return &ExtractJobUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ExtractJobClient) UpdateOne(_m *ExtractJob) *ExtractJobUpdateOne {
+	mutation := newExtractJobMutation(c.config, OpUpdateOne, withExtractJob(_m))
+	return &ExtractJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ExtractJobClient) UpdateOneID(id uuid.UUID) *ExtractJobUpdateOne {
+	mutation := newExtractJobMutation(c.config, OpUpdateOne, withExtractJobID(id))
+	return &ExtractJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ExtractJob.
+func (c *ExtractJobClient) Delete() *ExtractJobDelete {
+	mutation := newExtractJobMutation(c.config, OpDelete)
+	return &ExtractJobDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ExtractJobClient) DeleteOne(_m *ExtractJob) *ExtractJobDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ExtractJobClient) DeleteOneID(id uuid.UUID) *ExtractJobDeleteOne {
+	builder := c.Delete().Where(extractjob.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ExtractJobDeleteOne{builder}
+}
+
+// Query returns a query builder for ExtractJob.
+func (c *ExtractJobClient) Query() *ExtractJobQuery {
+	return &ExtractJobQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeExtractJob},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ExtractJob entity by its id.
+func (c *ExtractJobClient) Get(ctx context.Context, id uuid.UUID) (*ExtractJob, error) {
+	return c.Query().Where(extractjob.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ExtractJobClient) GetX(ctx context.Context, id uuid.UUID) *ExtractJob {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryFile queries the file edge of a ExtractJob.
+func (c *ExtractJobClient) QueryFile(_m *ExtractJob) *ReceiptFileQuery {
+	query := (&ReceiptFileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(extractjob.Table, extractjob.FieldID, id),
+			sqlgraph.To(receiptfile.Table, receiptfile.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, extractjob.FileTable, extractjob.FileColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProfile queries the profile edge of a ExtractJob.
+func (c *ExtractJobClient) QueryProfile(_m *ExtractJob) *ProfileQuery {
+	query := (&ProfileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(extractjob.Table, extractjob.FieldID, id),
+			sqlgraph.To(profile.Table, profile.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, extractjob.ProfileTable, extractjob.ProfileColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryReceipt queries the receipt edge of a ExtractJob.
+func (c *ExtractJobClient) QueryReceipt(_m *ExtractJob) *ReceiptQuery {
+	query := (&ReceiptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(extractjob.Table, extractjob.FieldID, id),
+			sqlgraph.To(receipt.Table, receipt.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, extractjob.ReceiptTable, extractjob.ReceiptColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ExtractJobClient) Hooks() []Hook {
+	return c.hooks.ExtractJob
+}
+
+// Interceptors returns the client interceptors.
+func (c *ExtractJobClient) Interceptors() []Interceptor {
+	return c.inters.ExtractJob
+}
+
+func (c *ExtractJobClient) mutate(ctx context.Context, m *ExtractJobMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ExtractJobCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ExtractJobUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ExtractJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ExtractJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ExtractJob mutation op: %q", m.Op())
+	}
+}
+
+// ProfileClient is a client for the Profile schema.
+type ProfileClient struct {
+	config
+}
+
+// NewProfileClient returns a client for the Profile from the given config.
+func NewProfileClient(c config) *ProfileClient {
+	return &ProfileClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `profile.Hooks(f(g(h())))`.
+func (c *ProfileClient) Use(hooks ...Hook) {
+	c.hooks.Profile = append(c.hooks.Profile, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `profile.Intercept(f(g(h())))`.
+func (c *ProfileClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Profile = append(c.inters.Profile, interceptors...)
+}
+
+// Create returns a builder for creating a Profile entity.
+func (c *ProfileClient) Create() *ProfileCreate {
+	mutation := newProfileMutation(c.config, OpCreate)
+	return &ProfileCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Profile entities.
+func (c *ProfileClient) CreateBulk(builders ...*ProfileCreate) *ProfileCreateBulk {
+	return &ProfileCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProfileClient) MapCreateBulk(slice any, setFunc func(*ProfileCreate, int)) *ProfileCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProfileCreateBulk{err: fmt.Errorf("calling to ProfileClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProfileCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProfileCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Profile.
+func (c *ProfileClient) Update() *ProfileUpdate {
+	mutation := newProfileMutation(c.config, OpUpdate)
+	return &ProfileUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProfileClient) UpdateOne(_m *Profile) *ProfileUpdateOne {
+	mutation := newProfileMutation(c.config, OpUpdateOne, withProfile(_m))
+	return &ProfileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProfileClient) UpdateOneID(id uuid.UUID) *ProfileUpdateOne {
+	mutation := newProfileMutation(c.config, OpUpdateOne, withProfileID(id))
+	return &ProfileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Profile.
+func (c *ProfileClient) Delete() *ProfileDelete {
+	mutation := newProfileMutation(c.config, OpDelete)
+	return &ProfileDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProfileClient) DeleteOne(_m *Profile) *ProfileDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProfileClient) DeleteOneID(id uuid.UUID) *ProfileDeleteOne {
+	builder := c.Delete().Where(profile.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProfileDeleteOne{builder}
+}
+
+// Query returns a query builder for Profile.
+func (c *ProfileClient) Query() *ProfileQuery {
+	return &ProfileQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProfile},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Profile entity by its id.
+func (c *ProfileClient) Get(ctx context.Context, id uuid.UUID) (*Profile, error) {
+	return c.Query().Where(profile.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProfileClient) GetX(ctx context.Context, id uuid.UUID) *Profile {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryReceipts queries the receipts edge of a Profile.
+func (c *ProfileClient) QueryReceipts(_m *Profile) *ReceiptQuery {
+	query := (&ReceiptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(profile.Table, profile.FieldID, id),
+			sqlgraph.To(receipt.Table, receipt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, profile.ReceiptsTable, profile.ReceiptsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFiles queries the files edge of a Profile.
+func (c *ProfileClient) QueryFiles(_m *Profile) *ReceiptFileQuery {
+	query := (&ReceiptFileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(profile.Table, profile.FieldID, id),
+			sqlgraph.To(receiptfile.Table, receiptfile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, profile.FilesTable, profile.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryJobs queries the jobs edge of a Profile.
+func (c *ProfileClient) QueryJobs(_m *Profile) *ExtractJobQuery {
+	query := (&ExtractJobClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(profile.Table, profile.FieldID, id),
+			sqlgraph.To(extractjob.Table, extractjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, profile.JobsTable, profile.JobsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ProfileClient) Hooks() []Hook {
+	return c.hooks.Profile
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProfileClient) Interceptors() []Interceptor {
+	return c.inters.Profile
+}
+
+func (c *ProfileClient) mutate(ctx context.Context, m *ProfileMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProfileCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProfileUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProfileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProfileDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Profile mutation op: %q", m.Op())
+	}
+}
+
+// ReceiptClient is a client for the Receipt schema.
+type ReceiptClient struct {
+	config
+}
+
+// NewReceiptClient returns a client for the Receipt from the given config.
+func NewReceiptClient(c config) *ReceiptClient {
+	return &ReceiptClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `receipt.Hooks(f(g(h())))`.
+func (c *ReceiptClient) Use(hooks ...Hook) {
+	c.hooks.Receipt = append(c.hooks.Receipt, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `receipt.Intercept(f(g(h())))`.
+func (c *ReceiptClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Receipt = append(c.inters.Receipt, interceptors...)
+}
+
+// Create returns a builder for creating a Receipt entity.
+func (c *ReceiptClient) Create() *ReceiptCreate {
+	mutation := newReceiptMutation(c.config, OpCreate)
+	return &ReceiptCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Receipt entities.
+func (c *ReceiptClient) CreateBulk(builders ...*ReceiptCreate) *ReceiptCreateBulk {
+	return &ReceiptCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ReceiptClient) MapCreateBulk(slice any, setFunc func(*ReceiptCreate, int)) *ReceiptCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ReceiptCreateBulk{err: fmt.Errorf("calling to ReceiptClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ReceiptCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ReceiptCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Receipt.
+func (c *ReceiptClient) Update() *ReceiptUpdate {
+	mutation := newReceiptMutation(c.config, OpUpdate)
+	return &ReceiptUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ReceiptClient) UpdateOne(_m *Receipt) *ReceiptUpdateOne {
+	mutation := newReceiptMutation(c.config, OpUpdateOne, withReceipt(_m))
+	return &ReceiptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ReceiptClient) UpdateOneID(id uuid.UUID) *ReceiptUpdateOne {
+	mutation := newReceiptMutation(c.config, OpUpdateOne, withReceiptID(id))
+	return &ReceiptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Receipt.
+func (c *ReceiptClient) Delete() *ReceiptDelete {
+	mutation := newReceiptMutation(c.config, OpDelete)
+	return &ReceiptDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ReceiptClient) DeleteOne(_m *Receipt) *ReceiptDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ReceiptClient) DeleteOneID(id uuid.UUID) *ReceiptDeleteOne {
+	builder := c.Delete().Where(receipt.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ReceiptDeleteOne{builder}
+}
+
+// Query returns a query builder for Receipt.
+func (c *ReceiptClient) Query() *ReceiptQuery {
+	return &ReceiptQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeReceipt},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Receipt entity by its id.
+func (c *ReceiptClient) Get(ctx context.Context, id uuid.UUID) (*Receipt, error) {
+	return c.Query().Where(receipt.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ReceiptClient) GetX(ctx context.Context, id uuid.UUID) *Receipt {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProfile queries the profile edge of a Receipt.
+func (c *ReceiptClient) QueryProfile(_m *Receipt) *ProfileQuery {
+	query := (&ProfileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receipt.Table, receipt.FieldID, id),
+			sqlgraph.To(profile.Table, profile.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, receipt.ProfileTable, receipt.ProfileColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCategory queries the category edge of a Receipt.
+func (c *ReceiptClient) QueryCategory(_m *Receipt) *CategoryQuery {
+	query := (&CategoryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receipt.Table, receipt.FieldID, id),
+			sqlgraph.To(category.Table, category.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, receipt.CategoryTable, receipt.CategoryColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFiles queries the files edge of a Receipt.
+func (c *ReceiptClient) QueryFiles(_m *Receipt) *ReceiptFileQuery {
+	query := (&ReceiptFileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receipt.Table, receipt.FieldID, id),
+			sqlgraph.To(receiptfile.Table, receiptfile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, receipt.FilesTable, receipt.FilesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryJobs queries the jobs edge of a Receipt.
+func (c *ReceiptClient) QueryJobs(_m *Receipt) *ExtractJobQuery {
+	query := (&ExtractJobClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receipt.Table, receipt.FieldID, id),
+			sqlgraph.To(extractjob.Table, extractjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, receipt.JobsTable, receipt.JobsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ReceiptClient) Hooks() []Hook {
+	return c.hooks.Receipt
+}
+
+// Interceptors returns the client interceptors.
+func (c *ReceiptClient) Interceptors() []Interceptor {
+	return c.inters.Receipt
+}
+
+func (c *ReceiptClient) mutate(ctx context.Context, m *ReceiptMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ReceiptCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ReceiptUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ReceiptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ReceiptDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Receipt mutation op: %q", m.Op())
+	}
+}
+
+// ReceiptFileClient is a client for the ReceiptFile schema.
+type ReceiptFileClient struct {
+	config
+}
+
+// NewReceiptFileClient returns a client for the ReceiptFile from the given config.
+func NewReceiptFileClient(c config) *ReceiptFileClient {
+	return &ReceiptFileClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `receiptfile.Hooks(f(g(h())))`.
+func (c *ReceiptFileClient) Use(hooks ...Hook) {
+	c.hooks.ReceiptFile = append(c.hooks.ReceiptFile, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `receiptfile.Intercept(f(g(h())))`.
+func (c *ReceiptFileClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ReceiptFile = append(c.inters.ReceiptFile, interceptors...)
+}
+
+// Create returns a builder for creating a ReceiptFile entity.
+func (c *ReceiptFileClient) Create() *ReceiptFileCreate {
+	mutation := newReceiptFileMutation(c.config, OpCreate)
+	return &ReceiptFileCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ReceiptFile entities.
+func (c *ReceiptFileClient) CreateBulk(builders ...*ReceiptFileCreate) *ReceiptFileCreateBulk {
+	return &ReceiptFileCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ReceiptFileClient) MapCreateBulk(slice any, setFunc func(*ReceiptFileCreate, int)) *ReceiptFileCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ReceiptFileCreateBulk{err: fmt.Errorf("calling to ReceiptFileClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ReceiptFileCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ReceiptFileCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ReceiptFile.
+func (c *ReceiptFileClient) Update() *ReceiptFileUpdate {
+	mutation := newReceiptFileMutation(c.config, OpUpdate)
+	return &ReceiptFileUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ReceiptFileClient) UpdateOne(_m *ReceiptFile) *ReceiptFileUpdateOne {
+	mutation := newReceiptFileMutation(c.config, OpUpdateOne, withReceiptFile(_m))
+	return &ReceiptFileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ReceiptFileClient) UpdateOneID(id uuid.UUID) *ReceiptFileUpdateOne {
+	mutation := newReceiptFileMutation(c.config, OpUpdateOne, withReceiptFileID(id))
+	return &ReceiptFileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ReceiptFile.
+func (c *ReceiptFileClient) Delete() *ReceiptFileDelete {
+	mutation := newReceiptFileMutation(c.config, OpDelete)
+	return &ReceiptFileDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ReceiptFileClient) DeleteOne(_m *ReceiptFile) *ReceiptFileDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ReceiptFileClient) DeleteOneID(id uuid.UUID) *ReceiptFileDeleteOne {
+	builder := c.Delete().Where(receiptfile.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ReceiptFileDeleteOne{builder}
+}
+
+// Query returns a query builder for ReceiptFile.
+func (c *ReceiptFileClient) Query() *ReceiptFileQuery {
+	return &ReceiptFileQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeReceiptFile},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ReceiptFile entity by its id.
+func (c *ReceiptFileClient) Get(ctx context.Context, id uuid.UUID) (*ReceiptFile, error) {
+	return c.Query().Where(receiptfile.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ReceiptFileClient) GetX(ctx context.Context, id uuid.UUID) *ReceiptFile {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProfile queries the profile edge of a ReceiptFile.
+func (c *ReceiptFileClient) QueryProfile(_m *ReceiptFile) *ProfileQuery {
+	query := (&ProfileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receiptfile.Table, receiptfile.FieldID, id),
+			sqlgraph.To(profile.Table, profile.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, receiptfile.ProfileTable, receiptfile.ProfileColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryReceipt queries the receipt edge of a ReceiptFile.
+func (c *ReceiptFileClient) QueryReceipt(_m *ReceiptFile) *ReceiptQuery {
+	query := (&ReceiptClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receiptfile.Table, receiptfile.FieldID, id),
+			sqlgraph.To(receipt.Table, receipt.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, receiptfile.ReceiptTable, receiptfile.ReceiptColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryJobs queries the jobs edge of a ReceiptFile.
+func (c *ReceiptFileClient) QueryJobs(_m *ReceiptFile) *ExtractJobQuery {
+	query := (&ExtractJobClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(receiptfile.Table, receiptfile.FieldID, id),
+			sqlgraph.To(extractjob.Table, extractjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, receiptfile.JobsTable, receiptfile.JobsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ReceiptFileClient) Hooks() []Hook {
+	return c.hooks.ReceiptFile
+}
+
+// Interceptors returns the client interceptors.
+func (c *ReceiptFileClient) Interceptors() []Interceptor {
+	return c.inters.ReceiptFile
+}
+
+func (c *ReceiptFileClient) mutate(ctx context.Context, m *ReceiptFileMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ReceiptFileCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ReceiptFileUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ReceiptFileUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ReceiptFileDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ReceiptFile mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Category []ent.Hook
+		Category, ExtractJob, Profile, Receipt, ReceiptFile []ent.Hook
 	}
 	inters struct {
-		Category []ent.Interceptor
+		Category, ExtractJob, Profile, Receipt, ReceiptFile []ent.Interceptor
 	}
 )

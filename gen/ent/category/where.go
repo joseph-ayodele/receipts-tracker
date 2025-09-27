@@ -4,51 +4,53 @@ package category
 
 import (
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.Category {
+func ID(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.Category {
+func IDEQ(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.Category {
+func IDNEQ(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.Category {
+func IDIn(ids ...uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.Category {
+func IDNotIn(ids ...uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.Category {
+func IDGT(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.Category {
+func IDGTE(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.Category {
+func IDLT(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.Category {
+func IDLTE(id uuid.UUID) predicate.Category {
 	return predicate.Category(sql.FieldLTE(FieldID, id))
 }
 
@@ -120,6 +122,29 @@ func NameEqualFold(v string) predicate.Category {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.Category {
 	return predicate.Category(sql.FieldContainsFold(FieldName, v))
+}
+
+// HasReceipts applies the HasEdge predicate on the "receipts" edge.
+func HasReceipts() predicate.Category {
+	return predicate.Category(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ReceiptsTable, ReceiptsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasReceiptsWith applies the HasEdge predicate on the "receipts" edge with a given conditions (other predicates).
+func HasReceiptsWith(preds ...predicate.Receipt) predicate.Category {
+	return predicate.Category(func(s *sql.Selector) {
+		step := newReceiptsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

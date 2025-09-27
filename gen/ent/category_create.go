@@ -9,7 +9,9 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 )
 
 // CategoryCreate is the builder for creating a Category entity.
@@ -25,6 +27,35 @@ func (_c *CategoryCreate) SetName(v string) *CategoryCreate {
 	return _c
 }
 
+// SetID sets the "id" field.
+func (_c *CategoryCreate) SetID(v uuid.UUID) *CategoryCreate {
+	_c.mutation.SetID(v)
+	return _c
+}
+
+// SetNillableID sets the "id" field if the given value is not nil.
+func (_c *CategoryCreate) SetNillableID(v *uuid.UUID) *CategoryCreate {
+	if v != nil {
+		_c.SetID(*v)
+	}
+	return _c
+}
+
+// AddReceiptIDs adds the "receipts" edge to the Receipt entity by IDs.
+func (_c *CategoryCreate) AddReceiptIDs(ids ...uuid.UUID) *CategoryCreate {
+	_c.mutation.AddReceiptIDs(ids...)
+	return _c
+}
+
+// AddReceipts adds the "receipts" edges to the Receipt entity.
+func (_c *CategoryCreate) AddReceipts(v ...*Receipt) *CategoryCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddReceiptIDs(ids...)
+}
+
 // Mutation returns the CategoryMutation object of the builder.
 func (_c *CategoryCreate) Mutation() *CategoryMutation {
 	return _c.mutation
@@ -32,6 +63,7 @@ func (_c *CategoryCreate) Mutation() *CategoryMutation {
 
 // Save creates the Category in the database.
 func (_c *CategoryCreate) Save(ctx context.Context) (*Category, error) {
+	_c.defaults()
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -54,6 +86,14 @@ func (_c *CategoryCreate) Exec(ctx context.Context) error {
 func (_c *CategoryCreate) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (_c *CategoryCreate) defaults() {
+	if _, ok := _c.mutation.ID(); !ok {
+		v := category.DefaultID()
+		_c.mutation.SetID(v)
 	}
 }
 
@@ -81,8 +121,13 @@ func (_c *CategoryCreate) sqlSave(ctx context.Context) (*Category, error) {
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	if _spec.ID.Value != nil {
+		if id, ok := _spec.ID.Value.(*uuid.UUID); ok {
+			_node.ID = *id
+		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
+			return nil, err
+		}
+	}
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -91,11 +136,31 @@ func (_c *CategoryCreate) sqlSave(ctx context.Context) (*Category, error) {
 func (_c *CategoryCreate) createSpec() (*Category, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Category{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(category.Table, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(category.Table, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
 	)
+	if id, ok := _c.mutation.ID(); ok {
+		_node.ID = id
+		_spec.ID.Value = &id
+	}
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(category.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if nodes := _c.mutation.ReceiptsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
@@ -118,6 +183,7 @@ func (_c *CategoryCreateBulk) Save(ctx context.Context) ([]*Category, error) {
 	for i := range _c.builders {
 		func(i int, root context.Context) {
 			builder := _c.builders[i]
+			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*CategoryMutation)
 				if !ok {
@@ -144,10 +210,6 @@ func (_c *CategoryCreateBulk) Save(ctx context.Context) ([]*Category, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
 				mutation.done = true
 				return nodes[i], nil
 			})

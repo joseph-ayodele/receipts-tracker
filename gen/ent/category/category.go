@@ -4,6 +4,8 @@ package category
 
 import (
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 const (
@@ -13,8 +15,17 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// EdgeReceipts holds the string denoting the receipts edge name in mutations.
+	EdgeReceipts = "receipts"
 	// Table holds the table name of the category in the database.
 	Table = "categories"
+	// ReceiptsTable is the table that holds the receipts relation/edge.
+	ReceiptsTable = "receipts"
+	// ReceiptsInverseTable is the table name for the Receipt entity.
+	// It exists in this package in order to avoid circular dependency with the "receipt" package.
+	ReceiptsInverseTable = "receipts"
+	// ReceiptsColumn is the table column denoting the receipts relation/edge.
+	ReceiptsColumn = "category_id"
 )
 
 // Columns holds all SQL columns for category fields.
@@ -36,6 +47,8 @@ func ValidColumn(column string) bool {
 var (
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultID holds the default value on creation for the "id" field.
+	DefaultID func() uuid.UUID
 )
 
 // OrderOption defines the ordering options for the Category queries.
@@ -49,4 +62,25 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByReceiptsCount orders the results by receipts count.
+func ByReceiptsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newReceiptsStep(), opts...)
+	}
+}
+
+// ByReceipts orders the results by receipts terms.
+func ByReceipts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newReceiptsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newReceiptsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ReceiptsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ReceiptsTable, ReceiptsColumn),
+	)
 }

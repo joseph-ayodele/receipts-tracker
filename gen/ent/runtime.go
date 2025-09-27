@@ -3,8 +3,15 @@
 package ent
 
 import (
+	"time"
+
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/db/ent/schema"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -14,7 +21,147 @@ func init() {
 	categoryFields := schema.Category{}.Fields()
 	_ = categoryFields
 	// categoryDescName is the schema descriptor for name field.
-	categoryDescName := categoryFields[0].Descriptor()
+	categoryDescName := categoryFields[1].Descriptor()
 	// category.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	category.NameValidator = categoryDescName.Validators[0].(func(string) error)
+	// categoryDescID is the schema descriptor for id field.
+	categoryDescID := categoryFields[0].Descriptor()
+	// category.DefaultID holds the default value on creation for the id field.
+	category.DefaultID = categoryDescID.Default.(func() uuid.UUID)
+	extractjobFields := schema.ExtractJob{}.Fields()
+	_ = extractjobFields
+	// extractjobDescFormat is the schema descriptor for format field.
+	extractjobDescFormat := extractjobFields[4].Descriptor()
+	// extractjob.FormatValidator is a validator for the "format" field. It is called by the builders before save.
+	extractjob.FormatValidator = func() func(string) error {
+		validators := extractjobDescFormat.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(format string) error {
+			for _, fn := range fns {
+				if err := fn(format); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// extractjobDescStartedAt is the schema descriptor for started_at field.
+	extractjobDescStartedAt := extractjobFields[5].Descriptor()
+	// extractjob.DefaultStartedAt holds the default value on creation for the started_at field.
+	extractjob.DefaultStartedAt = extractjobDescStartedAt.Default.(func() time.Time)
+	// extractjobDescNeedsReview is the schema descriptor for needs_review field.
+	extractjobDescNeedsReview := extractjobFields[10].Descriptor()
+	// extractjob.DefaultNeedsReview holds the default value on creation for the needs_review field.
+	extractjob.DefaultNeedsReview = extractjobDescNeedsReview.Default.(bool)
+	// extractjobDescID is the schema descriptor for id field.
+	extractjobDescID := extractjobFields[0].Descriptor()
+	// extractjob.DefaultID holds the default value on creation for the id field.
+	extractjob.DefaultID = extractjobDescID.Default.(func() uuid.UUID)
+	profileFields := schema.Profile{}.Fields()
+	_ = profileFields
+	// profileDescName is the schema descriptor for name field.
+	profileDescName := profileFields[1].Descriptor()
+	// profile.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	profile.NameValidator = profileDescName.Validators[0].(func(string) error)
+	// profileDescDefaultCurrency is the schema descriptor for default_currency field.
+	profileDescDefaultCurrency := profileFields[2].Descriptor()
+	// profile.DefaultCurrencyValidator is a validator for the "default_currency" field. It is called by the builders before save.
+	profile.DefaultCurrencyValidator = func() func(string) error {
+		validators := profileDescDefaultCurrency.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(default_currency string) error {
+			for _, fn := range fns {
+				if err := fn(default_currency); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// profileDescCreatedAt is the schema descriptor for created_at field.
+	profileDescCreatedAt := profileFields[3].Descriptor()
+	// profile.DefaultCreatedAt holds the default value on creation for the created_at field.
+	profile.DefaultCreatedAt = profileDescCreatedAt.Default.(func() time.Time)
+	// profileDescUpdatedAt is the schema descriptor for updated_at field.
+	profileDescUpdatedAt := profileFields[4].Descriptor()
+	// profile.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	profile.DefaultUpdatedAt = profileDescUpdatedAt.Default.(func() time.Time)
+	// profile.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	profile.UpdateDefaultUpdatedAt = profileDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// profileDescID is the schema descriptor for id field.
+	profileDescID := profileFields[0].Descriptor()
+	// profile.DefaultID holds the default value on creation for the id field.
+	profile.DefaultID = profileDescID.Default.(func() uuid.UUID)
+	receiptFields := schema.Receipt{}.Fields()
+	_ = receiptFields
+	// receiptDescMerchantName is the schema descriptor for merchant_name field.
+	receiptDescMerchantName := receiptFields[2].Descriptor()
+	// receipt.MerchantNameValidator is a validator for the "merchant_name" field. It is called by the builders before save.
+	receipt.MerchantNameValidator = receiptDescMerchantName.Validators[0].(func(string) error)
+	// receiptDescCurrencyCode is the schema descriptor for currency_code field.
+	receiptDescCurrencyCode := receiptFields[7].Descriptor()
+	// receipt.CurrencyCodeValidator is a validator for the "currency_code" field. It is called by the builders before save.
+	receipt.CurrencyCodeValidator = func() func(string) error {
+		validators := receiptDescCurrencyCode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(currency_code string) error {
+			for _, fn := range fns {
+				if err := fn(currency_code); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// receiptDescPaymentLast4 is the schema descriptor for payment_last4 field.
+	receiptDescPaymentLast4 := receiptFields[10].Descriptor()
+	// receipt.PaymentLast4Validator is a validator for the "payment_last4" field. It is called by the builders before save.
+	receipt.PaymentLast4Validator = receiptDescPaymentLast4.Validators[0].(func(string) error)
+	// receiptDescCreatedAt is the schema descriptor for created_at field.
+	receiptDescCreatedAt := receiptFields[12].Descriptor()
+	// receipt.DefaultCreatedAt holds the default value on creation for the created_at field.
+	receipt.DefaultCreatedAt = receiptDescCreatedAt.Default.(func() time.Time)
+	// receiptDescUpdatedAt is the schema descriptor for updated_at field.
+	receiptDescUpdatedAt := receiptFields[13].Descriptor()
+	// receipt.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	receipt.DefaultUpdatedAt = receiptDescUpdatedAt.Default.(func() time.Time)
+	// receipt.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	receipt.UpdateDefaultUpdatedAt = receiptDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// receiptDescID is the schema descriptor for id field.
+	receiptDescID := receiptFields[0].Descriptor()
+	// receipt.DefaultID holds the default value on creation for the id field.
+	receipt.DefaultID = receiptDescID.Default.(func() uuid.UUID)
+	receiptfileFields := schema.ReceiptFile{}.Fields()
+	_ = receiptfileFields
+	// receiptfileDescSourcePath is the schema descriptor for source_path field.
+	receiptfileDescSourcePath := receiptfileFields[3].Descriptor()
+	// receiptfile.SourcePathValidator is a validator for the "source_path" field. It is called by the builders before save.
+	receiptfile.SourcePathValidator = receiptfileDescSourcePath.Validators[0].(func(string) error)
+	// receiptfileDescContentHash is the schema descriptor for content_hash field.
+	receiptfileDescContentHash := receiptfileFields[4].Descriptor()
+	// receiptfile.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
+	receiptfile.ContentHashValidator = receiptfileDescContentHash.Validators[0].(func([]byte) error)
+	// receiptfileDescFileExt is the schema descriptor for file_ext field.
+	receiptfileDescFileExt := receiptfileFields[5].Descriptor()
+	// receiptfile.FileExtValidator is a validator for the "file_ext" field. It is called by the builders before save.
+	receiptfile.FileExtValidator = receiptfileDescFileExt.Validators[0].(func(string) error)
+	// receiptfileDescUploadedAt is the schema descriptor for uploaded_at field.
+	receiptfileDescUploadedAt := receiptfileFields[6].Descriptor()
+	// receiptfile.DefaultUploadedAt holds the default value on creation for the uploaded_at field.
+	receiptfile.DefaultUploadedAt = receiptfileDescUploadedAt.Default.(func() time.Time)
+	// receiptfileDescID is the schema descriptor for id field.
+	receiptfileDescID := receiptfileFields[0].Descriptor()
+	// receiptfile.DefaultID holds the default value on creation for the id field.
+	receiptfile.DefaultID = receiptfileDescID.Default.(func() uuid.UUID)
 }

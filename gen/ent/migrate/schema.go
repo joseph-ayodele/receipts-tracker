@@ -3,6 +3,7 @@
 package migrate
 
 import (
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/dialect/sql/schema"
 	"entgo.io/ent/schema/field"
 )
@@ -10,7 +11,7 @@ import (
 var (
 	// CategoriesColumns holds the columns for the "categories" table.
 	CategoriesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString, Unique: true, SchemaType: map[string]string{"postgres": "text"}},
 	}
 	// CategoriesTable holds the schema information for the "categories" table.
@@ -19,11 +20,196 @@ var (
 		Columns:    CategoriesColumns,
 		PrimaryKey: []*schema.Column{CategoriesColumns[0]},
 	}
+	// ExtractJobColumns holds the columns for the "extract_job" table.
+	ExtractJobColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "format", Type: field.TypeString},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
+		{Name: "status", Type: field.TypeString, Nullable: true},
+		{Name: "error_message", Type: field.TypeString, Nullable: true},
+		{Name: "extraction_confidence", Type: field.TypeFloat32, Nullable: true},
+		{Name: "needs_review", Type: field.TypeBool, Default: false},
+		{Name: "ocr_text", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "extracted_json", Type: field.TypeJSON, Nullable: true},
+		{Name: "model_name", Type: field.TypeString, Nullable: true},
+		{Name: "model_params", Type: field.TypeJSON, Nullable: true},
+		{Name: "profile_id", Type: field.TypeUUID},
+		{Name: "receipt_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "file_id", Type: field.TypeUUID},
+	}
+	// ExtractJobTable holds the schema information for the "extract_job" table.
+	ExtractJobTable = &schema.Table{
+		Name:       "extract_job",
+		Columns:    ExtractJobColumns,
+		PrimaryKey: []*schema.Column{ExtractJobColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "extract_job_profiles_jobs",
+				Columns:    []*schema.Column{ExtractJobColumns[12]},
+				RefColumns: []*schema.Column{ProfilesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "extract_job_receipts_jobs",
+				Columns:    []*schema.Column{ExtractJobColumns[13]},
+				RefColumns: []*schema.Column{ReceiptsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "extract_job_receipt_files_jobs",
+				Columns:    []*schema.Column{ExtractJobColumns[14]},
+				RefColumns: []*schema.Column{ReceiptFilesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "extractjob_profile_id_status_started_at",
+				Unique:  false,
+				Columns: []*schema.Column{ExtractJobColumns[12], ExtractJobColumns[4], ExtractJobColumns[2]},
+			},
+			{
+				Name:    "extractjob_file_id",
+				Unique:  false,
+				Columns: []*schema.Column{ExtractJobColumns[14]},
+			},
+			{
+				Name:    "extractjob_receipt_id",
+				Unique:  false,
+				Columns: []*schema.Column{ExtractJobColumns[13]},
+			},
+		},
+	}
+	// ProfilesColumns holds the columns for the "profiles" table.
+	ProfilesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "default_currency", Type: field.TypeString, Size: 3, SchemaType: map[string]string{"postgres": "char(3)"}},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ProfilesTable holds the schema information for the "profiles" table.
+	ProfilesTable = &schema.Table{
+		Name:       "profiles",
+		Columns:    ProfilesColumns,
+		PrimaryKey: []*schema.Column{ProfilesColumns[0]},
+	}
+	// ReceiptsColumns holds the columns for the "receipts" table.
+	ReceiptsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "merchant_name", Type: field.TypeString},
+		{Name: "tx_date", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "date"}},
+		{Name: "subtotal", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
+		{Name: "tax", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
+		{Name: "total", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
+		{Name: "currency_code", Type: field.TypeString, Size: 3, SchemaType: map[string]string{"postgres": "char(3)"}},
+		{Name: "payment_method", Type: field.TypeString, Nullable: true},
+		{Name: "payment_last4", Type: field.TypeString, Nullable: true},
+		{Name: "description", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "category_id", Type: field.TypeUUID},
+		{Name: "profile_id", Type: field.TypeUUID},
+	}
+	// ReceiptsTable holds the schema information for the "receipts" table.
+	ReceiptsTable = &schema.Table{
+		Name:       "receipts",
+		Columns:    ReceiptsColumns,
+		PrimaryKey: []*schema.Column{ReceiptsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "receipts_categories_receipts",
+				Columns:    []*schema.Column{ReceiptsColumns[12]},
+				RefColumns: []*schema.Column{CategoriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "receipts_profiles_receipts",
+				Columns:    []*schema.Column{ReceiptsColumns[13]},
+				RefColumns: []*schema.Column{ProfilesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// ReceiptFilesColumns holds the columns for the "receipt_files" table.
+	ReceiptFilesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "source_path", Type: field.TypeString},
+		{Name: "content_hash", Type: field.TypeBytes, SchemaType: map[string]string{"postgres": "bytea"}},
+		{Name: "file_ext", Type: field.TypeString},
+		{Name: "uploaded_at", Type: field.TypeTime},
+		{Name: "profile_id", Type: field.TypeUUID},
+		{Name: "receipt_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// ReceiptFilesTable holds the schema information for the "receipt_files" table.
+	ReceiptFilesTable = &schema.Table{
+		Name:       "receipt_files",
+		Columns:    ReceiptFilesColumns,
+		PrimaryKey: []*schema.Column{ReceiptFilesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "receipt_files_profiles_files",
+				Columns:    []*schema.Column{ReceiptFilesColumns[5]},
+				RefColumns: []*schema.Column{ProfilesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "receipt_files_receipts_files",
+				Columns:    []*schema.Column{ReceiptFilesColumns[6]},
+				RefColumns: []*schema.Column{ReceiptsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "receiptfile_profile_id_content_hash",
+				Unique:  true,
+				Columns: []*schema.Column{ReceiptFilesColumns[5], ReceiptFilesColumns[2]},
+			},
+			{
+				Name:    "receiptfile_profile_id_receipt_id",
+				Unique:  false,
+				Columns: []*schema.Column{ReceiptFilesColumns[5], ReceiptFilesColumns[6]},
+			},
+			{
+				Name:    "receiptfile_profile_id_uploaded_at",
+				Unique:  false,
+				Columns: []*schema.Column{ReceiptFilesColumns[5], ReceiptFilesColumns[4]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		CategoriesTable,
+		ExtractJobTable,
+		ProfilesTable,
+		ReceiptsTable,
+		ReceiptFilesTable,
 	}
 )
 
 func init() {
+	CategoriesTable.Annotation = &entsql.Annotation{
+		Table: "categories",
+	}
+	ExtractJobTable.ForeignKeys[0].RefTable = ProfilesTable
+	ExtractJobTable.ForeignKeys[1].RefTable = ReceiptsTable
+	ExtractJobTable.ForeignKeys[2].RefTable = ReceiptFilesTable
+	ExtractJobTable.Annotation = &entsql.Annotation{
+		Table: "extract_job",
+	}
+	ProfilesTable.Annotation = &entsql.Annotation{
+		Table: "profiles",
+	}
+	ReceiptsTable.ForeignKeys[0].RefTable = CategoriesTable
+	ReceiptsTable.ForeignKeys[1].RefTable = ProfilesTable
+	ReceiptsTable.Annotation = &entsql.Annotation{
+		Table: "receipts",
+	}
+	ReceiptFilesTable.ForeignKeys[0].RefTable = ProfilesTable
+	ReceiptFilesTable.ForeignKeys[1].RefTable = ReceiptsTable
+	ReceiptFilesTable.Annotation = &entsql.Annotation{
+		Table: "receipt_files",
+	}
 }

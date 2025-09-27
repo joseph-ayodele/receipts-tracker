@@ -8,6 +8,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 )
 
@@ -15,10 +16,31 @@ import (
 type Category struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uuid.UUID `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
-	Name         string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the CategoryQuery when eager-loading is set.
+	Edges        CategoryEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// CategoryEdges holds the relations/edges for other nodes in the graph.
+type CategoryEdges struct {
+	// Receipts holds the value of the receipts edge.
+	Receipts []*Receipt `json:"receipts,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// ReceiptsOrErr returns the Receipts value or an error if the edge
+// was not loaded in eager-loading.
+func (e CategoryEdges) ReceiptsOrErr() ([]*Receipt, error) {
+	if e.loadedTypes[0] {
+		return e.Receipts, nil
+	}
+	return nil, &NotLoadedError{edge: "receipts"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -26,10 +48,10 @@ func (*Category) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case category.FieldID:
-			values[i] = new(sql.NullInt64)
 		case category.FieldName:
 			values[i] = new(sql.NullString)
+		case category.FieldID:
+			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -46,11 +68,11 @@ func (_m *Category) assignValues(columns []string, values []any) error {
 	for i := range columns {
 		switch columns[i] {
 		case category.FieldID:
-			value, ok := values[i].(*sql.NullInt64)
-			if !ok {
-				return fmt.Errorf("unexpected type %T for field id", value)
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field id", values[i])
+			} else if value != nil {
+				_m.ID = *value
 			}
-			_m.ID = int(value.Int64)
 		case category.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
@@ -68,6 +90,11 @@ func (_m *Category) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Category) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryReceipts queries the "receipts" edge of the Category entity.
+func (_m *Category) QueryReceipts() *ReceiptQuery {
+	return NewCategoryClient(_m.config).QueryReceipts(_m)
 }
 
 // Update returns a builder for updating this Category.

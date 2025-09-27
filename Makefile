@@ -14,7 +14,7 @@ srv/run:
 
 .PHONY: proto/gen
 proto/gen:
-	go run ./db/ent
+	go run entgo.io/ent/cmd/ent generate --target gen/ent ./db/ent/schema
 
 
 # Option B: Dockerized protoc (no local install required)

@@ -10,8 +10,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 )
 
 // CategoryUpdate is the builder for updating Category entities.
@@ -41,9 +43,45 @@ func (_u *CategoryUpdate) SetNillableName(v *string) *CategoryUpdate {
 	return _u
 }
 
+// AddReceiptIDs adds the "receipts" edge to the Receipt entity by IDs.
+func (_u *CategoryUpdate) AddReceiptIDs(ids ...uuid.UUID) *CategoryUpdate {
+	_u.mutation.AddReceiptIDs(ids...)
+	return _u
+}
+
+// AddReceipts adds the "receipts" edges to the Receipt entity.
+func (_u *CategoryUpdate) AddReceipts(v ...*Receipt) *CategoryUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReceiptIDs(ids...)
+}
+
 // Mutation returns the CategoryMutation object of the builder.
 func (_u *CategoryUpdate) Mutation() *CategoryMutation {
 	return _u.mutation
+}
+
+// ClearReceipts clears all "receipts" edges to the Receipt entity.
+func (_u *CategoryUpdate) ClearReceipts() *CategoryUpdate {
+	_u.mutation.ClearReceipts()
+	return _u
+}
+
+// RemoveReceiptIDs removes the "receipts" edge to Receipt entities by IDs.
+func (_u *CategoryUpdate) RemoveReceiptIDs(ids ...uuid.UUID) *CategoryUpdate {
+	_u.mutation.RemoveReceiptIDs(ids...)
+	return _u
+}
+
+// RemoveReceipts removes "receipts" edges to Receipt entities.
+func (_u *CategoryUpdate) RemoveReceipts(v ...*Receipt) *CategoryUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReceiptIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -87,7 +125,7 @@ func (_u *CategoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -97,6 +135,51 @@ func (_u *CategoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(category.FieldName, field.TypeString, value)
+	}
+	if _u.mutation.ReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReceiptsIDs(); len(nodes) > 0 && !_u.mutation.ReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReceiptsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -132,9 +215,45 @@ func (_u *CategoryUpdateOne) SetNillableName(v *string) *CategoryUpdateOne {
 	return _u
 }
 
+// AddReceiptIDs adds the "receipts" edge to the Receipt entity by IDs.
+func (_u *CategoryUpdateOne) AddReceiptIDs(ids ...uuid.UUID) *CategoryUpdateOne {
+	_u.mutation.AddReceiptIDs(ids...)
+	return _u
+}
+
+// AddReceipts adds the "receipts" edges to the Receipt entity.
+func (_u *CategoryUpdateOne) AddReceipts(v ...*Receipt) *CategoryUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReceiptIDs(ids...)
+}
+
 // Mutation returns the CategoryMutation object of the builder.
 func (_u *CategoryUpdateOne) Mutation() *CategoryMutation {
 	return _u.mutation
+}
+
+// ClearReceipts clears all "receipts" edges to the Receipt entity.
+func (_u *CategoryUpdateOne) ClearReceipts() *CategoryUpdateOne {
+	_u.mutation.ClearReceipts()
+	return _u
+}
+
+// RemoveReceiptIDs removes the "receipts" edge to Receipt entities by IDs.
+func (_u *CategoryUpdateOne) RemoveReceiptIDs(ids ...uuid.UUID) *CategoryUpdateOne {
+	_u.mutation.RemoveReceiptIDs(ids...)
+	return _u
+}
+
+// RemoveReceipts removes "receipts" edges to Receipt entities.
+func (_u *CategoryUpdateOne) RemoveReceipts(v ...*Receipt) *CategoryUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReceiptIDs(ids...)
 }
 
 // Where appends a list predicates to the CategoryUpdate builder.
@@ -191,7 +310,7 @@ func (_u *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err 
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Category.id" for update`)}
@@ -218,6 +337,51 @@ func (_u *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err 
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(category.FieldName, field.TypeString, value)
+	}
+	if _u.mutation.ReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReceiptsIDs(); len(nodes) > 0 && !_u.mutation.ReceiptsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReceiptsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   category.ReceiptsTable,
+			Columns: []string{category.ReceiptsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Category{config: _u.config}
 	_spec.Assign = _node.assignValues

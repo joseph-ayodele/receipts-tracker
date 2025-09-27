@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -11,17 +12,20 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 )
 
 // CategoryQuery is the builder for querying Category entities.
 type CategoryQuery struct {
 	config
-	ctx        *QueryContext
-	order      []category.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Category
+	ctx          *QueryContext
+	order        []category.OrderOption
+	inters       []Interceptor
+	predicates   []predicate.Category
+	withReceipts *ReceiptQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +62,28 @@ func (_q *CategoryQuery) Order(o ...category.OrderOption) *CategoryQuery {
 	return _q
 }
 
+// QueryReceipts chains the current query on the "receipts" edge.
+func (_q *CategoryQuery) QueryReceipts() *ReceiptQuery {
+	query := (&ReceiptClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(category.Table, category.FieldID, selector),
+			sqlgraph.To(receipt.Table, receipt.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, category.ReceiptsTable, category.ReceiptsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Category entity from the query.
 // Returns a *NotFoundError when no Category was found.
 func (_q *CategoryQuery) First(ctx context.Context) (*Category, error) {
@@ -82,8 +108,8 @@ func (_q *CategoryQuery) FirstX(ctx context.Context) *Category {
 
 // FirstID returns the first Category ID from the query.
 // Returns a *NotFoundError when no Category ID was found.
-func (_q *CategoryQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *CategoryQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
+	var ids []uuid.UUID
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +121,7 @@ func (_q *CategoryQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *CategoryQuery) FirstIDX(ctx context.Context) int {
+func (_q *CategoryQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +159,8 @@ func (_q *CategoryQuery) OnlyX(ctx context.Context) *Category {
 // OnlyID is like Only, but returns the only Category ID in the query.
 // Returns a *NotSingularError when more than one Category ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *CategoryQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *CategoryQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
+	var ids []uuid.UUID
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +176,7 @@ func (_q *CategoryQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *CategoryQuery) OnlyIDX(ctx context.Context) int {
+func (_q *CategoryQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +204,7 @@ func (_q *CategoryQuery) AllX(ctx context.Context) []*Category {
 }
 
 // IDs executes the query and returns a list of Category IDs.
-func (_q *CategoryQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *CategoryQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +216,7 @@ func (_q *CategoryQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *CategoryQuery) IDsX(ctx context.Context) []int {
+func (_q *CategoryQuery) IDsX(ctx context.Context) []uuid.UUID {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -245,15 +271,27 @@ func (_q *CategoryQuery) Clone() *CategoryQuery {
 		return nil
 	}
 	return &CategoryQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]category.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Category{}, _q.predicates...),
+		config:       _q.config,
+		ctx:          _q.ctx.Clone(),
+		order:        append([]category.OrderOption{}, _q.order...),
+		inters:       append([]Interceptor{}, _q.inters...),
+		predicates:   append([]predicate.Category{}, _q.predicates...),
+		withReceipts: _q.withReceipts.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithReceipts tells the query-builder to eager-load the nodes that are connected to
+// the "receipts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CategoryQuery) WithReceipts(opts ...func(*ReceiptQuery)) *CategoryQuery {
+	query := (&ReceiptClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withReceipts = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,8 +370,11 @@ func (_q *CategoryQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *CategoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Category, error) {
 	var (
-		nodes = []*Category{}
-		_spec = _q.querySpec()
+		nodes       = []*Category{}
+		_spec       = _q.querySpec()
+		loadedTypes = [1]bool{
+			_q.withReceipts != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Category).scanValues(nil, columns)
@@ -341,6 +382,7 @@ func (_q *CategoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Cat
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Category{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +394,45 @@ func (_q *CategoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Cat
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withReceipts; query != nil {
+		if err := _q.loadReceipts(ctx, query, nodes,
+			func(n *Category) { n.Edges.Receipts = []*Receipt{} },
+			func(n *Category, e *Receipt) { n.Edges.Receipts = append(n.Edges.Receipts, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *CategoryQuery) loadReceipts(ctx context.Context, query *ReceiptQuery, nodes []*Category, init func(*Category), assign func(*Category, *Receipt)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Category)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(receipt.FieldCategoryID)
+	}
+	query.Where(predicate.Receipt(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(category.ReceiptsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.CategoryID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "category_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (_q *CategoryQuery) sqlCount(ctx context.Context) (int, error) {
@@ -365,7 +445,7 @@ func (_q *CategoryQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *CategoryQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

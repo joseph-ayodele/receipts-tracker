@@ -27,11 +27,9 @@ func (Receipt) Annotations() []schema.Annotation {
 
 func (Receipt) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).
-			Default(uuid.New).
-			Immutable().
-			StorageKey("id"),
+		field.UUID("id", uuid.UUID{}).Default(uuid.New).Immutable(),
 		field.UUID("profile_id", uuid.UUID{}),
+
 		field.String("merchant_name").NotEmpty(),
 		field.Time("tx_date").
 			SchemaType(map[string]string{dialect.Postgres: "date"}).
@@ -46,7 +44,8 @@ func (Receipt) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "numeric(12,2)"}),
 		field.String("currency_code").NotEmpty().MinLen(3).MaxLen(3).
 			SchemaType(map[string]string{dialect.Postgres: "char(3)"}),
-		// FK fields created by edges; no need to duplicate.
+
+		field.UUID("category_id", uuid.UUID{}),
 		field.String("payment_method").Optional().Nillable(),
 		field.String("payment_last4").Optional().Nillable().
 			Validate(func(s string) error {
@@ -55,7 +54,7 @@ func (Receipt) Fields() []ent.Field {
 				}
 				return reLast4Err
 			}),
-		field.String("description").Optional().Nillable(),
+		field.String("description"),
 		field.Time("created_at").Default(time.Now),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}
@@ -75,6 +74,7 @@ func (Receipt) Edges() []ent.Edge {
 		edge.From("category", Category.Type).
 			Ref("receipts").
 			Field("category_id").
+			Required().
 			Unique(),
 		// ONE receipt -> MANY files
 		edge.To("files", ReceiptFile.Type),

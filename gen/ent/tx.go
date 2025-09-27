@@ -14,6 +14,14 @@ type Tx struct {
 	config
 	// Category is the client for interacting with the Category builders.
 	Category *CategoryClient
+	// ExtractJob is the client for interacting with the ExtractJob builders.
+	ExtractJob *ExtractJobClient
+	// Profile is the client for interacting with the Profile builders.
+	Profile *ProfileClient
+	// Receipt is the client for interacting with the Receipt builders.
+	Receipt *ReceiptClient
+	// ReceiptFile is the client for interacting with the ReceiptFile builders.
+	ReceiptFile *ReceiptFileClient
 
 	// lazily loaded.
 	client     *Client
@@ -146,6 +154,10 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Category = NewCategoryClient(tx.config)
+	tx.ExtractJob = NewExtractJobClient(tx.config)
+	tx.Profile = NewProfileClient(tx.config)
+	tx.Receipt = NewReceiptClient(tx.config)
+	tx.ReceiptFile = NewReceiptFileClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

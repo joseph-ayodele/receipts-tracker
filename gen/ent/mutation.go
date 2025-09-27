@@ -4,14 +4,21 @@ package ent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
 const (
@@ -23,20 +30,27 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeCategory = "Category"
+	TypeCategory    = "Category"
+	TypeExtractJob  = "ExtractJob"
+	TypeProfile     = "Profile"
+	TypeReceipt     = "Receipt"
+	TypeReceiptFile = "ReceiptFile"
 )
 
 // CategoryMutation represents an operation that mutates the Category nodes in the graph.
 type CategoryMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	name          *string
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*Category, error)
-	predicates    []predicate.Category
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	name            *string
+	clearedFields   map[string]struct{}
+	receipts        map[uuid.UUID]struct{}
+	removedreceipts map[uuid.UUID]struct{}
+	clearedreceipts bool
+	done            bool
+	oldValue        func(context.Context) (*Category, error)
+	predicates      []predicate.Category
 }
 
 var _ ent.Mutation = (*CategoryMutation)(nil)
@@ -59,7 +73,7 @@ func newCategoryMutation(c config, op Op, opts ...categoryOption) *CategoryMutat
 }
 
 // withCategoryID sets the ID field of the mutation.
-func withCategoryID(id int) categoryOption {
+func withCategoryID(id uuid.UUID) categoryOption {
 	return func(m *CategoryMutation) {
 		var (
 			err   error
@@ -109,9 +123,15 @@ func (m CategoryMutation) Tx() (*Tx, error) {
 	return tx, nil
 }
 
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Category entities.
+func (m *CategoryMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
 // ID returns the ID value in the mutation. Note that the ID is only available
 // if it was provided to the builder or after it was returned from the database.
-func (m *CategoryMutation) ID() (id int, exists bool) {
+func (m *CategoryMutation) ID() (id uuid.UUID, exists bool) {
 	if m.id == nil {
 		return
 	}
@@ -122,12 +142,12 @@ func (m *CategoryMutation) ID() (id int, exists bool) {
 // That means, if the mutation is applied within a transaction with an isolation level such
 // as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
 // or updated by the mutation.
-func (m *CategoryMutation) IDs(ctx context.Context) ([]int, error) {
+func (m *CategoryMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	switch {
 	case m.op.Is(OpUpdateOne | OpDeleteOne):
 		id, exists := m.ID()
 		if exists {
-			return []int{id}, nil
+			return []uuid.UUID{id}, nil
 		}
 		fallthrough
 	case m.op.Is(OpUpdate | OpDelete):
@@ -171,6 +191,60 @@ func (m *CategoryMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *CategoryMutation) ResetName() {
 	m.name = nil
+}
+
+// AddReceiptIDs adds the "receipts" edge to the Receipt entity by ids.
+func (m *CategoryMutation) AddReceiptIDs(ids ...uuid.UUID) {
+	if m.receipts == nil {
+		m.receipts = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.receipts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearReceipts clears the "receipts" edge to the Receipt entity.
+func (m *CategoryMutation) ClearReceipts() {
+	m.clearedreceipts = true
+}
+
+// ReceiptsCleared reports if the "receipts" edge to the Receipt entity was cleared.
+func (m *CategoryMutation) ReceiptsCleared() bool {
+	return m.clearedreceipts
+}
+
+// RemoveReceiptIDs removes the "receipts" edge to the Receipt entity by IDs.
+func (m *CategoryMutation) RemoveReceiptIDs(ids ...uuid.UUID) {
+	if m.removedreceipts == nil {
+		m.removedreceipts = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.receipts, ids[i])
+		m.removedreceipts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedReceipts returns the removed IDs of the "receipts" edge to the Receipt entity.
+func (m *CategoryMutation) RemovedReceiptsIDs() (ids []uuid.UUID) {
+	for id := range m.removedreceipts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ReceiptsIDs returns the "receipts" edge IDs in the mutation.
+func (m *CategoryMutation) ReceiptsIDs() (ids []uuid.UUID) {
+	for id := range m.receipts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetReceipts resets all changes to the "receipts" edge.
+func (m *CategoryMutation) ResetReceipts() {
+	m.receipts = nil
+	m.clearedreceipts = false
+	m.removedreceipts = nil
 }
 
 // Where appends a list predicates to the CategoryMutation builder.
@@ -306,48 +380,4502 @@ func (m *CategoryMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *CategoryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.receipts != nil {
+		edges = append(edges, category.EdgeReceipts)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *CategoryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case category.EdgeReceipts:
+		ids := make([]ent.Value, 0, len(m.receipts))
+		for id := range m.receipts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *CategoryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.removedreceipts != nil {
+		edges = append(edges, category.EdgeReceipts)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *CategoryMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case category.EdgeReceipts:
+		ids := make([]ent.Value, 0, len(m.removedreceipts))
+		for id := range m.removedreceipts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *CategoryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedreceipts {
+		edges = append(edges, category.EdgeReceipts)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *CategoryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case category.EdgeReceipts:
+		return m.clearedreceipts
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *CategoryMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown Category unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *CategoryMutation) ResetEdge(name string) error {
+	switch name {
+	case category.EdgeReceipts:
+		m.ResetReceipts()
+		return nil
+	}
 	return fmt.Errorf("unknown Category edge %s", name)
+}
+
+// ExtractJobMutation represents an operation that mutates the ExtractJob nodes in the graph.
+type ExtractJobMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *uuid.UUID
+	format                   *string
+	started_at               *time.Time
+	finished_at              *time.Time
+	status                   *string
+	error_message            *string
+	extraction_confidence    *float32
+	addextraction_confidence *float32
+	needs_review             *bool
+	ocr_text                 *string
+	extracted_json           *json.RawMessage
+	appendextracted_json     json.RawMessage
+	model_name               *string
+	model_params             *json.RawMessage
+	appendmodel_params       json.RawMessage
+	clearedFields            map[string]struct{}
+	file                     *uuid.UUID
+	clearedfile              bool
+	profile                  *uuid.UUID
+	clearedprofile           bool
+	receipt                  *uuid.UUID
+	clearedreceipt           bool
+	done                     bool
+	oldValue                 func(context.Context) (*ExtractJob, error)
+	predicates               []predicate.ExtractJob
+}
+
+var _ ent.Mutation = (*ExtractJobMutation)(nil)
+
+// extractjobOption allows management of the mutation configuration using functional options.
+type extractjobOption func(*ExtractJobMutation)
+
+// newExtractJobMutation creates new mutation for the ExtractJob entity.
+func newExtractJobMutation(c config, op Op, opts ...extractjobOption) *ExtractJobMutation {
+	m := &ExtractJobMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeExtractJob,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withExtractJobID sets the ID field of the mutation.
+func withExtractJobID(id uuid.UUID) extractjobOption {
+	return func(m *ExtractJobMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ExtractJob
+		)
+		m.oldValue = func(ctx context.Context) (*ExtractJob, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ExtractJob.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withExtractJob sets the old ExtractJob of the mutation.
+func withExtractJob(node *ExtractJob) extractjobOption {
+	return func(m *ExtractJobMutation) {
+		m.oldValue = func(context.Context) (*ExtractJob, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ExtractJobMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ExtractJobMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ExtractJob entities.
+func (m *ExtractJobMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ExtractJobMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ExtractJobMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ExtractJob.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetFileID sets the "file_id" field.
+func (m *ExtractJobMutation) SetFileID(u uuid.UUID) {
+	m.file = &u
+}
+
+// FileID returns the value of the "file_id" field in the mutation.
+func (m *ExtractJobMutation) FileID() (r uuid.UUID, exists bool) {
+	v := m.file
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileID returns the old "file_id" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldFileID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileID: %w", err)
+	}
+	return oldValue.FileID, nil
+}
+
+// ResetFileID resets all changes to the "file_id" field.
+func (m *ExtractJobMutation) ResetFileID() {
+	m.file = nil
+}
+
+// SetProfileID sets the "profile_id" field.
+func (m *ExtractJobMutation) SetProfileID(u uuid.UUID) {
+	m.profile = &u
+}
+
+// ProfileID returns the value of the "profile_id" field in the mutation.
+func (m *ExtractJobMutation) ProfileID() (r uuid.UUID, exists bool) {
+	v := m.profile
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProfileID returns the old "profile_id" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldProfileID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProfileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProfileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProfileID: %w", err)
+	}
+	return oldValue.ProfileID, nil
+}
+
+// ResetProfileID resets all changes to the "profile_id" field.
+func (m *ExtractJobMutation) ResetProfileID() {
+	m.profile = nil
+}
+
+// SetReceiptID sets the "receipt_id" field.
+func (m *ExtractJobMutation) SetReceiptID(u uuid.UUID) {
+	m.receipt = &u
+}
+
+// ReceiptID returns the value of the "receipt_id" field in the mutation.
+func (m *ExtractJobMutation) ReceiptID() (r uuid.UUID, exists bool) {
+	v := m.receipt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReceiptID returns the old "receipt_id" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldReceiptID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReceiptID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReceiptID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReceiptID: %w", err)
+	}
+	return oldValue.ReceiptID, nil
+}
+
+// ClearReceiptID clears the value of the "receipt_id" field.
+func (m *ExtractJobMutation) ClearReceiptID() {
+	m.receipt = nil
+	m.clearedFields[extractjob.FieldReceiptID] = struct{}{}
+}
+
+// ReceiptIDCleared returns if the "receipt_id" field was cleared in this mutation.
+func (m *ExtractJobMutation) ReceiptIDCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldReceiptID]
+	return ok
+}
+
+// ResetReceiptID resets all changes to the "receipt_id" field.
+func (m *ExtractJobMutation) ResetReceiptID() {
+	m.receipt = nil
+	delete(m.clearedFields, extractjob.FieldReceiptID)
+}
+
+// SetFormat sets the "format" field.
+func (m *ExtractJobMutation) SetFormat(s string) {
+	m.format = &s
+}
+
+// Format returns the value of the "format" field in the mutation.
+func (m *ExtractJobMutation) Format() (r string, exists bool) {
+	v := m.format
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFormat returns the old "format" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldFormat(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFormat is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFormat requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFormat: %w", err)
+	}
+	return oldValue.Format, nil
+}
+
+// ResetFormat resets all changes to the "format" field.
+func (m *ExtractJobMutation) ResetFormat() {
+	m.format = nil
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *ExtractJobMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *ExtractJobMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldStartedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *ExtractJobMutation) ResetStartedAt() {
+	m.started_at = nil
+}
+
+// SetFinishedAt sets the "finished_at" field.
+func (m *ExtractJobMutation) SetFinishedAt(t time.Time) {
+	m.finished_at = &t
+}
+
+// FinishedAt returns the value of the "finished_at" field in the mutation.
+func (m *ExtractJobMutation) FinishedAt() (r time.Time, exists bool) {
+	v := m.finished_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinishedAt returns the old "finished_at" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldFinishedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinishedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinishedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinishedAt: %w", err)
+	}
+	return oldValue.FinishedAt, nil
+}
+
+// ClearFinishedAt clears the value of the "finished_at" field.
+func (m *ExtractJobMutation) ClearFinishedAt() {
+	m.finished_at = nil
+	m.clearedFields[extractjob.FieldFinishedAt] = struct{}{}
+}
+
+// FinishedAtCleared returns if the "finished_at" field was cleared in this mutation.
+func (m *ExtractJobMutation) FinishedAtCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldFinishedAt]
+	return ok
+}
+
+// ResetFinishedAt resets all changes to the "finished_at" field.
+func (m *ExtractJobMutation) ResetFinishedAt() {
+	m.finished_at = nil
+	delete(m.clearedFields, extractjob.FieldFinishedAt)
+}
+
+// SetStatus sets the "status" field.
+func (m *ExtractJobMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ExtractJobMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldStatus(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ClearStatus clears the value of the "status" field.
+func (m *ExtractJobMutation) ClearStatus() {
+	m.status = nil
+	m.clearedFields[extractjob.FieldStatus] = struct{}{}
+}
+
+// StatusCleared returns if the "status" field was cleared in this mutation.
+func (m *ExtractJobMutation) StatusCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldStatus]
+	return ok
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ExtractJobMutation) ResetStatus() {
+	m.status = nil
+	delete(m.clearedFields, extractjob.FieldStatus)
+}
+
+// SetErrorMessage sets the "error_message" field.
+func (m *ExtractJobMutation) SetErrorMessage(s string) {
+	m.error_message = &s
+}
+
+// ErrorMessage returns the value of the "error_message" field in the mutation.
+func (m *ExtractJobMutation) ErrorMessage() (r string, exists bool) {
+	v := m.error_message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorMessage returns the old "error_message" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldErrorMessage(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorMessage: %w", err)
+	}
+	return oldValue.ErrorMessage, nil
+}
+
+// ClearErrorMessage clears the value of the "error_message" field.
+func (m *ExtractJobMutation) ClearErrorMessage() {
+	m.error_message = nil
+	m.clearedFields[extractjob.FieldErrorMessage] = struct{}{}
+}
+
+// ErrorMessageCleared returns if the "error_message" field was cleared in this mutation.
+func (m *ExtractJobMutation) ErrorMessageCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldErrorMessage]
+	return ok
+}
+
+// ResetErrorMessage resets all changes to the "error_message" field.
+func (m *ExtractJobMutation) ResetErrorMessage() {
+	m.error_message = nil
+	delete(m.clearedFields, extractjob.FieldErrorMessage)
+}
+
+// SetExtractionConfidence sets the "extraction_confidence" field.
+func (m *ExtractJobMutation) SetExtractionConfidence(f float32) {
+	m.extraction_confidence = &f
+	m.addextraction_confidence = nil
+}
+
+// ExtractionConfidence returns the value of the "extraction_confidence" field in the mutation.
+func (m *ExtractJobMutation) ExtractionConfidence() (r float32, exists bool) {
+	v := m.extraction_confidence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExtractionConfidence returns the old "extraction_confidence" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldExtractionConfidence(ctx context.Context) (v *float32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExtractionConfidence is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExtractionConfidence requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExtractionConfidence: %w", err)
+	}
+	return oldValue.ExtractionConfidence, nil
+}
+
+// AddExtractionConfidence adds f to the "extraction_confidence" field.
+func (m *ExtractJobMutation) AddExtractionConfidence(f float32) {
+	if m.addextraction_confidence != nil {
+		*m.addextraction_confidence += f
+	} else {
+		m.addextraction_confidence = &f
+	}
+}
+
+// AddedExtractionConfidence returns the value that was added to the "extraction_confidence" field in this mutation.
+func (m *ExtractJobMutation) AddedExtractionConfidence() (r float32, exists bool) {
+	v := m.addextraction_confidence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearExtractionConfidence clears the value of the "extraction_confidence" field.
+func (m *ExtractJobMutation) ClearExtractionConfidence() {
+	m.extraction_confidence = nil
+	m.addextraction_confidence = nil
+	m.clearedFields[extractjob.FieldExtractionConfidence] = struct{}{}
+}
+
+// ExtractionConfidenceCleared returns if the "extraction_confidence" field was cleared in this mutation.
+func (m *ExtractJobMutation) ExtractionConfidenceCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldExtractionConfidence]
+	return ok
+}
+
+// ResetExtractionConfidence resets all changes to the "extraction_confidence" field.
+func (m *ExtractJobMutation) ResetExtractionConfidence() {
+	m.extraction_confidence = nil
+	m.addextraction_confidence = nil
+	delete(m.clearedFields, extractjob.FieldExtractionConfidence)
+}
+
+// SetNeedsReview sets the "needs_review" field.
+func (m *ExtractJobMutation) SetNeedsReview(b bool) {
+	m.needs_review = &b
+}
+
+// NeedsReview returns the value of the "needs_review" field in the mutation.
+func (m *ExtractJobMutation) NeedsReview() (r bool, exists bool) {
+	v := m.needs_review
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNeedsReview returns the old "needs_review" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldNeedsReview(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNeedsReview is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNeedsReview requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNeedsReview: %w", err)
+	}
+	return oldValue.NeedsReview, nil
+}
+
+// ResetNeedsReview resets all changes to the "needs_review" field.
+func (m *ExtractJobMutation) ResetNeedsReview() {
+	m.needs_review = nil
+}
+
+// SetOcrText sets the "ocr_text" field.
+func (m *ExtractJobMutation) SetOcrText(s string) {
+	m.ocr_text = &s
+}
+
+// OcrText returns the value of the "ocr_text" field in the mutation.
+func (m *ExtractJobMutation) OcrText() (r string, exists bool) {
+	v := m.ocr_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOcrText returns the old "ocr_text" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldOcrText(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOcrText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOcrText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOcrText: %w", err)
+	}
+	return oldValue.OcrText, nil
+}
+
+// ClearOcrText clears the value of the "ocr_text" field.
+func (m *ExtractJobMutation) ClearOcrText() {
+	m.ocr_text = nil
+	m.clearedFields[extractjob.FieldOcrText] = struct{}{}
+}
+
+// OcrTextCleared returns if the "ocr_text" field was cleared in this mutation.
+func (m *ExtractJobMutation) OcrTextCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldOcrText]
+	return ok
+}
+
+// ResetOcrText resets all changes to the "ocr_text" field.
+func (m *ExtractJobMutation) ResetOcrText() {
+	m.ocr_text = nil
+	delete(m.clearedFields, extractjob.FieldOcrText)
+}
+
+// SetExtractedJSON sets the "extracted_json" field.
+func (m *ExtractJobMutation) SetExtractedJSON(jm json.RawMessage) {
+	m.extracted_json = &jm
+	m.appendextracted_json = nil
+}
+
+// ExtractedJSON returns the value of the "extracted_json" field in the mutation.
+func (m *ExtractJobMutation) ExtractedJSON() (r json.RawMessage, exists bool) {
+	v := m.extracted_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExtractedJSON returns the old "extracted_json" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldExtractedJSON(ctx context.Context) (v json.RawMessage, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExtractedJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExtractedJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExtractedJSON: %w", err)
+	}
+	return oldValue.ExtractedJSON, nil
+}
+
+// AppendExtractedJSON adds jm to the "extracted_json" field.
+func (m *ExtractJobMutation) AppendExtractedJSON(jm json.RawMessage) {
+	m.appendextracted_json = append(m.appendextracted_json, jm...)
+}
+
+// AppendedExtractedJSON returns the list of values that were appended to the "extracted_json" field in this mutation.
+func (m *ExtractJobMutation) AppendedExtractedJSON() (json.RawMessage, bool) {
+	if len(m.appendextracted_json) == 0 {
+		return nil, false
+	}
+	return m.appendextracted_json, true
+}
+
+// ClearExtractedJSON clears the value of the "extracted_json" field.
+func (m *ExtractJobMutation) ClearExtractedJSON() {
+	m.extracted_json = nil
+	m.appendextracted_json = nil
+	m.clearedFields[extractjob.FieldExtractedJSON] = struct{}{}
+}
+
+// ExtractedJSONCleared returns if the "extracted_json" field was cleared in this mutation.
+func (m *ExtractJobMutation) ExtractedJSONCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldExtractedJSON]
+	return ok
+}
+
+// ResetExtractedJSON resets all changes to the "extracted_json" field.
+func (m *ExtractJobMutation) ResetExtractedJSON() {
+	m.extracted_json = nil
+	m.appendextracted_json = nil
+	delete(m.clearedFields, extractjob.FieldExtractedJSON)
+}
+
+// SetModelName sets the "model_name" field.
+func (m *ExtractJobMutation) SetModelName(s string) {
+	m.model_name = &s
+}
+
+// ModelName returns the value of the "model_name" field in the mutation.
+func (m *ExtractJobMutation) ModelName() (r string, exists bool) {
+	v := m.model_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelName returns the old "model_name" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldModelName(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelName: %w", err)
+	}
+	return oldValue.ModelName, nil
+}
+
+// ClearModelName clears the value of the "model_name" field.
+func (m *ExtractJobMutation) ClearModelName() {
+	m.model_name = nil
+	m.clearedFields[extractjob.FieldModelName] = struct{}{}
+}
+
+// ModelNameCleared returns if the "model_name" field was cleared in this mutation.
+func (m *ExtractJobMutation) ModelNameCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldModelName]
+	return ok
+}
+
+// ResetModelName resets all changes to the "model_name" field.
+func (m *ExtractJobMutation) ResetModelName() {
+	m.model_name = nil
+	delete(m.clearedFields, extractjob.FieldModelName)
+}
+
+// SetModelParams sets the "model_params" field.
+func (m *ExtractJobMutation) SetModelParams(jm json.RawMessage) {
+	m.model_params = &jm
+	m.appendmodel_params = nil
+}
+
+// ModelParams returns the value of the "model_params" field in the mutation.
+func (m *ExtractJobMutation) ModelParams() (r json.RawMessage, exists bool) {
+	v := m.model_params
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelParams returns the old "model_params" field's value of the ExtractJob entity.
+// If the ExtractJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ExtractJobMutation) OldModelParams(ctx context.Context) (v json.RawMessage, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelParams is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelParams requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelParams: %w", err)
+	}
+	return oldValue.ModelParams, nil
+}
+
+// AppendModelParams adds jm to the "model_params" field.
+func (m *ExtractJobMutation) AppendModelParams(jm json.RawMessage) {
+	m.appendmodel_params = append(m.appendmodel_params, jm...)
+}
+
+// AppendedModelParams returns the list of values that were appended to the "model_params" field in this mutation.
+func (m *ExtractJobMutation) AppendedModelParams() (json.RawMessage, bool) {
+	if len(m.appendmodel_params) == 0 {
+		return nil, false
+	}
+	return m.appendmodel_params, true
+}
+
+// ClearModelParams clears the value of the "model_params" field.
+func (m *ExtractJobMutation) ClearModelParams() {
+	m.model_params = nil
+	m.appendmodel_params = nil
+	m.clearedFields[extractjob.FieldModelParams] = struct{}{}
+}
+
+// ModelParamsCleared returns if the "model_params" field was cleared in this mutation.
+func (m *ExtractJobMutation) ModelParamsCleared() bool {
+	_, ok := m.clearedFields[extractjob.FieldModelParams]
+	return ok
+}
+
+// ResetModelParams resets all changes to the "model_params" field.
+func (m *ExtractJobMutation) ResetModelParams() {
+	m.model_params = nil
+	m.appendmodel_params = nil
+	delete(m.clearedFields, extractjob.FieldModelParams)
+}
+
+// ClearFile clears the "file" edge to the ReceiptFile entity.
+func (m *ExtractJobMutation) ClearFile() {
+	m.clearedfile = true
+	m.clearedFields[extractjob.FieldFileID] = struct{}{}
+}
+
+// FileCleared reports if the "file" edge to the ReceiptFile entity was cleared.
+func (m *ExtractJobMutation) FileCleared() bool {
+	return m.clearedfile
+}
+
+// FileIDs returns the "file" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// FileID instead. It exists only for internal usage by the builders.
+func (m *ExtractJobMutation) FileIDs() (ids []uuid.UUID) {
+	if id := m.file; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetFile resets all changes to the "file" edge.
+func (m *ExtractJobMutation) ResetFile() {
+	m.file = nil
+	m.clearedfile = false
+}
+
+// ClearProfile clears the "profile" edge to the Profile entity.
+func (m *ExtractJobMutation) ClearProfile() {
+	m.clearedprofile = true
+	m.clearedFields[extractjob.FieldProfileID] = struct{}{}
+}
+
+// ProfileCleared reports if the "profile" edge to the Profile entity was cleared.
+func (m *ExtractJobMutation) ProfileCleared() bool {
+	return m.clearedprofile
+}
+
+// ProfileIDs returns the "profile" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProfileID instead. It exists only for internal usage by the builders.
+func (m *ExtractJobMutation) ProfileIDs() (ids []uuid.UUID) {
+	if id := m.profile; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProfile resets all changes to the "profile" edge.
+func (m *ExtractJobMutation) ResetProfile() {
+	m.profile = nil
+	m.clearedprofile = false
+}
+
+// ClearReceipt clears the "receipt" edge to the Receipt entity.
+func (m *ExtractJobMutation) ClearReceipt() {
+	m.clearedreceipt = true
+	m.clearedFields[extractjob.FieldReceiptID] = struct{}{}
+}
+
+// ReceiptCleared reports if the "receipt" edge to the Receipt entity was cleared.
+func (m *ExtractJobMutation) ReceiptCleared() bool {
+	return m.ReceiptIDCleared() || m.clearedreceipt
+}
+
+// ReceiptIDs returns the "receipt" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ReceiptID instead. It exists only for internal usage by the builders.
+func (m *ExtractJobMutation) ReceiptIDs() (ids []uuid.UUID) {
+	if id := m.receipt; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetReceipt resets all changes to the "receipt" edge.
+func (m *ExtractJobMutation) ResetReceipt() {
+	m.receipt = nil
+	m.clearedreceipt = false
+}
+
+// Where appends a list predicates to the ExtractJobMutation builder.
+func (m *ExtractJobMutation) Where(ps ...predicate.ExtractJob) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ExtractJobMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ExtractJobMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ExtractJob, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ExtractJobMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ExtractJobMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ExtractJob).
+func (m *ExtractJobMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ExtractJobMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.file != nil {
+		fields = append(fields, extractjob.FieldFileID)
+	}
+	if m.profile != nil {
+		fields = append(fields, extractjob.FieldProfileID)
+	}
+	if m.receipt != nil {
+		fields = append(fields, extractjob.FieldReceiptID)
+	}
+	if m.format != nil {
+		fields = append(fields, extractjob.FieldFormat)
+	}
+	if m.started_at != nil {
+		fields = append(fields, extractjob.FieldStartedAt)
+	}
+	if m.finished_at != nil {
+		fields = append(fields, extractjob.FieldFinishedAt)
+	}
+	if m.status != nil {
+		fields = append(fields, extractjob.FieldStatus)
+	}
+	if m.error_message != nil {
+		fields = append(fields, extractjob.FieldErrorMessage)
+	}
+	if m.extraction_confidence != nil {
+		fields = append(fields, extractjob.FieldExtractionConfidence)
+	}
+	if m.needs_review != nil {
+		fields = append(fields, extractjob.FieldNeedsReview)
+	}
+	if m.ocr_text != nil {
+		fields = append(fields, extractjob.FieldOcrText)
+	}
+	if m.extracted_json != nil {
+		fields = append(fields, extractjob.FieldExtractedJSON)
+	}
+	if m.model_name != nil {
+		fields = append(fields, extractjob.FieldModelName)
+	}
+	if m.model_params != nil {
+		fields = append(fields, extractjob.FieldModelParams)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ExtractJobMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case extractjob.FieldFileID:
+		return m.FileID()
+	case extractjob.FieldProfileID:
+		return m.ProfileID()
+	case extractjob.FieldReceiptID:
+		return m.ReceiptID()
+	case extractjob.FieldFormat:
+		return m.Format()
+	case extractjob.FieldStartedAt:
+		return m.StartedAt()
+	case extractjob.FieldFinishedAt:
+		return m.FinishedAt()
+	case extractjob.FieldStatus:
+		return m.Status()
+	case extractjob.FieldErrorMessage:
+		return m.ErrorMessage()
+	case extractjob.FieldExtractionConfidence:
+		return m.ExtractionConfidence()
+	case extractjob.FieldNeedsReview:
+		return m.NeedsReview()
+	case extractjob.FieldOcrText:
+		return m.OcrText()
+	case extractjob.FieldExtractedJSON:
+		return m.ExtractedJSON()
+	case extractjob.FieldModelName:
+		return m.ModelName()
+	case extractjob.FieldModelParams:
+		return m.ModelParams()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ExtractJobMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case extractjob.FieldFileID:
+		return m.OldFileID(ctx)
+	case extractjob.FieldProfileID:
+		return m.OldProfileID(ctx)
+	case extractjob.FieldReceiptID:
+		return m.OldReceiptID(ctx)
+	case extractjob.FieldFormat:
+		return m.OldFormat(ctx)
+	case extractjob.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case extractjob.FieldFinishedAt:
+		return m.OldFinishedAt(ctx)
+	case extractjob.FieldStatus:
+		return m.OldStatus(ctx)
+	case extractjob.FieldErrorMessage:
+		return m.OldErrorMessage(ctx)
+	case extractjob.FieldExtractionConfidence:
+		return m.OldExtractionConfidence(ctx)
+	case extractjob.FieldNeedsReview:
+		return m.OldNeedsReview(ctx)
+	case extractjob.FieldOcrText:
+		return m.OldOcrText(ctx)
+	case extractjob.FieldExtractedJSON:
+		return m.OldExtractedJSON(ctx)
+	case extractjob.FieldModelName:
+		return m.OldModelName(ctx)
+	case extractjob.FieldModelParams:
+		return m.OldModelParams(ctx)
+	}
+	return nil, fmt.Errorf("unknown ExtractJob field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ExtractJobMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case extractjob.FieldFileID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileID(v)
+		return nil
+	case extractjob.FieldProfileID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProfileID(v)
+		return nil
+	case extractjob.FieldReceiptID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReceiptID(v)
+		return nil
+	case extractjob.FieldFormat:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFormat(v)
+		return nil
+	case extractjob.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case extractjob.FieldFinishedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinishedAt(v)
+		return nil
+	case extractjob.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case extractjob.FieldErrorMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorMessage(v)
+		return nil
+	case extractjob.FieldExtractionConfidence:
+		v, ok := value.(float32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExtractionConfidence(v)
+		return nil
+	case extractjob.FieldNeedsReview:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNeedsReview(v)
+		return nil
+	case extractjob.FieldOcrText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOcrText(v)
+		return nil
+	case extractjob.FieldExtractedJSON:
+		v, ok := value.(json.RawMessage)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExtractedJSON(v)
+		return nil
+	case extractjob.FieldModelName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelName(v)
+		return nil
+	case extractjob.FieldModelParams:
+		v, ok := value.(json.RawMessage)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelParams(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ExtractJob field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ExtractJobMutation) AddedFields() []string {
+	var fields []string
+	if m.addextraction_confidence != nil {
+		fields = append(fields, extractjob.FieldExtractionConfidence)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ExtractJobMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case extractjob.FieldExtractionConfidence:
+		return m.AddedExtractionConfidence()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ExtractJobMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case extractjob.FieldExtractionConfidence:
+		v, ok := value.(float32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddExtractionConfidence(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ExtractJob numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ExtractJobMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(extractjob.FieldReceiptID) {
+		fields = append(fields, extractjob.FieldReceiptID)
+	}
+	if m.FieldCleared(extractjob.FieldFinishedAt) {
+		fields = append(fields, extractjob.FieldFinishedAt)
+	}
+	if m.FieldCleared(extractjob.FieldStatus) {
+		fields = append(fields, extractjob.FieldStatus)
+	}
+	if m.FieldCleared(extractjob.FieldErrorMessage) {
+		fields = append(fields, extractjob.FieldErrorMessage)
+	}
+	if m.FieldCleared(extractjob.FieldExtractionConfidence) {
+		fields = append(fields, extractjob.FieldExtractionConfidence)
+	}
+	if m.FieldCleared(extractjob.FieldOcrText) {
+		fields = append(fields, extractjob.FieldOcrText)
+	}
+	if m.FieldCleared(extractjob.FieldExtractedJSON) {
+		fields = append(fields, extractjob.FieldExtractedJSON)
+	}
+	if m.FieldCleared(extractjob.FieldModelName) {
+		fields = append(fields, extractjob.FieldModelName)
+	}
+	if m.FieldCleared(extractjob.FieldModelParams) {
+		fields = append(fields, extractjob.FieldModelParams)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ExtractJobMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ExtractJobMutation) ClearField(name string) error {
+	switch name {
+	case extractjob.FieldReceiptID:
+		m.ClearReceiptID()
+		return nil
+	case extractjob.FieldFinishedAt:
+		m.ClearFinishedAt()
+		return nil
+	case extractjob.FieldStatus:
+		m.ClearStatus()
+		return nil
+	case extractjob.FieldErrorMessage:
+		m.ClearErrorMessage()
+		return nil
+	case extractjob.FieldExtractionConfidence:
+		m.ClearExtractionConfidence()
+		return nil
+	case extractjob.FieldOcrText:
+		m.ClearOcrText()
+		return nil
+	case extractjob.FieldExtractedJSON:
+		m.ClearExtractedJSON()
+		return nil
+	case extractjob.FieldModelName:
+		m.ClearModelName()
+		return nil
+	case extractjob.FieldModelParams:
+		m.ClearModelParams()
+		return nil
+	}
+	return fmt.Errorf("unknown ExtractJob nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ExtractJobMutation) ResetField(name string) error {
+	switch name {
+	case extractjob.FieldFileID:
+		m.ResetFileID()
+		return nil
+	case extractjob.FieldProfileID:
+		m.ResetProfileID()
+		return nil
+	case extractjob.FieldReceiptID:
+		m.ResetReceiptID()
+		return nil
+	case extractjob.FieldFormat:
+		m.ResetFormat()
+		return nil
+	case extractjob.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case extractjob.FieldFinishedAt:
+		m.ResetFinishedAt()
+		return nil
+	case extractjob.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case extractjob.FieldErrorMessage:
+		m.ResetErrorMessage()
+		return nil
+	case extractjob.FieldExtractionConfidence:
+		m.ResetExtractionConfidence()
+		return nil
+	case extractjob.FieldNeedsReview:
+		m.ResetNeedsReview()
+		return nil
+	case extractjob.FieldOcrText:
+		m.ResetOcrText()
+		return nil
+	case extractjob.FieldExtractedJSON:
+		m.ResetExtractedJSON()
+		return nil
+	case extractjob.FieldModelName:
+		m.ResetModelName()
+		return nil
+	case extractjob.FieldModelParams:
+		m.ResetModelParams()
+		return nil
+	}
+	return fmt.Errorf("unknown ExtractJob field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ExtractJobMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.file != nil {
+		edges = append(edges, extractjob.EdgeFile)
+	}
+	if m.profile != nil {
+		edges = append(edges, extractjob.EdgeProfile)
+	}
+	if m.receipt != nil {
+		edges = append(edges, extractjob.EdgeReceipt)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ExtractJobMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case extractjob.EdgeFile:
+		if id := m.file; id != nil {
+			return []ent.Value{*id}
+		}
+	case extractjob.EdgeProfile:
+		if id := m.profile; id != nil {
+			return []ent.Value{*id}
+		}
+	case extractjob.EdgeReceipt:
+		if id := m.receipt; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ExtractJobMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ExtractJobMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ExtractJobMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedfile {
+		edges = append(edges, extractjob.EdgeFile)
+	}
+	if m.clearedprofile {
+		edges = append(edges, extractjob.EdgeProfile)
+	}
+	if m.clearedreceipt {
+		edges = append(edges, extractjob.EdgeReceipt)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ExtractJobMutation) EdgeCleared(name string) bool {
+	switch name {
+	case extractjob.EdgeFile:
+		return m.clearedfile
+	case extractjob.EdgeProfile:
+		return m.clearedprofile
+	case extractjob.EdgeReceipt:
+		return m.clearedreceipt
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ExtractJobMutation) ClearEdge(name string) error {
+	switch name {
+	case extractjob.EdgeFile:
+		m.ClearFile()
+		return nil
+	case extractjob.EdgeProfile:
+		m.ClearProfile()
+		return nil
+	case extractjob.EdgeReceipt:
+		m.ClearReceipt()
+		return nil
+	}
+	return fmt.Errorf("unknown ExtractJob unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ExtractJobMutation) ResetEdge(name string) error {
+	switch name {
+	case extractjob.EdgeFile:
+		m.ResetFile()
+		return nil
+	case extractjob.EdgeProfile:
+		m.ResetProfile()
+		return nil
+	case extractjob.EdgeReceipt:
+		m.ResetReceipt()
+		return nil
+	}
+	return fmt.Errorf("unknown ExtractJob edge %s", name)
+}
+
+// ProfileMutation represents an operation that mutates the Profile nodes in the graph.
+type ProfileMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	name             *string
+	default_currency *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	receipts         map[uuid.UUID]struct{}
+	removedreceipts  map[uuid.UUID]struct{}
+	clearedreceipts  bool
+	files            map[uuid.UUID]struct{}
+	removedfiles     map[uuid.UUID]struct{}
+	clearedfiles     bool
+	jobs             map[uuid.UUID]struct{}
+	removedjobs      map[uuid.UUID]struct{}
+	clearedjobs      bool
+	done             bool
+	oldValue         func(context.Context) (*Profile, error)
+	predicates       []predicate.Profile
+}
+
+var _ ent.Mutation = (*ProfileMutation)(nil)
+
+// profileOption allows management of the mutation configuration using functional options.
+type profileOption func(*ProfileMutation)
+
+// newProfileMutation creates new mutation for the Profile entity.
+func newProfileMutation(c config, op Op, opts ...profileOption) *ProfileMutation {
+	m := &ProfileMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProfile,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProfileID sets the ID field of the mutation.
+func withProfileID(id uuid.UUID) profileOption {
+	return func(m *ProfileMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Profile
+		)
+		m.oldValue = func(ctx context.Context) (*Profile, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Profile.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProfile sets the old Profile of the mutation.
+func withProfile(node *Profile) profileOption {
+	return func(m *ProfileMutation) {
+		m.oldValue = func(context.Context) (*Profile, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProfileMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProfileMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Profile entities.
+func (m *ProfileMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProfileMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProfileMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Profile.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *ProfileMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ProfileMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Profile entity.
+// If the Profile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProfileMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ProfileMutation) ResetName() {
+	m.name = nil
+}
+
+// SetDefaultCurrency sets the "default_currency" field.
+func (m *ProfileMutation) SetDefaultCurrency(s string) {
+	m.default_currency = &s
+}
+
+// DefaultCurrency returns the value of the "default_currency" field in the mutation.
+func (m *ProfileMutation) DefaultCurrency() (r string, exists bool) {
+	v := m.default_currency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDefaultCurrency returns the old "default_currency" field's value of the Profile entity.
+// If the Profile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProfileMutation) OldDefaultCurrency(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDefaultCurrency is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDefaultCurrency requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDefaultCurrency: %w", err)
+	}
+	return oldValue.DefaultCurrency, nil
+}
+
+// ResetDefaultCurrency resets all changes to the "default_currency" field.
+func (m *ProfileMutation) ResetDefaultCurrency() {
+	m.default_currency = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ProfileMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ProfileMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Profile entity.
+// If the Profile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProfileMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ProfileMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ProfileMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ProfileMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Profile entity.
+// If the Profile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProfileMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ProfileMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// AddReceiptIDs adds the "receipts" edge to the Receipt entity by ids.
+func (m *ProfileMutation) AddReceiptIDs(ids ...uuid.UUID) {
+	if m.receipts == nil {
+		m.receipts = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.receipts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearReceipts clears the "receipts" edge to the Receipt entity.
+func (m *ProfileMutation) ClearReceipts() {
+	m.clearedreceipts = true
+}
+
+// ReceiptsCleared reports if the "receipts" edge to the Receipt entity was cleared.
+func (m *ProfileMutation) ReceiptsCleared() bool {
+	return m.clearedreceipts
+}
+
+// RemoveReceiptIDs removes the "receipts" edge to the Receipt entity by IDs.
+func (m *ProfileMutation) RemoveReceiptIDs(ids ...uuid.UUID) {
+	if m.removedreceipts == nil {
+		m.removedreceipts = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.receipts, ids[i])
+		m.removedreceipts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedReceipts returns the removed IDs of the "receipts" edge to the Receipt entity.
+func (m *ProfileMutation) RemovedReceiptsIDs() (ids []uuid.UUID) {
+	for id := range m.removedreceipts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ReceiptsIDs returns the "receipts" edge IDs in the mutation.
+func (m *ProfileMutation) ReceiptsIDs() (ids []uuid.UUID) {
+	for id := range m.receipts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetReceipts resets all changes to the "receipts" edge.
+func (m *ProfileMutation) ResetReceipts() {
+	m.receipts = nil
+	m.clearedreceipts = false
+	m.removedreceipts = nil
+}
+
+// AddFileIDs adds the "files" edge to the ReceiptFile entity by ids.
+func (m *ProfileMutation) AddFileIDs(ids ...uuid.UUID) {
+	if m.files == nil {
+		m.files = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.files[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFiles clears the "files" edge to the ReceiptFile entity.
+func (m *ProfileMutation) ClearFiles() {
+	m.clearedfiles = true
+}
+
+// FilesCleared reports if the "files" edge to the ReceiptFile entity was cleared.
+func (m *ProfileMutation) FilesCleared() bool {
+	return m.clearedfiles
+}
+
+// RemoveFileIDs removes the "files" edge to the ReceiptFile entity by IDs.
+func (m *ProfileMutation) RemoveFileIDs(ids ...uuid.UUID) {
+	if m.removedfiles == nil {
+		m.removedfiles = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.files, ids[i])
+		m.removedfiles[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFiles returns the removed IDs of the "files" edge to the ReceiptFile entity.
+func (m *ProfileMutation) RemovedFilesIDs() (ids []uuid.UUID) {
+	for id := range m.removedfiles {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FilesIDs returns the "files" edge IDs in the mutation.
+func (m *ProfileMutation) FilesIDs() (ids []uuid.UUID) {
+	for id := range m.files {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFiles resets all changes to the "files" edge.
+func (m *ProfileMutation) ResetFiles() {
+	m.files = nil
+	m.clearedfiles = false
+	m.removedfiles = nil
+}
+
+// AddJobIDs adds the "jobs" edge to the ExtractJob entity by ids.
+func (m *ProfileMutation) AddJobIDs(ids ...uuid.UUID) {
+	if m.jobs == nil {
+		m.jobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.jobs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearJobs clears the "jobs" edge to the ExtractJob entity.
+func (m *ProfileMutation) ClearJobs() {
+	m.clearedjobs = true
+}
+
+// JobsCleared reports if the "jobs" edge to the ExtractJob entity was cleared.
+func (m *ProfileMutation) JobsCleared() bool {
+	return m.clearedjobs
+}
+
+// RemoveJobIDs removes the "jobs" edge to the ExtractJob entity by IDs.
+func (m *ProfileMutation) RemoveJobIDs(ids ...uuid.UUID) {
+	if m.removedjobs == nil {
+		m.removedjobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.jobs, ids[i])
+		m.removedjobs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedJobs returns the removed IDs of the "jobs" edge to the ExtractJob entity.
+func (m *ProfileMutation) RemovedJobsIDs() (ids []uuid.UUID) {
+	for id := range m.removedjobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// JobsIDs returns the "jobs" edge IDs in the mutation.
+func (m *ProfileMutation) JobsIDs() (ids []uuid.UUID) {
+	for id := range m.jobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetJobs resets all changes to the "jobs" edge.
+func (m *ProfileMutation) ResetJobs() {
+	m.jobs = nil
+	m.clearedjobs = false
+	m.removedjobs = nil
+}
+
+// Where appends a list predicates to the ProfileMutation builder.
+func (m *ProfileMutation) Where(ps ...predicate.Profile) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProfileMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProfileMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Profile, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProfileMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProfileMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Profile).
+func (m *ProfileMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProfileMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.name != nil {
+		fields = append(fields, profile.FieldName)
+	}
+	if m.default_currency != nil {
+		fields = append(fields, profile.FieldDefaultCurrency)
+	}
+	if m.created_at != nil {
+		fields = append(fields, profile.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, profile.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProfileMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case profile.FieldName:
+		return m.Name()
+	case profile.FieldDefaultCurrency:
+		return m.DefaultCurrency()
+	case profile.FieldCreatedAt:
+		return m.CreatedAt()
+	case profile.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProfileMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case profile.FieldName:
+		return m.OldName(ctx)
+	case profile.FieldDefaultCurrency:
+		return m.OldDefaultCurrency(ctx)
+	case profile.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case profile.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Profile field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProfileMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case profile.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case profile.FieldDefaultCurrency:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDefaultCurrency(v)
+		return nil
+	case profile.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case profile.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Profile field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProfileMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProfileMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProfileMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Profile numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProfileMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProfileMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProfileMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Profile nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProfileMutation) ResetField(name string) error {
+	switch name {
+	case profile.FieldName:
+		m.ResetName()
+		return nil
+	case profile.FieldDefaultCurrency:
+		m.ResetDefaultCurrency()
+		return nil
+	case profile.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case profile.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Profile field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProfileMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.receipts != nil {
+		edges = append(edges, profile.EdgeReceipts)
+	}
+	if m.files != nil {
+		edges = append(edges, profile.EdgeFiles)
+	}
+	if m.jobs != nil {
+		edges = append(edges, profile.EdgeJobs)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProfileMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case profile.EdgeReceipts:
+		ids := make([]ent.Value, 0, len(m.receipts))
+		for id := range m.receipts {
+			ids = append(ids, id)
+		}
+		return ids
+	case profile.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.files))
+		for id := range m.files {
+			ids = append(ids, id)
+		}
+		return ids
+	case profile.EdgeJobs:
+		ids := make([]ent.Value, 0, len(m.jobs))
+		for id := range m.jobs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProfileMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedreceipts != nil {
+		edges = append(edges, profile.EdgeReceipts)
+	}
+	if m.removedfiles != nil {
+		edges = append(edges, profile.EdgeFiles)
+	}
+	if m.removedjobs != nil {
+		edges = append(edges, profile.EdgeJobs)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProfileMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case profile.EdgeReceipts:
+		ids := make([]ent.Value, 0, len(m.removedreceipts))
+		for id := range m.removedreceipts {
+			ids = append(ids, id)
+		}
+		return ids
+	case profile.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.removedfiles))
+		for id := range m.removedfiles {
+			ids = append(ids, id)
+		}
+		return ids
+	case profile.EdgeJobs:
+		ids := make([]ent.Value, 0, len(m.removedjobs))
+		for id := range m.removedjobs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProfileMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedreceipts {
+		edges = append(edges, profile.EdgeReceipts)
+	}
+	if m.clearedfiles {
+		edges = append(edges, profile.EdgeFiles)
+	}
+	if m.clearedjobs {
+		edges = append(edges, profile.EdgeJobs)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProfileMutation) EdgeCleared(name string) bool {
+	switch name {
+	case profile.EdgeReceipts:
+		return m.clearedreceipts
+	case profile.EdgeFiles:
+		return m.clearedfiles
+	case profile.EdgeJobs:
+		return m.clearedjobs
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProfileMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Profile unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProfileMutation) ResetEdge(name string) error {
+	switch name {
+	case profile.EdgeReceipts:
+		m.ResetReceipts()
+		return nil
+	case profile.EdgeFiles:
+		m.ResetFiles()
+		return nil
+	case profile.EdgeJobs:
+		m.ResetJobs()
+		return nil
+	}
+	return fmt.Errorf("unknown Profile edge %s", name)
+}
+
+// ReceiptMutation represents an operation that mutates the Receipt nodes in the graph.
+type ReceiptMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	merchant_name   *string
+	tx_date         *time.Time
+	subtotal        *float64
+	addsubtotal     *float64
+	tax             *float64
+	addtax          *float64
+	total           *float64
+	addtotal        *float64
+	currency_code   *string
+	payment_method  *string
+	payment_last4   *string
+	description     *string
+	created_at      *time.Time
+	updated_at      *time.Time
+	clearedFields   map[string]struct{}
+	profile         *uuid.UUID
+	clearedprofile  bool
+	category        *uuid.UUID
+	clearedcategory bool
+	files           map[uuid.UUID]struct{}
+	removedfiles    map[uuid.UUID]struct{}
+	clearedfiles    bool
+	jobs            map[uuid.UUID]struct{}
+	removedjobs     map[uuid.UUID]struct{}
+	clearedjobs     bool
+	done            bool
+	oldValue        func(context.Context) (*Receipt, error)
+	predicates      []predicate.Receipt
+}
+
+var _ ent.Mutation = (*ReceiptMutation)(nil)
+
+// receiptOption allows management of the mutation configuration using functional options.
+type receiptOption func(*ReceiptMutation)
+
+// newReceiptMutation creates new mutation for the Receipt entity.
+func newReceiptMutation(c config, op Op, opts ...receiptOption) *ReceiptMutation {
+	m := &ReceiptMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeReceipt,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withReceiptID sets the ID field of the mutation.
+func withReceiptID(id uuid.UUID) receiptOption {
+	return func(m *ReceiptMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Receipt
+		)
+		m.oldValue = func(ctx context.Context) (*Receipt, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Receipt.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withReceipt sets the old Receipt of the mutation.
+func withReceipt(node *Receipt) receiptOption {
+	return func(m *ReceiptMutation) {
+		m.oldValue = func(context.Context) (*Receipt, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ReceiptMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ReceiptMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Receipt entities.
+func (m *ReceiptMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ReceiptMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ReceiptMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Receipt.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProfileID sets the "profile_id" field.
+func (m *ReceiptMutation) SetProfileID(u uuid.UUID) {
+	m.profile = &u
+}
+
+// ProfileID returns the value of the "profile_id" field in the mutation.
+func (m *ReceiptMutation) ProfileID() (r uuid.UUID, exists bool) {
+	v := m.profile
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProfileID returns the old "profile_id" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldProfileID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProfileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProfileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProfileID: %w", err)
+	}
+	return oldValue.ProfileID, nil
+}
+
+// ResetProfileID resets all changes to the "profile_id" field.
+func (m *ReceiptMutation) ResetProfileID() {
+	m.profile = nil
+}
+
+// SetMerchantName sets the "merchant_name" field.
+func (m *ReceiptMutation) SetMerchantName(s string) {
+	m.merchant_name = &s
+}
+
+// MerchantName returns the value of the "merchant_name" field in the mutation.
+func (m *ReceiptMutation) MerchantName() (r string, exists bool) {
+	v := m.merchant_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMerchantName returns the old "merchant_name" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldMerchantName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMerchantName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMerchantName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMerchantName: %w", err)
+	}
+	return oldValue.MerchantName, nil
+}
+
+// ResetMerchantName resets all changes to the "merchant_name" field.
+func (m *ReceiptMutation) ResetMerchantName() {
+	m.merchant_name = nil
+}
+
+// SetTxDate sets the "tx_date" field.
+func (m *ReceiptMutation) SetTxDate(t time.Time) {
+	m.tx_date = &t
+}
+
+// TxDate returns the value of the "tx_date" field in the mutation.
+func (m *ReceiptMutation) TxDate() (r time.Time, exists bool) {
+	v := m.tx_date
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTxDate returns the old "tx_date" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldTxDate(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTxDate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTxDate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTxDate: %w", err)
+	}
+	return oldValue.TxDate, nil
+}
+
+// ResetTxDate resets all changes to the "tx_date" field.
+func (m *ReceiptMutation) ResetTxDate() {
+	m.tx_date = nil
+}
+
+// SetSubtotal sets the "subtotal" field.
+func (m *ReceiptMutation) SetSubtotal(f float64) {
+	m.subtotal = &f
+	m.addsubtotal = nil
+}
+
+// Subtotal returns the value of the "subtotal" field in the mutation.
+func (m *ReceiptMutation) Subtotal() (r float64, exists bool) {
+	v := m.subtotal
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubtotal returns the old "subtotal" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldSubtotal(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubtotal is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubtotal requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubtotal: %w", err)
+	}
+	return oldValue.Subtotal, nil
+}
+
+// AddSubtotal adds f to the "subtotal" field.
+func (m *ReceiptMutation) AddSubtotal(f float64) {
+	if m.addsubtotal != nil {
+		*m.addsubtotal += f
+	} else {
+		m.addsubtotal = &f
+	}
+}
+
+// AddedSubtotal returns the value that was added to the "subtotal" field in this mutation.
+func (m *ReceiptMutation) AddedSubtotal() (r float64, exists bool) {
+	v := m.addsubtotal
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSubtotal clears the value of the "subtotal" field.
+func (m *ReceiptMutation) ClearSubtotal() {
+	m.subtotal = nil
+	m.addsubtotal = nil
+	m.clearedFields[receipt.FieldSubtotal] = struct{}{}
+}
+
+// SubtotalCleared returns if the "subtotal" field was cleared in this mutation.
+func (m *ReceiptMutation) SubtotalCleared() bool {
+	_, ok := m.clearedFields[receipt.FieldSubtotal]
+	return ok
+}
+
+// ResetSubtotal resets all changes to the "subtotal" field.
+func (m *ReceiptMutation) ResetSubtotal() {
+	m.subtotal = nil
+	m.addsubtotal = nil
+	delete(m.clearedFields, receipt.FieldSubtotal)
+}
+
+// SetTax sets the "tax" field.
+func (m *ReceiptMutation) SetTax(f float64) {
+	m.tax = &f
+	m.addtax = nil
+}
+
+// Tax returns the value of the "tax" field in the mutation.
+func (m *ReceiptMutation) Tax() (r float64, exists bool) {
+	v := m.tax
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTax returns the old "tax" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldTax(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTax is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTax requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTax: %w", err)
+	}
+	return oldValue.Tax, nil
+}
+
+// AddTax adds f to the "tax" field.
+func (m *ReceiptMutation) AddTax(f float64) {
+	if m.addtax != nil {
+		*m.addtax += f
+	} else {
+		m.addtax = &f
+	}
+}
+
+// AddedTax returns the value that was added to the "tax" field in this mutation.
+func (m *ReceiptMutation) AddedTax() (r float64, exists bool) {
+	v := m.addtax
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTax clears the value of the "tax" field.
+func (m *ReceiptMutation) ClearTax() {
+	m.tax = nil
+	m.addtax = nil
+	m.clearedFields[receipt.FieldTax] = struct{}{}
+}
+
+// TaxCleared returns if the "tax" field was cleared in this mutation.
+func (m *ReceiptMutation) TaxCleared() bool {
+	_, ok := m.clearedFields[receipt.FieldTax]
+	return ok
+}
+
+// ResetTax resets all changes to the "tax" field.
+func (m *ReceiptMutation) ResetTax() {
+	m.tax = nil
+	m.addtax = nil
+	delete(m.clearedFields, receipt.FieldTax)
+}
+
+// SetTotal sets the "total" field.
+func (m *ReceiptMutation) SetTotal(f float64) {
+	m.total = &f
+	m.addtotal = nil
+}
+
+// Total returns the value of the "total" field in the mutation.
+func (m *ReceiptMutation) Total() (r float64, exists bool) {
+	v := m.total
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotal returns the old "total" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldTotal(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotal is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotal requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotal: %w", err)
+	}
+	return oldValue.Total, nil
+}
+
+// AddTotal adds f to the "total" field.
+func (m *ReceiptMutation) AddTotal(f float64) {
+	if m.addtotal != nil {
+		*m.addtotal += f
+	} else {
+		m.addtotal = &f
+	}
+}
+
+// AddedTotal returns the value that was added to the "total" field in this mutation.
+func (m *ReceiptMutation) AddedTotal() (r float64, exists bool) {
+	v := m.addtotal
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotal resets all changes to the "total" field.
+func (m *ReceiptMutation) ResetTotal() {
+	m.total = nil
+	m.addtotal = nil
+}
+
+// SetCurrencyCode sets the "currency_code" field.
+func (m *ReceiptMutation) SetCurrencyCode(s string) {
+	m.currency_code = &s
+}
+
+// CurrencyCode returns the value of the "currency_code" field in the mutation.
+func (m *ReceiptMutation) CurrencyCode() (r string, exists bool) {
+	v := m.currency_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrencyCode returns the old "currency_code" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldCurrencyCode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrencyCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrencyCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrencyCode: %w", err)
+	}
+	return oldValue.CurrencyCode, nil
+}
+
+// ResetCurrencyCode resets all changes to the "currency_code" field.
+func (m *ReceiptMutation) ResetCurrencyCode() {
+	m.currency_code = nil
+}
+
+// SetCategoryID sets the "category_id" field.
+func (m *ReceiptMutation) SetCategoryID(u uuid.UUID) {
+	m.category = &u
+}
+
+// CategoryID returns the value of the "category_id" field in the mutation.
+func (m *ReceiptMutation) CategoryID() (r uuid.UUID, exists bool) {
+	v := m.category
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCategoryID returns the old "category_id" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldCategoryID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCategoryID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCategoryID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCategoryID: %w", err)
+	}
+	return oldValue.CategoryID, nil
+}
+
+// ResetCategoryID resets all changes to the "category_id" field.
+func (m *ReceiptMutation) ResetCategoryID() {
+	m.category = nil
+}
+
+// SetPaymentMethod sets the "payment_method" field.
+func (m *ReceiptMutation) SetPaymentMethod(s string) {
+	m.payment_method = &s
+}
+
+// PaymentMethod returns the value of the "payment_method" field in the mutation.
+func (m *ReceiptMutation) PaymentMethod() (r string, exists bool) {
+	v := m.payment_method
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentMethod returns the old "payment_method" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldPaymentMethod(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentMethod is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentMethod requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentMethod: %w", err)
+	}
+	return oldValue.PaymentMethod, nil
+}
+
+// ClearPaymentMethod clears the value of the "payment_method" field.
+func (m *ReceiptMutation) ClearPaymentMethod() {
+	m.payment_method = nil
+	m.clearedFields[receipt.FieldPaymentMethod] = struct{}{}
+}
+
+// PaymentMethodCleared returns if the "payment_method" field was cleared in this mutation.
+func (m *ReceiptMutation) PaymentMethodCleared() bool {
+	_, ok := m.clearedFields[receipt.FieldPaymentMethod]
+	return ok
+}
+
+// ResetPaymentMethod resets all changes to the "payment_method" field.
+func (m *ReceiptMutation) ResetPaymentMethod() {
+	m.payment_method = nil
+	delete(m.clearedFields, receipt.FieldPaymentMethod)
+}
+
+// SetPaymentLast4 sets the "payment_last4" field.
+func (m *ReceiptMutation) SetPaymentLast4(s string) {
+	m.payment_last4 = &s
+}
+
+// PaymentLast4 returns the value of the "payment_last4" field in the mutation.
+func (m *ReceiptMutation) PaymentLast4() (r string, exists bool) {
+	v := m.payment_last4
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentLast4 returns the old "payment_last4" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldPaymentLast4(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentLast4 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentLast4 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentLast4: %w", err)
+	}
+	return oldValue.PaymentLast4, nil
+}
+
+// ClearPaymentLast4 clears the value of the "payment_last4" field.
+func (m *ReceiptMutation) ClearPaymentLast4() {
+	m.payment_last4 = nil
+	m.clearedFields[receipt.FieldPaymentLast4] = struct{}{}
+}
+
+// PaymentLast4Cleared returns if the "payment_last4" field was cleared in this mutation.
+func (m *ReceiptMutation) PaymentLast4Cleared() bool {
+	_, ok := m.clearedFields[receipt.FieldPaymentLast4]
+	return ok
+}
+
+// ResetPaymentLast4 resets all changes to the "payment_last4" field.
+func (m *ReceiptMutation) ResetPaymentLast4() {
+	m.payment_last4 = nil
+	delete(m.clearedFields, receipt.FieldPaymentLast4)
+}
+
+// SetDescription sets the "description" field.
+func (m *ReceiptMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *ReceiptMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *ReceiptMutation) ResetDescription() {
+	m.description = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ReceiptMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ReceiptMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ReceiptMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ReceiptMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ReceiptMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ReceiptMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearProfile clears the "profile" edge to the Profile entity.
+func (m *ReceiptMutation) ClearProfile() {
+	m.clearedprofile = true
+	m.clearedFields[receipt.FieldProfileID] = struct{}{}
+}
+
+// ProfileCleared reports if the "profile" edge to the Profile entity was cleared.
+func (m *ReceiptMutation) ProfileCleared() bool {
+	return m.clearedprofile
+}
+
+// ProfileIDs returns the "profile" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProfileID instead. It exists only for internal usage by the builders.
+func (m *ReceiptMutation) ProfileIDs() (ids []uuid.UUID) {
+	if id := m.profile; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProfile resets all changes to the "profile" edge.
+func (m *ReceiptMutation) ResetProfile() {
+	m.profile = nil
+	m.clearedprofile = false
+}
+
+// ClearCategory clears the "category" edge to the Category entity.
+func (m *ReceiptMutation) ClearCategory() {
+	m.clearedcategory = true
+	m.clearedFields[receipt.FieldCategoryID] = struct{}{}
+}
+
+// CategoryCleared reports if the "category" edge to the Category entity was cleared.
+func (m *ReceiptMutation) CategoryCleared() bool {
+	return m.clearedcategory
+}
+
+// CategoryIDs returns the "category" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CategoryID instead. It exists only for internal usage by the builders.
+func (m *ReceiptMutation) CategoryIDs() (ids []uuid.UUID) {
+	if id := m.category; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCategory resets all changes to the "category" edge.
+func (m *ReceiptMutation) ResetCategory() {
+	m.category = nil
+	m.clearedcategory = false
+}
+
+// AddFileIDs adds the "files" edge to the ReceiptFile entity by ids.
+func (m *ReceiptMutation) AddFileIDs(ids ...uuid.UUID) {
+	if m.files == nil {
+		m.files = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.files[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFiles clears the "files" edge to the ReceiptFile entity.
+func (m *ReceiptMutation) ClearFiles() {
+	m.clearedfiles = true
+}
+
+// FilesCleared reports if the "files" edge to the ReceiptFile entity was cleared.
+func (m *ReceiptMutation) FilesCleared() bool {
+	return m.clearedfiles
+}
+
+// RemoveFileIDs removes the "files" edge to the ReceiptFile entity by IDs.
+func (m *ReceiptMutation) RemoveFileIDs(ids ...uuid.UUID) {
+	if m.removedfiles == nil {
+		m.removedfiles = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.files, ids[i])
+		m.removedfiles[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFiles returns the removed IDs of the "files" edge to the ReceiptFile entity.
+func (m *ReceiptMutation) RemovedFilesIDs() (ids []uuid.UUID) {
+	for id := range m.removedfiles {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FilesIDs returns the "files" edge IDs in the mutation.
+func (m *ReceiptMutation) FilesIDs() (ids []uuid.UUID) {
+	for id := range m.files {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFiles resets all changes to the "files" edge.
+func (m *ReceiptMutation) ResetFiles() {
+	m.files = nil
+	m.clearedfiles = false
+	m.removedfiles = nil
+}
+
+// AddJobIDs adds the "jobs" edge to the ExtractJob entity by ids.
+func (m *ReceiptMutation) AddJobIDs(ids ...uuid.UUID) {
+	if m.jobs == nil {
+		m.jobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.jobs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearJobs clears the "jobs" edge to the ExtractJob entity.
+func (m *ReceiptMutation) ClearJobs() {
+	m.clearedjobs = true
+}
+
+// JobsCleared reports if the "jobs" edge to the ExtractJob entity was cleared.
+func (m *ReceiptMutation) JobsCleared() bool {
+	return m.clearedjobs
+}
+
+// RemoveJobIDs removes the "jobs" edge to the ExtractJob entity by IDs.
+func (m *ReceiptMutation) RemoveJobIDs(ids ...uuid.UUID) {
+	if m.removedjobs == nil {
+		m.removedjobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.jobs, ids[i])
+		m.removedjobs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedJobs returns the removed IDs of the "jobs" edge to the ExtractJob entity.
+func (m *ReceiptMutation) RemovedJobsIDs() (ids []uuid.UUID) {
+	for id := range m.removedjobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// JobsIDs returns the "jobs" edge IDs in the mutation.
+func (m *ReceiptMutation) JobsIDs() (ids []uuid.UUID) {
+	for id := range m.jobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetJobs resets all changes to the "jobs" edge.
+func (m *ReceiptMutation) ResetJobs() {
+	m.jobs = nil
+	m.clearedjobs = false
+	m.removedjobs = nil
+}
+
+// Where appends a list predicates to the ReceiptMutation builder.
+func (m *ReceiptMutation) Where(ps ...predicate.Receipt) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ReceiptMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ReceiptMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Receipt, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ReceiptMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ReceiptMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Receipt).
+func (m *ReceiptMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ReceiptMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.profile != nil {
+		fields = append(fields, receipt.FieldProfileID)
+	}
+	if m.merchant_name != nil {
+		fields = append(fields, receipt.FieldMerchantName)
+	}
+	if m.tx_date != nil {
+		fields = append(fields, receipt.FieldTxDate)
+	}
+	if m.subtotal != nil {
+		fields = append(fields, receipt.FieldSubtotal)
+	}
+	if m.tax != nil {
+		fields = append(fields, receipt.FieldTax)
+	}
+	if m.total != nil {
+		fields = append(fields, receipt.FieldTotal)
+	}
+	if m.currency_code != nil {
+		fields = append(fields, receipt.FieldCurrencyCode)
+	}
+	if m.category != nil {
+		fields = append(fields, receipt.FieldCategoryID)
+	}
+	if m.payment_method != nil {
+		fields = append(fields, receipt.FieldPaymentMethod)
+	}
+	if m.payment_last4 != nil {
+		fields = append(fields, receipt.FieldPaymentLast4)
+	}
+	if m.description != nil {
+		fields = append(fields, receipt.FieldDescription)
+	}
+	if m.created_at != nil {
+		fields = append(fields, receipt.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, receipt.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ReceiptMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case receipt.FieldProfileID:
+		return m.ProfileID()
+	case receipt.FieldMerchantName:
+		return m.MerchantName()
+	case receipt.FieldTxDate:
+		return m.TxDate()
+	case receipt.FieldSubtotal:
+		return m.Subtotal()
+	case receipt.FieldTax:
+		return m.Tax()
+	case receipt.FieldTotal:
+		return m.Total()
+	case receipt.FieldCurrencyCode:
+		return m.CurrencyCode()
+	case receipt.FieldCategoryID:
+		return m.CategoryID()
+	case receipt.FieldPaymentMethod:
+		return m.PaymentMethod()
+	case receipt.FieldPaymentLast4:
+		return m.PaymentLast4()
+	case receipt.FieldDescription:
+		return m.Description()
+	case receipt.FieldCreatedAt:
+		return m.CreatedAt()
+	case receipt.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ReceiptMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case receipt.FieldProfileID:
+		return m.OldProfileID(ctx)
+	case receipt.FieldMerchantName:
+		return m.OldMerchantName(ctx)
+	case receipt.FieldTxDate:
+		return m.OldTxDate(ctx)
+	case receipt.FieldSubtotal:
+		return m.OldSubtotal(ctx)
+	case receipt.FieldTax:
+		return m.OldTax(ctx)
+	case receipt.FieldTotal:
+		return m.OldTotal(ctx)
+	case receipt.FieldCurrencyCode:
+		return m.OldCurrencyCode(ctx)
+	case receipt.FieldCategoryID:
+		return m.OldCategoryID(ctx)
+	case receipt.FieldPaymentMethod:
+		return m.OldPaymentMethod(ctx)
+	case receipt.FieldPaymentLast4:
+		return m.OldPaymentLast4(ctx)
+	case receipt.FieldDescription:
+		return m.OldDescription(ctx)
+	case receipt.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case receipt.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Receipt field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReceiptMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case receipt.FieldProfileID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProfileID(v)
+		return nil
+	case receipt.FieldMerchantName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMerchantName(v)
+		return nil
+	case receipt.FieldTxDate:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTxDate(v)
+		return nil
+	case receipt.FieldSubtotal:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubtotal(v)
+		return nil
+	case receipt.FieldTax:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTax(v)
+		return nil
+	case receipt.FieldTotal:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotal(v)
+		return nil
+	case receipt.FieldCurrencyCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrencyCode(v)
+		return nil
+	case receipt.FieldCategoryID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCategoryID(v)
+		return nil
+	case receipt.FieldPaymentMethod:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentMethod(v)
+		return nil
+	case receipt.FieldPaymentLast4:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentLast4(v)
+		return nil
+	case receipt.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case receipt.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case receipt.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Receipt field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ReceiptMutation) AddedFields() []string {
+	var fields []string
+	if m.addsubtotal != nil {
+		fields = append(fields, receipt.FieldSubtotal)
+	}
+	if m.addtax != nil {
+		fields = append(fields, receipt.FieldTax)
+	}
+	if m.addtotal != nil {
+		fields = append(fields, receipt.FieldTotal)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ReceiptMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case receipt.FieldSubtotal:
+		return m.AddedSubtotal()
+	case receipt.FieldTax:
+		return m.AddedTax()
+	case receipt.FieldTotal:
+		return m.AddedTotal()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReceiptMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case receipt.FieldSubtotal:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSubtotal(v)
+		return nil
+	case receipt.FieldTax:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTax(v)
+		return nil
+	case receipt.FieldTotal:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotal(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Receipt numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ReceiptMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(receipt.FieldSubtotal) {
+		fields = append(fields, receipt.FieldSubtotal)
+	}
+	if m.FieldCleared(receipt.FieldTax) {
+		fields = append(fields, receipt.FieldTax)
+	}
+	if m.FieldCleared(receipt.FieldPaymentMethod) {
+		fields = append(fields, receipt.FieldPaymentMethod)
+	}
+	if m.FieldCleared(receipt.FieldPaymentLast4) {
+		fields = append(fields, receipt.FieldPaymentLast4)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ReceiptMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ReceiptMutation) ClearField(name string) error {
+	switch name {
+	case receipt.FieldSubtotal:
+		m.ClearSubtotal()
+		return nil
+	case receipt.FieldTax:
+		m.ClearTax()
+		return nil
+	case receipt.FieldPaymentMethod:
+		m.ClearPaymentMethod()
+		return nil
+	case receipt.FieldPaymentLast4:
+		m.ClearPaymentLast4()
+		return nil
+	}
+	return fmt.Errorf("unknown Receipt nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ReceiptMutation) ResetField(name string) error {
+	switch name {
+	case receipt.FieldProfileID:
+		m.ResetProfileID()
+		return nil
+	case receipt.FieldMerchantName:
+		m.ResetMerchantName()
+		return nil
+	case receipt.FieldTxDate:
+		m.ResetTxDate()
+		return nil
+	case receipt.FieldSubtotal:
+		m.ResetSubtotal()
+		return nil
+	case receipt.FieldTax:
+		m.ResetTax()
+		return nil
+	case receipt.FieldTotal:
+		m.ResetTotal()
+		return nil
+	case receipt.FieldCurrencyCode:
+		m.ResetCurrencyCode()
+		return nil
+	case receipt.FieldCategoryID:
+		m.ResetCategoryID()
+		return nil
+	case receipt.FieldPaymentMethod:
+		m.ResetPaymentMethod()
+		return nil
+	case receipt.FieldPaymentLast4:
+		m.ResetPaymentLast4()
+		return nil
+	case receipt.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case receipt.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case receipt.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Receipt field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ReceiptMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.profile != nil {
+		edges = append(edges, receipt.EdgeProfile)
+	}
+	if m.category != nil {
+		edges = append(edges, receipt.EdgeCategory)
+	}
+	if m.files != nil {
+		edges = append(edges, receipt.EdgeFiles)
+	}
+	if m.jobs != nil {
+		edges = append(edges, receipt.EdgeJobs)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ReceiptMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case receipt.EdgeProfile:
+		if id := m.profile; id != nil {
+			return []ent.Value{*id}
+		}
+	case receipt.EdgeCategory:
+		if id := m.category; id != nil {
+			return []ent.Value{*id}
+		}
+	case receipt.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.files))
+		for id := range m.files {
+			ids = append(ids, id)
+		}
+		return ids
+	case receipt.EdgeJobs:
+		ids := make([]ent.Value, 0, len(m.jobs))
+		for id := range m.jobs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ReceiptMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedfiles != nil {
+		edges = append(edges, receipt.EdgeFiles)
+	}
+	if m.removedjobs != nil {
+		edges = append(edges, receipt.EdgeJobs)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ReceiptMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case receipt.EdgeFiles:
+		ids := make([]ent.Value, 0, len(m.removedfiles))
+		for id := range m.removedfiles {
+			ids = append(ids, id)
+		}
+		return ids
+	case receipt.EdgeJobs:
+		ids := make([]ent.Value, 0, len(m.removedjobs))
+		for id := range m.removedjobs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ReceiptMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedprofile {
+		edges = append(edges, receipt.EdgeProfile)
+	}
+	if m.clearedcategory {
+		edges = append(edges, receipt.EdgeCategory)
+	}
+	if m.clearedfiles {
+		edges = append(edges, receipt.EdgeFiles)
+	}
+	if m.clearedjobs {
+		edges = append(edges, receipt.EdgeJobs)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ReceiptMutation) EdgeCleared(name string) bool {
+	switch name {
+	case receipt.EdgeProfile:
+		return m.clearedprofile
+	case receipt.EdgeCategory:
+		return m.clearedcategory
+	case receipt.EdgeFiles:
+		return m.clearedfiles
+	case receipt.EdgeJobs:
+		return m.clearedjobs
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ReceiptMutation) ClearEdge(name string) error {
+	switch name {
+	case receipt.EdgeProfile:
+		m.ClearProfile()
+		return nil
+	case receipt.EdgeCategory:
+		m.ClearCategory()
+		return nil
+	}
+	return fmt.Errorf("unknown Receipt unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ReceiptMutation) ResetEdge(name string) error {
+	switch name {
+	case receipt.EdgeProfile:
+		m.ResetProfile()
+		return nil
+	case receipt.EdgeCategory:
+		m.ResetCategory()
+		return nil
+	case receipt.EdgeFiles:
+		m.ResetFiles()
+		return nil
+	case receipt.EdgeJobs:
+		m.ResetJobs()
+		return nil
+	}
+	return fmt.Errorf("unknown Receipt edge %s", name)
+}
+
+// ReceiptFileMutation represents an operation that mutates the ReceiptFile nodes in the graph.
+type ReceiptFileMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	source_path    *string
+	content_hash   *[]byte
+	file_ext       *string
+	uploaded_at    *time.Time
+	clearedFields  map[string]struct{}
+	profile        *uuid.UUID
+	clearedprofile bool
+	receipt        *uuid.UUID
+	clearedreceipt bool
+	jobs           map[uuid.UUID]struct{}
+	removedjobs    map[uuid.UUID]struct{}
+	clearedjobs    bool
+	done           bool
+	oldValue       func(context.Context) (*ReceiptFile, error)
+	predicates     []predicate.ReceiptFile
+}
+
+var _ ent.Mutation = (*ReceiptFileMutation)(nil)
+
+// receiptfileOption allows management of the mutation configuration using functional options.
+type receiptfileOption func(*ReceiptFileMutation)
+
+// newReceiptFileMutation creates new mutation for the ReceiptFile entity.
+func newReceiptFileMutation(c config, op Op, opts ...receiptfileOption) *ReceiptFileMutation {
+	m := &ReceiptFileMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeReceiptFile,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withReceiptFileID sets the ID field of the mutation.
+func withReceiptFileID(id uuid.UUID) receiptfileOption {
+	return func(m *ReceiptFileMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ReceiptFile
+		)
+		m.oldValue = func(ctx context.Context) (*ReceiptFile, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ReceiptFile.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withReceiptFile sets the old ReceiptFile of the mutation.
+func withReceiptFile(node *ReceiptFile) receiptfileOption {
+	return func(m *ReceiptFileMutation) {
+		m.oldValue = func(context.Context) (*ReceiptFile, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ReceiptFileMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ReceiptFileMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ReceiptFile entities.
+func (m *ReceiptFileMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ReceiptFileMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ReceiptFileMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ReceiptFile.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProfileID sets the "profile_id" field.
+func (m *ReceiptFileMutation) SetProfileID(u uuid.UUID) {
+	m.profile = &u
+}
+
+// ProfileID returns the value of the "profile_id" field in the mutation.
+func (m *ReceiptFileMutation) ProfileID() (r uuid.UUID, exists bool) {
+	v := m.profile
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProfileID returns the old "profile_id" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldProfileID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProfileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProfileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProfileID: %w", err)
+	}
+	return oldValue.ProfileID, nil
+}
+
+// ResetProfileID resets all changes to the "profile_id" field.
+func (m *ReceiptFileMutation) ResetProfileID() {
+	m.profile = nil
+}
+
+// SetReceiptID sets the "receipt_id" field.
+func (m *ReceiptFileMutation) SetReceiptID(u uuid.UUID) {
+	m.receipt = &u
+}
+
+// ReceiptID returns the value of the "receipt_id" field in the mutation.
+func (m *ReceiptFileMutation) ReceiptID() (r uuid.UUID, exists bool) {
+	v := m.receipt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReceiptID returns the old "receipt_id" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldReceiptID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReceiptID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReceiptID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReceiptID: %w", err)
+	}
+	return oldValue.ReceiptID, nil
+}
+
+// ClearReceiptID clears the value of the "receipt_id" field.
+func (m *ReceiptFileMutation) ClearReceiptID() {
+	m.receipt = nil
+	m.clearedFields[receiptfile.FieldReceiptID] = struct{}{}
+}
+
+// ReceiptIDCleared returns if the "receipt_id" field was cleared in this mutation.
+func (m *ReceiptFileMutation) ReceiptIDCleared() bool {
+	_, ok := m.clearedFields[receiptfile.FieldReceiptID]
+	return ok
+}
+
+// ResetReceiptID resets all changes to the "receipt_id" field.
+func (m *ReceiptFileMutation) ResetReceiptID() {
+	m.receipt = nil
+	delete(m.clearedFields, receiptfile.FieldReceiptID)
+}
+
+// SetSourcePath sets the "source_path" field.
+func (m *ReceiptFileMutation) SetSourcePath(s string) {
+	m.source_path = &s
+}
+
+// SourcePath returns the value of the "source_path" field in the mutation.
+func (m *ReceiptFileMutation) SourcePath() (r string, exists bool) {
+	v := m.source_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourcePath returns the old "source_path" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldSourcePath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourcePath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourcePath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourcePath: %w", err)
+	}
+	return oldValue.SourcePath, nil
+}
+
+// ResetSourcePath resets all changes to the "source_path" field.
+func (m *ReceiptFileMutation) ResetSourcePath() {
+	m.source_path = nil
+}
+
+// SetContentHash sets the "content_hash" field.
+func (m *ReceiptFileMutation) SetContentHash(b []byte) {
+	m.content_hash = &b
+}
+
+// ContentHash returns the value of the "content_hash" field in the mutation.
+func (m *ReceiptFileMutation) ContentHash() (r []byte, exists bool) {
+	v := m.content_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentHash returns the old "content_hash" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldContentHash(ctx context.Context) (v []byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentHash: %w", err)
+	}
+	return oldValue.ContentHash, nil
+}
+
+// ResetContentHash resets all changes to the "content_hash" field.
+func (m *ReceiptFileMutation) ResetContentHash() {
+	m.content_hash = nil
+}
+
+// SetFileExt sets the "file_ext" field.
+func (m *ReceiptFileMutation) SetFileExt(s string) {
+	m.file_ext = &s
+}
+
+// FileExt returns the value of the "file_ext" field in the mutation.
+func (m *ReceiptFileMutation) FileExt() (r string, exists bool) {
+	v := m.file_ext
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileExt returns the old "file_ext" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldFileExt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileExt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileExt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileExt: %w", err)
+	}
+	return oldValue.FileExt, nil
+}
+
+// ResetFileExt resets all changes to the "file_ext" field.
+func (m *ReceiptFileMutation) ResetFileExt() {
+	m.file_ext = nil
+}
+
+// SetUploadedAt sets the "uploaded_at" field.
+func (m *ReceiptFileMutation) SetUploadedAt(t time.Time) {
+	m.uploaded_at = &t
+}
+
+// UploadedAt returns the value of the "uploaded_at" field in the mutation.
+func (m *ReceiptFileMutation) UploadedAt() (r time.Time, exists bool) {
+	v := m.uploaded_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUploadedAt returns the old "uploaded_at" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldUploadedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUploadedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUploadedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUploadedAt: %w", err)
+	}
+	return oldValue.UploadedAt, nil
+}
+
+// ResetUploadedAt resets all changes to the "uploaded_at" field.
+func (m *ReceiptFileMutation) ResetUploadedAt() {
+	m.uploaded_at = nil
+}
+
+// ClearProfile clears the "profile" edge to the Profile entity.
+func (m *ReceiptFileMutation) ClearProfile() {
+	m.clearedprofile = true
+	m.clearedFields[receiptfile.FieldProfileID] = struct{}{}
+}
+
+// ProfileCleared reports if the "profile" edge to the Profile entity was cleared.
+func (m *ReceiptFileMutation) ProfileCleared() bool {
+	return m.clearedprofile
+}
+
+// ProfileIDs returns the "profile" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProfileID instead. It exists only for internal usage by the builders.
+func (m *ReceiptFileMutation) ProfileIDs() (ids []uuid.UUID) {
+	if id := m.profile; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProfile resets all changes to the "profile" edge.
+func (m *ReceiptFileMutation) ResetProfile() {
+	m.profile = nil
+	m.clearedprofile = false
+}
+
+// ClearReceipt clears the "receipt" edge to the Receipt entity.
+func (m *ReceiptFileMutation) ClearReceipt() {
+	m.clearedreceipt = true
+	m.clearedFields[receiptfile.FieldReceiptID] = struct{}{}
+}
+
+// ReceiptCleared reports if the "receipt" edge to the Receipt entity was cleared.
+func (m *ReceiptFileMutation) ReceiptCleared() bool {
+	return m.ReceiptIDCleared() || m.clearedreceipt
+}
+
+// ReceiptIDs returns the "receipt" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ReceiptID instead. It exists only for internal usage by the builders.
+func (m *ReceiptFileMutation) ReceiptIDs() (ids []uuid.UUID) {
+	if id := m.receipt; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetReceipt resets all changes to the "receipt" edge.
+func (m *ReceiptFileMutation) ResetReceipt() {
+	m.receipt = nil
+	m.clearedreceipt = false
+}
+
+// AddJobIDs adds the "jobs" edge to the ExtractJob entity by ids.
+func (m *ReceiptFileMutation) AddJobIDs(ids ...uuid.UUID) {
+	if m.jobs == nil {
+		m.jobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.jobs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearJobs clears the "jobs" edge to the ExtractJob entity.
+func (m *ReceiptFileMutation) ClearJobs() {
+	m.clearedjobs = true
+}
+
+// JobsCleared reports if the "jobs" edge to the ExtractJob entity was cleared.
+func (m *ReceiptFileMutation) JobsCleared() bool {
+	return m.clearedjobs
+}
+
+// RemoveJobIDs removes the "jobs" edge to the ExtractJob entity by IDs.
+func (m *ReceiptFileMutation) RemoveJobIDs(ids ...uuid.UUID) {
+	if m.removedjobs == nil {
+		m.removedjobs = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.jobs, ids[i])
+		m.removedjobs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedJobs returns the removed IDs of the "jobs" edge to the ExtractJob entity.
+func (m *ReceiptFileMutation) RemovedJobsIDs() (ids []uuid.UUID) {
+	for id := range m.removedjobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// JobsIDs returns the "jobs" edge IDs in the mutation.
+func (m *ReceiptFileMutation) JobsIDs() (ids []uuid.UUID) {
+	for id := range m.jobs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetJobs resets all changes to the "jobs" edge.
+func (m *ReceiptFileMutation) ResetJobs() {
+	m.jobs = nil
+	m.clearedjobs = false
+	m.removedjobs = nil
+}
+
+// Where appends a list predicates to the ReceiptFileMutation builder.
+func (m *ReceiptFileMutation) Where(ps ...predicate.ReceiptFile) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ReceiptFileMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ReceiptFileMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ReceiptFile, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ReceiptFileMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ReceiptFileMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ReceiptFile).
+func (m *ReceiptFileMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ReceiptFileMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.profile != nil {
+		fields = append(fields, receiptfile.FieldProfileID)
+	}
+	if m.receipt != nil {
+		fields = append(fields, receiptfile.FieldReceiptID)
+	}
+	if m.source_path != nil {
+		fields = append(fields, receiptfile.FieldSourcePath)
+	}
+	if m.content_hash != nil {
+		fields = append(fields, receiptfile.FieldContentHash)
+	}
+	if m.file_ext != nil {
+		fields = append(fields, receiptfile.FieldFileExt)
+	}
+	if m.uploaded_at != nil {
+		fields = append(fields, receiptfile.FieldUploadedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ReceiptFileMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case receiptfile.FieldProfileID:
+		return m.ProfileID()
+	case receiptfile.FieldReceiptID:
+		return m.ReceiptID()
+	case receiptfile.FieldSourcePath:
+		return m.SourcePath()
+	case receiptfile.FieldContentHash:
+		return m.ContentHash()
+	case receiptfile.FieldFileExt:
+		return m.FileExt()
+	case receiptfile.FieldUploadedAt:
+		return m.UploadedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ReceiptFileMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case receiptfile.FieldProfileID:
+		return m.OldProfileID(ctx)
+	case receiptfile.FieldReceiptID:
+		return m.OldReceiptID(ctx)
+	case receiptfile.FieldSourcePath:
+		return m.OldSourcePath(ctx)
+	case receiptfile.FieldContentHash:
+		return m.OldContentHash(ctx)
+	case receiptfile.FieldFileExt:
+		return m.OldFileExt(ctx)
+	case receiptfile.FieldUploadedAt:
+		return m.OldUploadedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ReceiptFile field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReceiptFileMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case receiptfile.FieldProfileID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProfileID(v)
+		return nil
+	case receiptfile.FieldReceiptID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReceiptID(v)
+		return nil
+	case receiptfile.FieldSourcePath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourcePath(v)
+		return nil
+	case receiptfile.FieldContentHash:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentHash(v)
+		return nil
+	case receiptfile.FieldFileExt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileExt(v)
+		return nil
+	case receiptfile.FieldUploadedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUploadedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ReceiptFile field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ReceiptFileMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ReceiptFileMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReceiptFileMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ReceiptFile numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ReceiptFileMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(receiptfile.FieldReceiptID) {
+		fields = append(fields, receiptfile.FieldReceiptID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ReceiptFileMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ReceiptFileMutation) ClearField(name string) error {
+	switch name {
+	case receiptfile.FieldReceiptID:
+		m.ClearReceiptID()
+		return nil
+	}
+	return fmt.Errorf("unknown ReceiptFile nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ReceiptFileMutation) ResetField(name string) error {
+	switch name {
+	case receiptfile.FieldProfileID:
+		m.ResetProfileID()
+		return nil
+	case receiptfile.FieldReceiptID:
+		m.ResetReceiptID()
+		return nil
+	case receiptfile.FieldSourcePath:
+		m.ResetSourcePath()
+		return nil
+	case receiptfile.FieldContentHash:
+		m.ResetContentHash()
+		return nil
+	case receiptfile.FieldFileExt:
+		m.ResetFileExt()
+		return nil
+	case receiptfile.FieldUploadedAt:
+		m.ResetUploadedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ReceiptFile field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ReceiptFileMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.profile != nil {
+		edges = append(edges, receiptfile.EdgeProfile)
+	}
+	if m.receipt != nil {
+		edges = append(edges, receiptfile.EdgeReceipt)
+	}
+	if m.jobs != nil {
+		edges = append(edges, receiptfile.EdgeJobs)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ReceiptFileMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case receiptfile.EdgeProfile:
+		if id := m.profile; id != nil {
+			return []ent.Value{*id}
+		}
+	case receiptfile.EdgeReceipt:
+		if id := m.receipt; id != nil {
+			return []ent.Value{*id}
+		}
+	case receiptfile.EdgeJobs:
+		ids := make([]ent.Value, 0, len(m.jobs))
+		for id := range m.jobs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ReceiptFileMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedjobs != nil {
+		edges = append(edges, receiptfile.EdgeJobs)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ReceiptFileMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case receiptfile.EdgeJobs:
+		ids := make([]ent.Value, 0, len(m.removedjobs))
+		for id := range m.removedjobs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ReceiptFileMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedprofile {
+		edges = append(edges, receiptfile.EdgeProfile)
+	}
+	if m.clearedreceipt {
+		edges = append(edges, receiptfile.EdgeReceipt)
+	}
+	if m.clearedjobs {
+		edges = append(edges, receiptfile.EdgeJobs)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ReceiptFileMutation) EdgeCleared(name string) bool {
+	switch name {
+	case receiptfile.EdgeProfile:
+		return m.clearedprofile
+	case receiptfile.EdgeReceipt:
+		return m.clearedreceipt
+	case receiptfile.EdgeJobs:
+		return m.clearedjobs
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ReceiptFileMutation) ClearEdge(name string) error {
+	switch name {
+	case receiptfile.EdgeProfile:
+		m.ClearProfile()
+		return nil
+	case receiptfile.EdgeReceipt:
+		m.ClearReceipt()
+		return nil
+	}
+	return fmt.Errorf("unknown ReceiptFile unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ReceiptFileMutation) ResetEdge(name string) error {
+	switch name {
+	case receiptfile.EdgeProfile:
+		m.ResetProfile()
+		return nil
+	case receiptfile.EdgeReceipt:
+		m.ResetReceipt()
+		return nil
+	case receiptfile.EdgeJobs:
+		m.ResetJobs()
+		return nil
+	}
+	return fmt.Errorf("unknown ReceiptFile edge %s", name)
 }

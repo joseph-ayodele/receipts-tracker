@@ -21,6 +21,54 @@ func (f CategoryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CategoryMutation", m)
 }
 
+// The ExtractJobFunc type is an adapter to allow the use of ordinary
+// function as ExtractJob mutator.
+type ExtractJobFunc func(context.Context, *ent.ExtractJobMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ExtractJobFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ExtractJobMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ExtractJobMutation", m)
+}
+
+// The ProfileFunc type is an adapter to allow the use of ordinary
+// function as Profile mutator.
+type ProfileFunc func(context.Context, *ent.ProfileMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProfileFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProfileMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProfileMutation", m)
+}
+
+// The ReceiptFunc type is an adapter to allow the use of ordinary
+// function as Receipt mutator.
+type ReceiptFunc func(context.Context, *ent.ReceiptMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ReceiptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ReceiptMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReceiptMutation", m)
+}
+
+// The ReceiptFileFunc type is an adapter to allow the use of ordinary
+// function as ReceiptFile mutator.
+type ReceiptFileFunc func(context.Context, *ent.ReceiptFileMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ReceiptFileFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ReceiptFileMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReceiptFileMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 

@@ -8,30 +8,30 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 )
 
-// CategoryDelete is the builder for deleting a Category entity.
-type CategoryDelete struct {
+// ReceiptDelete is the builder for deleting a Receipt entity.
+type ReceiptDelete struct {
 	config
 	hooks    []Hook
-	mutation *CategoryMutation
+	mutation *ReceiptMutation
 }
 
-// Where appends a list predicates to the CategoryDelete builder.
-func (_d *CategoryDelete) Where(ps ...predicate.Category) *CategoryDelete {
+// Where appends a list predicates to the ReceiptDelete builder.
+func (_d *ReceiptDelete) Where(ps ...predicate.Receipt) *ReceiptDelete {
 	_d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query and returns how many vertices were deleted.
-func (_d *CategoryDelete) Exec(ctx context.Context) (int, error) {
+func (_d *ReceiptDelete) Exec(ctx context.Context) (int, error) {
 	return withHooks(ctx, _d.sqlExec, _d.mutation, _d.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *CategoryDelete) ExecX(ctx context.Context) int {
+func (_d *ReceiptDelete) ExecX(ctx context.Context) int {
 	n, err := _d.Exec(ctx)
 	if err != nil {
 		panic(err)
@@ -39,8 +39,8 @@ func (_d *CategoryDelete) ExecX(ctx context.Context) int {
 	return n
 }
 
-func (_d *CategoryDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(category.Table, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
+func (_d *ReceiptDelete) sqlExec(ctx context.Context) (int, error) {
+	_spec := sqlgraph.NewDeleteSpec(receipt.Table, sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID))
 	if ps := _d.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -56,32 +56,32 @@ func (_d *CategoryDelete) sqlExec(ctx context.Context) (int, error) {
 	return affected, err
 }
 
-// CategoryDeleteOne is the builder for deleting a single Category entity.
-type CategoryDeleteOne struct {
-	_d *CategoryDelete
+// ReceiptDeleteOne is the builder for deleting a single Receipt entity.
+type ReceiptDeleteOne struct {
+	_d *ReceiptDelete
 }
 
-// Where appends a list predicates to the CategoryDelete builder.
-func (_d *CategoryDeleteOne) Where(ps ...predicate.Category) *CategoryDeleteOne {
+// Where appends a list predicates to the ReceiptDelete builder.
+func (_d *ReceiptDeleteOne) Where(ps ...predicate.Receipt) *ReceiptDeleteOne {
 	_d._d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query.
-func (_d *CategoryDeleteOne) Exec(ctx context.Context) error {
+func (_d *ReceiptDeleteOne) Exec(ctx context.Context) error {
 	n, err := _d._d.Exec(ctx)
 	switch {
 	case err != nil:
 		return err
 	case n == 0:
-		return &NotFoundError{category.Label}
+		return &NotFoundError{receipt.Label}
 	default:
 		return nil
 	}
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *CategoryDeleteOne) ExecX(ctx context.Context) {
+func (_d *ReceiptDeleteOne) ExecX(ctx context.Context) {
 	if err := _d.Exec(ctx); err != nil {
 		panic(err)
 	}

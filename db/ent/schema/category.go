@@ -23,13 +23,8 @@ func (Category) Annotations() []schema.Annotation {
 
 func (Category) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).
-			Default(uuid.New).
-			Immutable().
-			StorageKey("id"),
-		field.String("name").
-			NotEmpty().
-			Unique().
+		field.UUID("id", uuid.UUID{}).Default(uuid.New).Immutable(),
+		field.String("name").NotEmpty().Unique().
 			SchemaType(map[string]string{dialect.Postgres: "text"}),
 	}
 }

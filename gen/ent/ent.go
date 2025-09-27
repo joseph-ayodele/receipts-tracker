@@ -13,6 +13,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -73,7 +77,11 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			category.Table: category.ValidColumn,
+			category.Table:    category.ValidColumn,
+			extractjob.Table:  extractjob.ValidColumn,
+			profile.Table:     profile.ValidColumn,
+			receipt.Table:     receipt.ValidColumn,
+			receiptfile.Table: receiptfile.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

@@ -27,10 +27,7 @@ func (ExtractJob) Annotations() []schema.Annotation {
 
 func (ExtractJob) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).
-			Default(uuid.New).
-			Immutable().
-			StorageKey("id"),
+		field.UUID("id", uuid.UUID{}).Default(uuid.New).Immutable(),
 		// explicit FKs
 		field.UUID("file_id", uuid.UUID{}),
 		field.UUID("profile_id", uuid.UUID{}),
