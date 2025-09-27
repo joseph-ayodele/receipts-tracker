@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"time"
@@ -14,9 +14,9 @@ import (
 func main() {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		fmt.Println("ERROR: DB_URL env var is required")
-		fmt.Println("  mac/Linux (bash/zsh): export DB_URL=postgres://USER:PASS@HOST:PORT/DB?sslmode=disable")
-		fmt.Println("  Windows (PowerShell): $env:DB_URL='postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'")
+		log.Println("ERROR: DB_URL env var is required")
+		log.Println("  mac/Linux (bash/zsh): export DB_URL=postgres://USER:PASS@HOST:PORT/DB?sslmode=disable")
+		log.Println("  Windows (PowerShell): $env:DB_URL='postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'")
 		os.Exit(2)
 	}
 
@@ -34,33 +34,30 @@ func main() {
 		// StatementTimeout: 2 * time.Second, // optional: server-side cap
 	})
 	if err != nil {
-		fmt.Printf("ERROR: opening DB: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("opening DB: %v", err)
 	}
 	defer func(entc *ent.Client) {
 		err := entc.Close()
 		if err != nil {
-			fmt.Printf("ERROR: closing ent client: %v\n", err)
+			log.Printf("ERROR: closing ent client: %v", err)
 		}
 	}(entc)
 	defer pool.Close()
 
 	// Health check via pool
 	if err := repo.HealthCheck(ctx, pool, 1*time.Second); err != nil {
-		fmt.Printf("DB health: FAIL (%v)\n", err)
-		os.Exit(1)
+		log.Fatalf("DB health: FAIL (%v)", err)
 	}
-	fmt.Println("DB health: OK")
+	log.Println("DB health: OK")
 
 	// typed query using ent client
 	cats, err := repo.ListCategories(ctx, entc)
 	if err != nil {
-		fmt.Printf("ERROR: listing categories: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("listing categories: %v", err)
 	}
 
-	fmt.Printf("categories count: %d\n", len(cats))
+	log.Printf("categories count: %d", len(cats))
 	for _, c := range cats {
-		fmt.Printf("- [%d] %s\n", c.ID, c.Name)
+		log.Printf("- [%d] %s", c.ID, c.Name)
 	}
 }

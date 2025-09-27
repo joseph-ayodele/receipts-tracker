@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,28 +24,38 @@ import (
 func IngestPath(ctx context.Context, entc *ent.Client, profileID uuid.UUID, path string) (*ent.ReceiptFile, bool, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return nil, false, fmt.Errorf("abs path: %w", err)
+		log.Printf("abs path error: %v", err)
+		return nil, false, err
 	}
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(abs)), ".")
 	if ext == "" {
-		return nil, false, fmt.Errorf("file has no extension: %s", abs)
+		log.Printf("file has no extension: %s", abs)
+		return nil, false, fmt.Errorf("file has no extension")
 	}
 	// Optional: enforce allowed set (pdf/jpg/png)
 	switch ext {
 	case "pdf", "jpg", "jpeg", "png":
 	default:
-		return nil, false, fmt.Errorf("unsupported extension: %s", ext)
+		log.Printf("unsupported extension: %s", ext)
+		return nil, false, fmt.Errorf("unsupported extension")
 	}
 
 	f, err := os.Open(abs)
 	if err != nil {
-		return nil, false, fmt.Errorf("open: %w", err)
+		log.Printf("open error: %v", err)
+		return nil, false, err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Printf("close error: %v", err)
+		}
+	}(f)
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return nil, false, fmt.Errorf("hash: %w", err)
+		log.Printf("hash error: %v", err)
+		return nil, false, err
 	}
 	sum := h.Sum(nil)
 	now := time.Now().UTC()
@@ -81,7 +92,12 @@ func HashHex(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Printf("error closing file: %v", err)
+		}
+	}(f)
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err

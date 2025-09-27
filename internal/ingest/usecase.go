@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,30 +47,41 @@ func (u *Usecase) allowed(ext string) bool {
 func (u *Usecase) IngestPath(ctx context.Context, profileID uuid.UUID, path string) (*ent.ReceiptFile, bool, string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return nil, false, "", fmt.Errorf("abs path: %w", err)
+		log.Printf("abs path error: %v", err)
+		return nil, false, "", err
 	}
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(abs)), ".")
 	if ext == "" || !u.allowed(ext) {
-		return nil, false, "", fmt.Errorf("unsupported or missing extension: %q", ext)
+		log.Printf("unsupported or missing extension: %q", ext)
+		return nil, false, "", fmt.Errorf("unsupported or missing extension")
 	}
 
 	//exists, err := u.Profiles.Exists(ctx, entprofile.ID(profileID))
 	//if err != nil {
-	//	return nil, false, "", fmt.Errorf("check profile: %w", err)
+	//	log.Printf("check profile error: %v", err)
+	//	return nil, false, "", err
 	//}
 	//if !exists {
+	//	log.Printf("profile not found")
 	//	return nil, false, "", fmt.Errorf("profile not found")
 	//}
 
 	f, err := os.Open(abs)
 	if err != nil {
-		return nil, false, "", fmt.Errorf("open: %w", err)
+		log.Printf("open error: %v", err)
+		return nil, false, "", err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Printf("error closing file: %v", err)
+		}
+	}(f)
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return nil, false, "", fmt.Errorf("hash: %w", err)
+		log.Printf("hash error: %v", err)
+		return nil, false, "", err
 	}
 	sum := h.Sum(nil)
 	sumHex := hex.EncodeToString(sum)

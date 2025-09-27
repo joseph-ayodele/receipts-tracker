@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"google.golang.org/grpc"
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
@@ -19,8 +20,7 @@ import (
 func main() {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		fmt.Fprintln(os.Stderr, "ERROR: DB_URL env var is required")
-		os.Exit(2)
+		log.Fatal("DB_URL env var is required")
 	}
 	addr := os.Getenv("GRPC_ADDR")
 	if addr == "" {
@@ -40,17 +40,20 @@ func main() {
 		DialTimeout:     3 * time.Second,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: opening DB: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("opening DB: %v", err)
 	}
-	defer entc.Close()
+	defer func(entc *ent.Client) {
+		err := entc.Close()
+		if err != nil {
+			log.Printf("closing ent client: %v", err)
+		}
+	}(entc)
 	defer pool.Close()
 
 	// gRPC server
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: listen %s: %v\n", addr, err)
-		os.Exit(1)
+		log.Fatalf("listen %s: %v", addr, err)
 	}
 	grpcServer := grpc.NewServer()
 
@@ -62,15 +65,14 @@ func main() {
 	receiptsService := svc.NewReceiptService(receiptsRepo)
 	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
 
-	fmt.Printf("receiptsd listening on %s\n", addr)
+	log.Printf("receiptsd listening on %s", addr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Fprintf(os.Stderr, "gRPC serve error: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("gRPC serve error: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	fmt.Println("shutting down...")
+	log.Println("shutting down...")
 	grpcServer.GracefulStop()
 }
