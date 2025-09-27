@@ -13,7 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/db/constants"
+	"github.com/joseph-ayodele/receipts-tracker/constants"
 )
 
 type ExtractJob struct{ ent.Schema }

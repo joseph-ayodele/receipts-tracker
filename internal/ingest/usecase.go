@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,17 +18,13 @@ import (
 )
 
 type Usecase struct {
-	Profiles repository.ProfileRepository
-	Files    repository.ReceiptFileRepository
-
-	AllowedExts map[string]struct{} // lowercased sans dot; nil -> default
+	Profiles    repository.ProfileRepository
+	Files       repository.ReceiptFileRepository
+	AllowedExts map[string]struct{}
 }
 
 func NewUsecase(p repository.ProfileRepository, f repository.ReceiptFileRepository) *Usecase {
-	return &Usecase{
-		Profiles: p,
-		Files:    f,
-	}
+	return &Usecase{Profiles: p, Files: f}
 }
 
 func (u *Usecase) allowed(ext string) bool {
@@ -42,54 +37,51 @@ func (u *Usecase) allowed(ext string) bool {
 	return ok
 }
 
-// IngestPath reads and hashes the file, verifies profile exists, and upserts receipt_files.
-// Returns (row, dedup, hexHash, nil) or error.
-func (u *Usecase) IngestPath(ctx context.Context, profileID uuid.UUID, path string) (*ent.ReceiptFile, bool, string, error) {
+// Implement receiptsv1.Ingestor-style method (no ent types in signature).
+func (u *Usecase) IngestPath(ctx context.Context, profileID uuid.UUID, path string) (fileID string, dedup bool, hexHash string, ext string, uploadedAt time.Time, sourcePath string, err error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		log.Printf("abs path error: %v", err)
-		return nil, false, "", err
+		return "", false, "", "", time.Time{}, "", fmt.Errorf("abs path: %w", err)
 	}
-	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(abs)), ".")
+	ext = strings.TrimPrefix(strings.ToLower(filepath.Ext(abs)), ".")
 	if ext == "" || !u.allowed(ext) {
-		log.Printf("unsupported or missing extension: %q", ext)
-		return nil, false, "", fmt.Errorf("unsupported or missing extension")
+		return "", false, "", "", time.Time{}, "", fmt.Errorf("unsupported or missing extension: %q", ext)
 	}
-
 	//exists, err := u.Profiles.Exists(ctx, entprofile.ID(profileID))
 	//if err != nil {
-	//	log.Printf("check profile error: %v", err)
-	//	return nil, false, "", err
+	//	return "", false, "", "", time.Time{}, "", fmt.Errorf("check profile: %w", err)
 	//}
 	//if !exists {
-	//	log.Printf("profile not found")
-	//	return nil, false, "", fmt.Errorf("profile not found")
+	//	return "", false, "", "", time.Time{}, "", fmt.Errorf("profile not found")
 	//}
 
 	f, err := os.Open(abs)
 	if err != nil {
-		log.Printf("open error: %v", err)
-		return nil, false, "", err
+		return "", false, "", "", time.Time{}, "", fmt.Errorf("open: %w", err)
 	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			log.Printf("error closing file: %v", err)
-		}
-	}(f)
+	defer f.Close()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		log.Printf("hash error: %v", err)
-		return nil, false, "", err
+		return "", false, "", "", time.Time{}, "", fmt.Errorf("hash: %w", err)
 	}
 	sum := h.Sum(nil)
-	sumHex := hex.EncodeToString(sum)
+	hexHash = hex.EncodeToString(sum)
 	now := time.Now().UTC()
 
 	row, dedup, err := u.Files.UpsertByHash(ctx, profileID, abs, ext, sum, now)
 	if err != nil {
+		return "", false, "", "", time.Time{}, "", err
+	}
+	return row.ID.String(), dedup, hexHash, row.FileExt, row.UploadedAt, row.SourcePath, nil
+}
+
+// Optional: if you still need the ent row internally for other flows.
+func (u *Usecase) ingestEnt(ctx context.Context, profileID uuid.UUID, path string) (*ent.ReceiptFile, bool, string, error) {
+	_, dedup, hexHash, _, _, _, err := u.IngestPath(ctx, profileID, path)
+	if err != nil {
 		return nil, false, "", err
 	}
-	return row, dedup, sumHex, nil
+	// If needed, you can look it back up via Files repo.
+	return nil, dedup, hexHash, nil
 }

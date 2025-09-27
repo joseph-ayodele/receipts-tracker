@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IngestionService_Ingest_FullMethodName = "/receipts.v1.IngestionService/Ingest"
+	IngestionService_Ingest_FullMethodName          = "/receipts.v1.IngestionService/Ingest"
+	IngestionService_IngestDirectory_FullMethodName = "/receipts.v1.IngestionService/IngestDirectory"
 )
 
 // IngestionServiceClient is the client API for IngestionService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type IngestionServiceClient interface {
 	Ingest(ctx context.Context, in *IngestRequest, opts ...grpc.CallOption) (*IngestResponse, error)
+	IngestDirectory(ctx context.Context, in *IngestDirectoryRequest, opts ...grpc.CallOption) (*IngestDirectoryResponse, error)
 }
 
 type ingestionServiceClient struct {
@@ -47,11 +49,22 @@ func (c *ingestionServiceClient) Ingest(ctx context.Context, in *IngestRequest, 
 	return out, nil
 }
 
+func (c *ingestionServiceClient) IngestDirectory(ctx context.Context, in *IngestDirectoryRequest, opts ...grpc.CallOption) (*IngestDirectoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IngestDirectoryResponse)
+	err := c.cc.Invoke(ctx, IngestionService_IngestDirectory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IngestionServiceServer is the server API for IngestionService service.
 // All implementations must embed UnimplementedIngestionServiceServer
 // for forward compatibility.
 type IngestionServiceServer interface {
 	Ingest(context.Context, *IngestRequest) (*IngestResponse, error)
+	IngestDirectory(context.Context, *IngestDirectoryRequest) (*IngestDirectoryResponse, error)
 	mustEmbedUnimplementedIngestionServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedIngestionServiceServer struct{}
 
 func (UnimplementedIngestionServiceServer) Ingest(context.Context, *IngestRequest) (*IngestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ingest not implemented")
+}
+func (UnimplementedIngestionServiceServer) IngestDirectory(context.Context, *IngestDirectoryRequest) (*IngestDirectoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IngestDirectory not implemented")
 }
 func (UnimplementedIngestionServiceServer) mustEmbedUnimplementedIngestionServiceServer() {}
 func (UnimplementedIngestionServiceServer) testEmbeddedByValue()                          {}
@@ -104,6 +120,24 @@ func _IngestionService_Ingest_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IngestionService_IngestDirectory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IngestDirectoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IngestionServiceServer).IngestDirectory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IngestionService_IngestDirectory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IngestionServiceServer).IngestDirectory(ctx, req.(*IngestDirectoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IngestionService_ServiceDesc is the grpc.ServiceDesc for IngestionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var IngestionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Ingest",
 			Handler:    _IngestionService_Ingest_Handler,
+		},
+		{
+			MethodName: "IngestDirectory",
+			Handler:    _IngestionService_IngestDirectory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

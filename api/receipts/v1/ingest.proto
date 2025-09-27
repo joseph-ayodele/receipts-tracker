@@ -16,8 +16,34 @@ message IngestResponse {
   string file_ext = 4;          // normalized ext
   string uploaded_at = 5;       // RFC3339
   string source_path = 6;       // echoed canonical path
+  string error = 7;             // non-empty on failure (directory ingest keeps walking)
+}
+
+message IngestDirectoryRequest {
+  string profile_id = 1;         // required (UUID)
+  string root_path = 2;          // required; directory to walk
+  repeated string include_exts = 3; // optional; defaults to ["pdf","jpg","jpeg","png"] (case-insensitive)
+  bool skip_hidden = 4;          // optional; default true - skip dotfiles and dot-dirs
+}
+
+message IngestStats {
+  uint32 scanned = 1;       // FS entries visited
+  uint32 matched = 2;       // files matching ext filter
+  uint32 succeeded = 3;     // successful insert or dedup
+  uint32 deduplicated = 4;  // subset of succeeded
+  uint32 failed = 5;        // failures
+}
+
+message IngestDirectoryResponse {
+  uint32 scanned = 1;       // FS entries visited
+  uint32 matched = 2;       // files matching ext filter
+  uint32 succeeded = 3;     // successful insert or dedup
+  uint32 deduplicated = 4;  // subset of succeeded
+  uint32 failed = 5;        // failures
+  repeated IngestResponse results = 6;
 }
 
 service IngestionService {
   rpc Ingest(IngestRequest) returns (IngestResponse);
+  rpc IngestDirectory(IngestDirectoryRequest) returns (IngestDirectoryResponse);
 }
