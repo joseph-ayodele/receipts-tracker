@@ -69,6 +69,7 @@ func (r *extractJobRepo) FinishFailure(ctx context.Context, jobID uuid.UUID, mes
 	_, err := r.ent.ExtractJob.
 		UpdateOneID(jobID).
 		SetFinishedAt(time.Now()).
+		SetNeedsReview(true).
 		SetStatus("FAILED").
 		SetErrorMessage(message).
 		Save(ctx)

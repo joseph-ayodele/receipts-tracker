@@ -18,21 +18,50 @@ ENT_VERSION                  ?= latest         # ent is used via `go run` below;
 # -----------------------------
 # Helpers
 # -----------------------------
-define need_protoc
-	@command -v protoc >/dev/null 2>&1 || { \
-	  echo "ERROR: protoc not found. Install from https://grpc.io/docs/protoc-installation/"; \
-	  exit 1; \
-	}
+# Define a single, reusable macro for checking prerequisites
+# $(1) = Binary name (e.g., protoc)
+# $(2) = Specific error/installation message
+define check_prereq
+	@echo -n "  -> Checking $(1)... "
+	if command -v $(1) >/dev/null 2>&1; then \
+		echo "Found."; \
+	else \
+		echo "NOT FOUND!"; \
+		echo "ERROR: $(1) not found. $(2)"; \
+		exit 1; \
+	fi
 endef
 
+# ==============================================================================
+# DEPENDENCY CHECKS (Platform-Agnostic)
+# ==============================================================================
+.PHONY: deps/go
+deps/go: ## Verify that the Go compiler is installed
+	@echo "Checking for Go compiler..."
+	$(call check_prereq, go, Install Go from https://go.dev/doc/install)
+
 .PHONY: deps/tools
-deps/tools: ## Install pinned codegen tools (protoc plugins)
-	$(call need_protoc)
+deps/tools: deps/go ## Install pinned codegen tools (protoc plugins)
+	$(call check_prereq, protoc, Install from https://grpc.io/docs/protoc-installation/)
+
+	@echo "Installing code generation tools..."
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
 	@echo "Tools installed:"
 	@echo "  protoc-gen-go        @ $(PROTOC_GEN_GO_VERSION)"
 	@echo "  protoc-gen-go-grpc   @ $(PROTOC_GEN_GO_GRPC_VERSION)"
+
+.PHONY: deps/bin
+deps/bin: ## Checks for external binaries required for OCR processing.
+	@echo "Checking for external binary dependencies..."
+	# Check Tesseract
+	$(call check_prereq, tesseract, Use 'brew/scoop install tesseract' or similar.)
+
+	# Check Poppler utilities
+	$(call check_prereq, pdftotext, Poppler utilities not found. Use 'brew/scoop install poppler' or similar.)
+	$(call check_prereq, pdftoppm, Poppler utilities not found. Use 'brew/scoop install poppler' or similar.)
+
+	@echo "All external binaries found."
 
 # -----------------------------
 # Database utilities
