@@ -1,21 +1,4 @@
-package main
+package ent
 
-import (
-	"log"
-
-	"entgo.io/ent/entc"
-	"entgo.io/ent/entc/gen"
-)
-
-func main() {
-	err := entc.Generate(
-		"./db/ent/schema",
-		&gen.Config{
-			Target:  "gen/ent",
-			Package: "github.com/joseph-ayodele/receipts-tracker/gen/ent",
-		},
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
+// Generate ent code into gen/ent (matches your imports).
+//go:generate go run entgo.io/ent/cmd/ent generate --target ../../gen/ent ./schema
