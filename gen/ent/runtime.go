@@ -33,21 +33,7 @@ func init() {
 	// extractjobDescFormat is the schema descriptor for format field.
 	extractjobDescFormat := extractjobFields[4].Descriptor()
 	// extractjob.FormatValidator is a validator for the "format" field. It is called by the builders before save.
-	extractjob.FormatValidator = func() func(string) error {
-		validators := extractjobDescFormat.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(format string) error {
-			for _, fn := range fns {
-				if err := fn(format); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
+	extractjob.FormatValidator = extractjobDescFormat.Validators[0].(func(string) error)
 	// extractjobDescStartedAt is the schema descriptor for started_at field.
 	extractjobDescStartedAt := extractjobFields[5].Descriptor()
 	// extractjob.DefaultStartedAt holds the default value on creation for the started_at field.

@@ -2,7 +2,6 @@ package schema
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
 	"entgo.io/ent"
@@ -13,7 +12,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/constants"
 )
 
 type ExtractJob struct{ ent.Schema }
@@ -31,8 +29,7 @@ func (ExtractJob) Fields() []ent.Field {
 		field.UUID("file_id", uuid.UUID{}),
 		field.UUID("profile_id", uuid.UUID{}),
 		field.UUID("receipt_id", uuid.UUID{}).Optional().Nillable(),
-		field.String("format").NotEmpty().
-			Validate(enumValidator(constants.FileTypes...)),
+		field.String("format").NotEmpty(),
 		field.Time("started_at").Default(time.Now),
 		field.Time("finished_at").Optional().Nillable(),
 		field.String("status").Optional().Nillable(),
@@ -73,18 +70,5 @@ func (ExtractJob) Indexes() []ent.Index {
 		index.Fields("profile_id", "status", "started_at"),
 		index.Fields("file_id"),
 		index.Fields("receipt_id"),
-	}
-}
-
-func enumValidator(allowed ...string) func(string) error {
-	set := map[string]struct{}{}
-	for _, a := range allowed {
-		set[a] = struct{}{}
-	}
-	return func(s string) error {
-		if _, ok := set[s]; ok {
-			return nil
-		}
-		return errors.New("validation failed")
 	}
 }

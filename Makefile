@@ -69,6 +69,12 @@ srv/run: ## Run the gRPC server (uses DB_URL and GRPC_ADDR)
 	export GRPC_ADDR=$(GRPC_ADDR)
 	go run ./cmd/receiptsd
 
+.PHONY: srv/dev
+srv/dev: ## Run the gRPC server with live reload style (same as srv/run, alias for dev)
+	export DB_URL=$(DB_URL)
+	export GRPC_ADDR=$(GRPC_ADDR)
+	go run ./cmd/receiptsd
+
 # -----------------------------
 # Misc
 # -----------------------------
