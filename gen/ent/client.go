@@ -1070,22 +1070,6 @@ func (c *ReceiptFileClient) QueryProfile(_m *ReceiptFile) *ProfileQuery {
 	return query
 }
 
-// QueryReceipt queries the receipt edge of a ReceiptFile.
-func (c *ReceiptFileClient) QueryReceipt(_m *ReceiptFile) *ReceiptQuery {
-	query := (&ReceiptClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(receiptfile.Table, receiptfile.FieldID, id),
-			sqlgraph.To(receipt.Table, receipt.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, receiptfile.ReceiptTable, receiptfile.ReceiptColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryJobs queries the jobs edge of a ReceiptFile.
 func (c *ReceiptFileClient) QueryJobs(_m *ReceiptFile) *ExtractJobQuery {
 	query := (&ExtractJobClient{config: c.config}).Query()

@@ -16,7 +16,6 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
@@ -28,8 +27,8 @@ type ReceiptFileQuery struct {
 	inters      []Interceptor
 	predicates  []predicate.ReceiptFile
 	withProfile *ProfileQuery
-	withReceipt *ReceiptQuery
 	withJobs    *ExtractJobQuery
+	withFKs     bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -81,28 +80,6 @@ func (_q *ReceiptFileQuery) QueryProfile() *ProfileQuery {
 			sqlgraph.From(receiptfile.Table, receiptfile.FieldID, selector),
 			sqlgraph.To(profile.Table, profile.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, receiptfile.ProfileTable, receiptfile.ProfileColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryReceipt chains the current query on the "receipt" edge.
-func (_q *ReceiptFileQuery) QueryReceipt() *ReceiptQuery {
-	query := (&ReceiptClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(receiptfile.Table, receiptfile.FieldID, selector),
-			sqlgraph.To(receipt.Table, receipt.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, receiptfile.ReceiptTable, receiptfile.ReceiptColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -325,7 +302,6 @@ func (_q *ReceiptFileQuery) Clone() *ReceiptFileQuery {
 		inters:      append([]Interceptor{}, _q.inters...),
 		predicates:  append([]predicate.ReceiptFile{}, _q.predicates...),
 		withProfile: _q.withProfile.Clone(),
-		withReceipt: _q.withReceipt.Clone(),
 		withJobs:    _q.withJobs.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -341,17 +317,6 @@ func (_q *ReceiptFileQuery) WithProfile(opts ...func(*ProfileQuery)) *ReceiptFil
 		opt(query)
 	}
 	_q.withProfile = query
-	return _q
-}
-
-// WithReceipt tells the query-builder to eager-load the nodes that are connected to
-// the "receipt" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *ReceiptFileQuery) WithReceipt(opts ...func(*ReceiptQuery)) *ReceiptFileQuery {
-	query := (&ReceiptClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withReceipt = query
 	return _q
 }
 
@@ -443,13 +408,16 @@ func (_q *ReceiptFileQuery) prepareQuery(ctx context.Context) error {
 func (_q *ReceiptFileQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ReceiptFile, error) {
 	var (
 		nodes       = []*ReceiptFile{}
+		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [2]bool{
 			_q.withProfile != nil,
-			_q.withReceipt != nil,
 			_q.withJobs != nil,
 		}
 	)
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, receiptfile.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*ReceiptFile).scanValues(nil, columns)
 	}
@@ -471,12 +439,6 @@ func (_q *ReceiptFileQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 	if query := _q.withProfile; query != nil {
 		if err := _q.loadProfile(ctx, query, nodes, nil,
 			func(n *ReceiptFile, e *Profile) { n.Edges.Profile = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withReceipt; query != nil {
-		if err := _q.loadReceipt(ctx, query, nodes, nil,
-			func(n *ReceiptFile, e *Receipt) { n.Edges.Receipt = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -512,38 +474,6 @@ func (_q *ReceiptFileQuery) loadProfile(ctx context.Context, query *ProfileQuery
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "profile_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-func (_q *ReceiptFileQuery) loadReceipt(ctx context.Context, query *ReceiptQuery, nodes []*ReceiptFile, init func(*ReceiptFile), assign func(*ReceiptFile, *Receipt)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*ReceiptFile)
-	for i := range nodes {
-		if nodes[i].ReceiptID == nil {
-			continue
-		}
-		fk := *nodes[i].ReceiptID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(receipt.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "receipt_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -609,9 +539,6 @@ func (_q *ReceiptFileQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withProfile != nil {
 			_spec.Node.AddColumnOnce(receiptfile.FieldProfileID)
-		}
-		if _q.withReceipt != nil {
-			_spec.Node.AddColumnOnce(receiptfile.FieldReceiptID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

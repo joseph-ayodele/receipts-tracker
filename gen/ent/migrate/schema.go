@@ -137,10 +137,12 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "source_path", Type: field.TypeString},
 		{Name: "content_hash", Type: field.TypeBytes, SchemaType: map[string]string{"postgres": "bytea"}},
+		{Name: "filename", Type: field.TypeString},
 		{Name: "file_ext", Type: field.TypeString},
+		{Name: "file_size", Type: field.TypeInt},
 		{Name: "uploaded_at", Type: field.TypeTime},
 		{Name: "profile_id", Type: field.TypeUUID},
-		{Name: "receipt_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "receipt_files", Type: field.TypeUUID, Nullable: true},
 	}
 	// ReceiptFilesTable holds the schema information for the "receipt_files" table.
 	ReceiptFilesTable = &schema.Table{
@@ -150,13 +152,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "receipt_files_profiles_files",
-				Columns:    []*schema.Column{ReceiptFilesColumns[5]},
+				Columns:    []*schema.Column{ReceiptFilesColumns[7]},
 				RefColumns: []*schema.Column{ProfilesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "receipt_files_receipts_files",
-				Columns:    []*schema.Column{ReceiptFilesColumns[6]},
+				Columns:    []*schema.Column{ReceiptFilesColumns[8]},
 				RefColumns: []*schema.Column{ReceiptsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -165,17 +167,12 @@ var (
 			{
 				Name:    "receiptfile_profile_id_content_hash",
 				Unique:  true,
-				Columns: []*schema.Column{ReceiptFilesColumns[5], ReceiptFilesColumns[2]},
-			},
-			{
-				Name:    "receiptfile_profile_id_receipt_id",
-				Unique:  false,
-				Columns: []*schema.Column{ReceiptFilesColumns[5], ReceiptFilesColumns[6]},
+				Columns: []*schema.Column{ReceiptFilesColumns[7], ReceiptFilesColumns[2]},
 			},
 			{
 				Name:    "receiptfile_profile_id_uploaded_at",
 				Unique:  false,
-				Columns: []*schema.Column{ReceiptFilesColumns[5], ReceiptFilesColumns[4]},
+				Columns: []*schema.Column{ReceiptFilesColumns[7], ReceiptFilesColumns[6]},
 			},
 		},
 	}

@@ -60,16 +60,16 @@ CREATE INDEX IF NOT EXISTS idx_receipts_merchant ON receipts (merchant_name);
 CREATE TABLE IF NOT EXISTS receipt_files
 (
     id           uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
-    receipt_id   uuid REFERENCES receipts (id) ON DELETE CASCADE,
-    profile_id   uuid        NOT NULL REFERENCES profiles (id) ON DELETE RESTRICT,
-    source_path  text        NOT NULL, -- original absolute/virtual path as seen by the app
-    content_hash bytea       NOT NULL, -- sha256(file bytes)
+    filename     text        NOT NULL, -- original filename (basename of source_path)
     file_ext     text        NOT NULL, -- 'pdf','jpg','png',...
+    file_size    integer     NOT NULL,
+    source_path  text        NOT NULL, -- original absolute/virtual path as seen by the app
+    profile_id   uuid        NOT NULL REFERENCES profiles (id) ON DELETE RESTRICT,
+    content_hash bytea       NOT NULL, -- sha256(file bytes)
     uploaded_at  timestamptz NOT NULL DEFAULT now(),
     UNIQUE (profile_id, content_hash)  -- dedupe per profile
 );
 
-CREATE INDEX IF NOT EXISTS idx_files_profile_receipt ON receipt_files (profile_id, receipt_id);
 CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON receipt_files (profile_id, uploaded_at DESC);
 
 -- ==============================

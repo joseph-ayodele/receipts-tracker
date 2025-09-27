@@ -532,6 +532,7 @@ func (_q *ProfileQuery) loadFiles(ctx context.Context, query *ReceiptFileQuery, 
 			init(nodes[i])
 		}
 	}
+	query.withFKs = true
 	if len(query.ctx.Fields) > 0 {
 		query.ctx.AppendFieldOnce(receiptfile.FieldProfileID)
 	}

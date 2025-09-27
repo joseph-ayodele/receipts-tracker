@@ -61,11 +61,6 @@ func ProfileID(v uuid.UUID) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldEQ(FieldProfileID, v))
 }
 
-// ReceiptID applies equality check predicate on the "receipt_id" field. It's identical to ReceiptIDEQ.
-func ReceiptID(v uuid.UUID) predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldEQ(FieldReceiptID, v))
-}
-
 // SourcePath applies equality check predicate on the "source_path" field. It's identical to SourcePathEQ.
 func SourcePath(v string) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldEQ(FieldSourcePath, v))
@@ -76,9 +71,19 @@ func ContentHash(v []byte) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldEQ(FieldContentHash, v))
 }
 
+// Filename applies equality check predicate on the "filename" field. It's identical to FilenameEQ.
+func Filename(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldEQ(FieldFilename, v))
+}
+
 // FileExt applies equality check predicate on the "file_ext" field. It's identical to FileExtEQ.
 func FileExt(v string) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldEQ(FieldFileExt, v))
+}
+
+// FileSize applies equality check predicate on the "file_size" field. It's identical to FileSizeEQ.
+func FileSize(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldEQ(FieldFileSize, v))
 }
 
 // UploadedAt applies equality check predicate on the "uploaded_at" field. It's identical to UploadedAtEQ.
@@ -104,36 +109,6 @@ func ProfileIDIn(vs ...uuid.UUID) predicate.ReceiptFile {
 // ProfileIDNotIn applies the NotIn predicate on the "profile_id" field.
 func ProfileIDNotIn(vs ...uuid.UUID) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldNotIn(FieldProfileID, vs...))
-}
-
-// ReceiptIDEQ applies the EQ predicate on the "receipt_id" field.
-func ReceiptIDEQ(v uuid.UUID) predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldEQ(FieldReceiptID, v))
-}
-
-// ReceiptIDNEQ applies the NEQ predicate on the "receipt_id" field.
-func ReceiptIDNEQ(v uuid.UUID) predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldNEQ(FieldReceiptID, v))
-}
-
-// ReceiptIDIn applies the In predicate on the "receipt_id" field.
-func ReceiptIDIn(vs ...uuid.UUID) predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldIn(FieldReceiptID, vs...))
-}
-
-// ReceiptIDNotIn applies the NotIn predicate on the "receipt_id" field.
-func ReceiptIDNotIn(vs ...uuid.UUID) predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldNotIn(FieldReceiptID, vs...))
-}
-
-// ReceiptIDIsNil applies the IsNil predicate on the "receipt_id" field.
-func ReceiptIDIsNil() predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldIsNull(FieldReceiptID))
-}
-
-// ReceiptIDNotNil applies the NotNil predicate on the "receipt_id" field.
-func ReceiptIDNotNil() predicate.ReceiptFile {
-	return predicate.ReceiptFile(sql.FieldNotNull(FieldReceiptID))
 }
 
 // SourcePathEQ applies the EQ predicate on the "source_path" field.
@@ -241,6 +216,71 @@ func ContentHashLTE(v []byte) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldLTE(FieldContentHash, v))
 }
 
+// FilenameEQ applies the EQ predicate on the "filename" field.
+func FilenameEQ(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldEQ(FieldFilename, v))
+}
+
+// FilenameNEQ applies the NEQ predicate on the "filename" field.
+func FilenameNEQ(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldNEQ(FieldFilename, v))
+}
+
+// FilenameIn applies the In predicate on the "filename" field.
+func FilenameIn(vs ...string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldIn(FieldFilename, vs...))
+}
+
+// FilenameNotIn applies the NotIn predicate on the "filename" field.
+func FilenameNotIn(vs ...string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldNotIn(FieldFilename, vs...))
+}
+
+// FilenameGT applies the GT predicate on the "filename" field.
+func FilenameGT(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldGT(FieldFilename, v))
+}
+
+// FilenameGTE applies the GTE predicate on the "filename" field.
+func FilenameGTE(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldGTE(FieldFilename, v))
+}
+
+// FilenameLT applies the LT predicate on the "filename" field.
+func FilenameLT(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldLT(FieldFilename, v))
+}
+
+// FilenameLTE applies the LTE predicate on the "filename" field.
+func FilenameLTE(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldLTE(FieldFilename, v))
+}
+
+// FilenameContains applies the Contains predicate on the "filename" field.
+func FilenameContains(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldContains(FieldFilename, v))
+}
+
+// FilenameHasPrefix applies the HasPrefix predicate on the "filename" field.
+func FilenameHasPrefix(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldHasPrefix(FieldFilename, v))
+}
+
+// FilenameHasSuffix applies the HasSuffix predicate on the "filename" field.
+func FilenameHasSuffix(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldHasSuffix(FieldFilename, v))
+}
+
+// FilenameEqualFold applies the EqualFold predicate on the "filename" field.
+func FilenameEqualFold(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldEqualFold(FieldFilename, v))
+}
+
+// FilenameContainsFold applies the ContainsFold predicate on the "filename" field.
+func FilenameContainsFold(v string) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldContainsFold(FieldFilename, v))
+}
+
 // FileExtEQ applies the EQ predicate on the "file_ext" field.
 func FileExtEQ(v string) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldEQ(FieldFileExt, v))
@@ -306,6 +346,46 @@ func FileExtContainsFold(v string) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldContainsFold(FieldFileExt, v))
 }
 
+// FileSizeEQ applies the EQ predicate on the "file_size" field.
+func FileSizeEQ(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldEQ(FieldFileSize, v))
+}
+
+// FileSizeNEQ applies the NEQ predicate on the "file_size" field.
+func FileSizeNEQ(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldNEQ(FieldFileSize, v))
+}
+
+// FileSizeIn applies the In predicate on the "file_size" field.
+func FileSizeIn(vs ...int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldIn(FieldFileSize, vs...))
+}
+
+// FileSizeNotIn applies the NotIn predicate on the "file_size" field.
+func FileSizeNotIn(vs ...int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldNotIn(FieldFileSize, vs...))
+}
+
+// FileSizeGT applies the GT predicate on the "file_size" field.
+func FileSizeGT(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldGT(FieldFileSize, v))
+}
+
+// FileSizeGTE applies the GTE predicate on the "file_size" field.
+func FileSizeGTE(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldGTE(FieldFileSize, v))
+}
+
+// FileSizeLT applies the LT predicate on the "file_size" field.
+func FileSizeLT(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldLT(FieldFileSize, v))
+}
+
+// FileSizeLTE applies the LTE predicate on the "file_size" field.
+func FileSizeLTE(v int) predicate.ReceiptFile {
+	return predicate.ReceiptFile(sql.FieldLTE(FieldFileSize, v))
+}
+
 // UploadedAtEQ applies the EQ predicate on the "uploaded_at" field.
 func UploadedAtEQ(v time.Time) predicate.ReceiptFile {
 	return predicate.ReceiptFile(sql.FieldEQ(FieldUploadedAt, v))
@@ -361,29 +441,6 @@ func HasProfile() predicate.ReceiptFile {
 func HasProfileWith(preds ...predicate.Profile) predicate.ReceiptFile {
 	return predicate.ReceiptFile(func(s *sql.Selector) {
 		step := newProfileStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasReceipt applies the HasEdge predicate on the "receipt" edge.
-func HasReceipt() predicate.ReceiptFile {
-	return predicate.ReceiptFile(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, ReceiptTable, ReceiptColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasReceiptWith applies the HasEdge predicate on the "receipt" edge with a given conditions (other predicates).
-func HasReceiptWith(preds ...predicate.Receipt) predicate.ReceiptFile {
-	return predicate.ReceiptFile(func(s *sql.Selector) {
-		step := newReceiptStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

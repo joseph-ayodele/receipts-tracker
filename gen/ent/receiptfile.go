@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
@@ -22,33 +21,34 @@ type ReceiptFile struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// ProfileID holds the value of the "profile_id" field.
 	ProfileID uuid.UUID `json:"profile_id,omitempty"`
-	// ReceiptID holds the value of the "receipt_id" field.
-	ReceiptID *uuid.UUID `json:"receipt_id,omitempty"`
 	// SourcePath holds the value of the "source_path" field.
 	SourcePath string `json:"source_path,omitempty"`
 	// ContentHash holds the value of the "content_hash" field.
 	ContentHash []byte `json:"content_hash,omitempty"`
+	// Filename holds the value of the "filename" field.
+	Filename string `json:"filename,omitempty"`
 	// FileExt holds the value of the "file_ext" field.
 	FileExt string `json:"file_ext,omitempty"`
+	// FileSize holds the value of the "file_size" field.
+	FileSize int `json:"file_size,omitempty"`
 	// UploadedAt holds the value of the "uploaded_at" field.
 	UploadedAt time.Time `json:"uploaded_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ReceiptFileQuery when eager-loading is set.
-	Edges        ReceiptFileEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges         ReceiptFileEdges `json:"edges"`
+	receipt_files *uuid.UUID
+	selectValues  sql.SelectValues
 }
 
 // ReceiptFileEdges holds the relations/edges for other nodes in the graph.
 type ReceiptFileEdges struct {
 	// Profile holds the value of the profile edge.
 	Profile *Profile `json:"profile,omitempty"`
-	// Receipt holds the value of the receipt edge.
-	Receipt *Receipt `json:"receipt,omitempty"`
 	// Jobs holds the value of the jobs edge.
 	Jobs []*ExtractJob `json:"jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [2]bool
 }
 
 // ProfileOrErr returns the Profile value or an error if the edge
@@ -62,21 +62,10 @@ func (e ReceiptFileEdges) ProfileOrErr() (*Profile, error) {
 	return nil, &NotLoadedError{edge: "profile"}
 }
 
-// ReceiptOrErr returns the Receipt value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e ReceiptFileEdges) ReceiptOrErr() (*Receipt, error) {
-	if e.Receipt != nil {
-		return e.Receipt, nil
-	} else if e.loadedTypes[1] {
-		return nil, &NotFoundError{label: receipt.Label}
-	}
-	return nil, &NotLoadedError{edge: "receipt"}
-}
-
 // JobsOrErr returns the Jobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e ReceiptFileEdges) JobsOrErr() ([]*ExtractJob, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[1] {
 		return e.Jobs, nil
 	}
 	return nil, &NotLoadedError{edge: "jobs"}
@@ -87,16 +76,18 @@ func (*ReceiptFile) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case receiptfile.FieldReceiptID:
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case receiptfile.FieldContentHash:
 			values[i] = new([]byte)
-		case receiptfile.FieldSourcePath, receiptfile.FieldFileExt:
+		case receiptfile.FieldFileSize:
+			values[i] = new(sql.NullInt64)
+		case receiptfile.FieldSourcePath, receiptfile.FieldFilename, receiptfile.FieldFileExt:
 			values[i] = new(sql.NullString)
 		case receiptfile.FieldUploadedAt:
 			values[i] = new(sql.NullTime)
 		case receiptfile.FieldID, receiptfile.FieldProfileID:
 			values[i] = new(uuid.UUID)
+		case receiptfile.ForeignKeys[0]: // receipt_files
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -124,13 +115,6 @@ func (_m *ReceiptFile) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.ProfileID = *value
 			}
-		case receiptfile.FieldReceiptID:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field receipt_id", values[i])
-			} else if value.Valid {
-				_m.ReceiptID = new(uuid.UUID)
-				*_m.ReceiptID = *value.S.(*uuid.UUID)
-			}
 		case receiptfile.FieldSourcePath:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field source_path", values[i])
@@ -143,17 +127,36 @@ func (_m *ReceiptFile) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.ContentHash = *value
 			}
+		case receiptfile.FieldFilename:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field filename", values[i])
+			} else if value.Valid {
+				_m.Filename = value.String
+			}
 		case receiptfile.FieldFileExt:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field file_ext", values[i])
 			} else if value.Valid {
 				_m.FileExt = value.String
 			}
+		case receiptfile.FieldFileSize:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field file_size", values[i])
+			} else if value.Valid {
+				_m.FileSize = int(value.Int64)
+			}
 		case receiptfile.FieldUploadedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field uploaded_at", values[i])
 			} else if value.Valid {
 				_m.UploadedAt = value.Time
+			}
+		case receiptfile.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field receipt_files", values[i])
+			} else if value.Valid {
+				_m.receipt_files = new(uuid.UUID)
+				*_m.receipt_files = *value.S.(*uuid.UUID)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -171,11 +174,6 @@ func (_m *ReceiptFile) Value(name string) (ent.Value, error) {
 // QueryProfile queries the "profile" edge of the ReceiptFile entity.
 func (_m *ReceiptFile) QueryProfile() *ProfileQuery {
 	return NewReceiptFileClient(_m.config).QueryProfile(_m)
-}
-
-// QueryReceipt queries the "receipt" edge of the ReceiptFile entity.
-func (_m *ReceiptFile) QueryReceipt() *ReceiptQuery {
-	return NewReceiptFileClient(_m.config).QueryReceipt(_m)
 }
 
 // QueryJobs queries the "jobs" edge of the ReceiptFile entity.
@@ -209,19 +207,20 @@ func (_m *ReceiptFile) String() string {
 	builder.WriteString("profile_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProfileID))
 	builder.WriteString(", ")
-	if v := _m.ReceiptID; v != nil {
-		builder.WriteString("receipt_id=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
 	builder.WriteString("source_path=")
 	builder.WriteString(_m.SourcePath)
 	builder.WriteString(", ")
 	builder.WriteString("content_hash=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ContentHash))
 	builder.WriteString(", ")
+	builder.WriteString("filename=")
+	builder.WriteString(_m.Filename)
+	builder.WriteString(", ")
 	builder.WriteString("file_ext=")
 	builder.WriteString(_m.FileExt)
+	builder.WriteString(", ")
+	builder.WriteString("file_size=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FileSize))
 	builder.WriteString(", ")
 	builder.WriteString("uploaded_at=")
 	builder.WriteString(_m.UploadedAt.Format(time.ANSIC))

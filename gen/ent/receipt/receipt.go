@@ -71,7 +71,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "receiptfile" package.
 	FilesInverseTable = "receipt_files"
 	// FilesColumn is the table column denoting the files relation/edge.
-	FilesColumn = "receipt_id"
+	FilesColumn = "receipt_files"
 	// JobsTable is the table that holds the jobs relation/edge.
 	JobsTable = "extract_job"
 	// JobsInverseTable is the table name for the ExtractJob entity.

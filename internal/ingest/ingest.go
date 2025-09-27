@@ -13,7 +13,9 @@ type IngestionResult struct {
 	FileID       string
 	Deduplicated bool
 	HashHex      string
+	Filename     string
 	FileExt      string
+	FileSize     int
 	UploadedAt   time.Time
 	Err          string
 }

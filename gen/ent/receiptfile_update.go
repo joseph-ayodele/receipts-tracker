@@ -15,7 +15,6 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 )
 
@@ -46,26 +45,6 @@ func (_u *ReceiptFileUpdate) SetNillableProfileID(v *uuid.UUID) *ReceiptFileUpda
 	return _u
 }
 
-// SetReceiptID sets the "receipt_id" field.
-func (_u *ReceiptFileUpdate) SetReceiptID(v uuid.UUID) *ReceiptFileUpdate {
-	_u.mutation.SetReceiptID(v)
-	return _u
-}
-
-// SetNillableReceiptID sets the "receipt_id" field if the given value is not nil.
-func (_u *ReceiptFileUpdate) SetNillableReceiptID(v *uuid.UUID) *ReceiptFileUpdate {
-	if v != nil {
-		_u.SetReceiptID(*v)
-	}
-	return _u
-}
-
-// ClearReceiptID clears the value of the "receipt_id" field.
-func (_u *ReceiptFileUpdate) ClearReceiptID() *ReceiptFileUpdate {
-	_u.mutation.ClearReceiptID()
-	return _u
-}
-
 // SetSourcePath sets the "source_path" field.
 func (_u *ReceiptFileUpdate) SetSourcePath(v string) *ReceiptFileUpdate {
 	_u.mutation.SetSourcePath(v)
@@ -86,6 +65,20 @@ func (_u *ReceiptFileUpdate) SetContentHash(v []byte) *ReceiptFileUpdate {
 	return _u
 }
 
+// SetFilename sets the "filename" field.
+func (_u *ReceiptFileUpdate) SetFilename(v string) *ReceiptFileUpdate {
+	_u.mutation.SetFilename(v)
+	return _u
+}
+
+// SetNillableFilename sets the "filename" field if the given value is not nil.
+func (_u *ReceiptFileUpdate) SetNillableFilename(v *string) *ReceiptFileUpdate {
+	if v != nil {
+		_u.SetFilename(*v)
+	}
+	return _u
+}
+
 // SetFileExt sets the "file_ext" field.
 func (_u *ReceiptFileUpdate) SetFileExt(v string) *ReceiptFileUpdate {
 	_u.mutation.SetFileExt(v)
@@ -97,6 +90,27 @@ func (_u *ReceiptFileUpdate) SetNillableFileExt(v *string) *ReceiptFileUpdate {
 	if v != nil {
 		_u.SetFileExt(*v)
 	}
+	return _u
+}
+
+// SetFileSize sets the "file_size" field.
+func (_u *ReceiptFileUpdate) SetFileSize(v int) *ReceiptFileUpdate {
+	_u.mutation.ResetFileSize()
+	_u.mutation.SetFileSize(v)
+	return _u
+}
+
+// SetNillableFileSize sets the "file_size" field if the given value is not nil.
+func (_u *ReceiptFileUpdate) SetNillableFileSize(v *int) *ReceiptFileUpdate {
+	if v != nil {
+		_u.SetFileSize(*v)
+	}
+	return _u
+}
+
+// AddFileSize adds value to the "file_size" field.
+func (_u *ReceiptFileUpdate) AddFileSize(v int) *ReceiptFileUpdate {
+	_u.mutation.AddFileSize(v)
 	return _u
 }
 
@@ -117,11 +131,6 @@ func (_u *ReceiptFileUpdate) SetNillableUploadedAt(v *time.Time) *ReceiptFileUpd
 // SetProfile sets the "profile" edge to the Profile entity.
 func (_u *ReceiptFileUpdate) SetProfile(v *Profile) *ReceiptFileUpdate {
 	return _u.SetProfileID(v.ID)
-}
-
-// SetReceipt sets the "receipt" edge to the Receipt entity.
-func (_u *ReceiptFileUpdate) SetReceipt(v *Receipt) *ReceiptFileUpdate {
-	return _u.SetReceiptID(v.ID)
 }
 
 // AddJobIDs adds the "jobs" edge to the ExtractJob entity by IDs.
@@ -147,12 +156,6 @@ func (_u *ReceiptFileUpdate) Mutation() *ReceiptFileMutation {
 // ClearProfile clears the "profile" edge to the Profile entity.
 func (_u *ReceiptFileUpdate) ClearProfile() *ReceiptFileUpdate {
 	_u.mutation.ClearProfile()
-	return _u
-}
-
-// ClearReceipt clears the "receipt" edge to the Receipt entity.
-func (_u *ReceiptFileUpdate) ClearReceipt() *ReceiptFileUpdate {
-	_u.mutation.ClearReceipt()
 	return _u
 }
 
@@ -216,9 +219,19 @@ func (_u *ReceiptFileUpdate) check() error {
 			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.content_hash": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Filename(); ok {
+		if err := receiptfile.FilenameValidator(v); err != nil {
+			return &ValidationError{Name: "filename", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.filename": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.FileExt(); ok {
 		if err := receiptfile.FileExtValidator(v); err != nil {
 			return &ValidationError{Name: "file_ext", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.file_ext": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.FileSize(); ok {
+		if err := receiptfile.FileSizeValidator(v); err != nil {
+			return &ValidationError{Name: "file_size", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.file_size": %w`, err)}
 		}
 	}
 	if _u.mutation.ProfileCleared() && len(_u.mutation.ProfileIDs()) > 0 {
@@ -245,8 +258,17 @@ func (_u *ReceiptFileUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	if value, ok := _u.mutation.ContentHash(); ok {
 		_spec.SetField(receiptfile.FieldContentHash, field.TypeBytes, value)
 	}
+	if value, ok := _u.mutation.Filename(); ok {
+		_spec.SetField(receiptfile.FieldFilename, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.FileExt(); ok {
 		_spec.SetField(receiptfile.FieldFileExt, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FileSize(); ok {
+		_spec.SetField(receiptfile.FieldFileSize, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFileSize(); ok {
+		_spec.AddField(receiptfile.FieldFileSize, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.UploadedAt(); ok {
 		_spec.SetField(receiptfile.FieldUploadedAt, field.TypeTime, value)
@@ -273,35 +295,6 @@ func (_u *ReceiptFileUpdate) sqlSave(ctx context.Context) (_node int, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(profile.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ReceiptCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receiptfile.ReceiptTable,
-			Columns: []string{receiptfile.ReceiptColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ReceiptIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receiptfile.ReceiptTable,
-			Columns: []string{receiptfile.ReceiptColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -388,26 +381,6 @@ func (_u *ReceiptFileUpdateOne) SetNillableProfileID(v *uuid.UUID) *ReceiptFileU
 	return _u
 }
 
-// SetReceiptID sets the "receipt_id" field.
-func (_u *ReceiptFileUpdateOne) SetReceiptID(v uuid.UUID) *ReceiptFileUpdateOne {
-	_u.mutation.SetReceiptID(v)
-	return _u
-}
-
-// SetNillableReceiptID sets the "receipt_id" field if the given value is not nil.
-func (_u *ReceiptFileUpdateOne) SetNillableReceiptID(v *uuid.UUID) *ReceiptFileUpdateOne {
-	if v != nil {
-		_u.SetReceiptID(*v)
-	}
-	return _u
-}
-
-// ClearReceiptID clears the value of the "receipt_id" field.
-func (_u *ReceiptFileUpdateOne) ClearReceiptID() *ReceiptFileUpdateOne {
-	_u.mutation.ClearReceiptID()
-	return _u
-}
-
 // SetSourcePath sets the "source_path" field.
 func (_u *ReceiptFileUpdateOne) SetSourcePath(v string) *ReceiptFileUpdateOne {
 	_u.mutation.SetSourcePath(v)
@@ -428,6 +401,20 @@ func (_u *ReceiptFileUpdateOne) SetContentHash(v []byte) *ReceiptFileUpdateOne {
 	return _u
 }
 
+// SetFilename sets the "filename" field.
+func (_u *ReceiptFileUpdateOne) SetFilename(v string) *ReceiptFileUpdateOne {
+	_u.mutation.SetFilename(v)
+	return _u
+}
+
+// SetNillableFilename sets the "filename" field if the given value is not nil.
+func (_u *ReceiptFileUpdateOne) SetNillableFilename(v *string) *ReceiptFileUpdateOne {
+	if v != nil {
+		_u.SetFilename(*v)
+	}
+	return _u
+}
+
 // SetFileExt sets the "file_ext" field.
 func (_u *ReceiptFileUpdateOne) SetFileExt(v string) *ReceiptFileUpdateOne {
 	_u.mutation.SetFileExt(v)
@@ -439,6 +426,27 @@ func (_u *ReceiptFileUpdateOne) SetNillableFileExt(v *string) *ReceiptFileUpdate
 	if v != nil {
 		_u.SetFileExt(*v)
 	}
+	return _u
+}
+
+// SetFileSize sets the "file_size" field.
+func (_u *ReceiptFileUpdateOne) SetFileSize(v int) *ReceiptFileUpdateOne {
+	_u.mutation.ResetFileSize()
+	_u.mutation.SetFileSize(v)
+	return _u
+}
+
+// SetNillableFileSize sets the "file_size" field if the given value is not nil.
+func (_u *ReceiptFileUpdateOne) SetNillableFileSize(v *int) *ReceiptFileUpdateOne {
+	if v != nil {
+		_u.SetFileSize(*v)
+	}
+	return _u
+}
+
+// AddFileSize adds value to the "file_size" field.
+func (_u *ReceiptFileUpdateOne) AddFileSize(v int) *ReceiptFileUpdateOne {
+	_u.mutation.AddFileSize(v)
 	return _u
 }
 
@@ -459,11 +467,6 @@ func (_u *ReceiptFileUpdateOne) SetNillableUploadedAt(v *time.Time) *ReceiptFile
 // SetProfile sets the "profile" edge to the Profile entity.
 func (_u *ReceiptFileUpdateOne) SetProfile(v *Profile) *ReceiptFileUpdateOne {
 	return _u.SetProfileID(v.ID)
-}
-
-// SetReceipt sets the "receipt" edge to the Receipt entity.
-func (_u *ReceiptFileUpdateOne) SetReceipt(v *Receipt) *ReceiptFileUpdateOne {
-	return _u.SetReceiptID(v.ID)
 }
 
 // AddJobIDs adds the "jobs" edge to the ExtractJob entity by IDs.
@@ -489,12 +492,6 @@ func (_u *ReceiptFileUpdateOne) Mutation() *ReceiptFileMutation {
 // ClearProfile clears the "profile" edge to the Profile entity.
 func (_u *ReceiptFileUpdateOne) ClearProfile() *ReceiptFileUpdateOne {
 	_u.mutation.ClearProfile()
-	return _u
-}
-
-// ClearReceipt clears the "receipt" edge to the Receipt entity.
-func (_u *ReceiptFileUpdateOne) ClearReceipt() *ReceiptFileUpdateOne {
-	_u.mutation.ClearReceipt()
 	return _u
 }
 
@@ -571,9 +568,19 @@ func (_u *ReceiptFileUpdateOne) check() error {
 			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.content_hash": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Filename(); ok {
+		if err := receiptfile.FilenameValidator(v); err != nil {
+			return &ValidationError{Name: "filename", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.filename": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.FileExt(); ok {
 		if err := receiptfile.FileExtValidator(v); err != nil {
 			return &ValidationError{Name: "file_ext", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.file_ext": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.FileSize(); ok {
+		if err := receiptfile.FileSizeValidator(v); err != nil {
+			return &ValidationError{Name: "file_size", err: fmt.Errorf(`ent: validator failed for field "ReceiptFile.file_size": %w`, err)}
 		}
 	}
 	if _u.mutation.ProfileCleared() && len(_u.mutation.ProfileIDs()) > 0 {
@@ -617,8 +624,17 @@ func (_u *ReceiptFileUpdateOne) sqlSave(ctx context.Context) (_node *ReceiptFile
 	if value, ok := _u.mutation.ContentHash(); ok {
 		_spec.SetField(receiptfile.FieldContentHash, field.TypeBytes, value)
 	}
+	if value, ok := _u.mutation.Filename(); ok {
+		_spec.SetField(receiptfile.FieldFilename, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.FileExt(); ok {
 		_spec.SetField(receiptfile.FieldFileExt, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FileSize(); ok {
+		_spec.SetField(receiptfile.FieldFileSize, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFileSize(); ok {
+		_spec.AddField(receiptfile.FieldFileSize, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.UploadedAt(); ok {
 		_spec.SetField(receiptfile.FieldUploadedAt, field.TypeTime, value)
@@ -645,35 +661,6 @@ func (_u *ReceiptFileUpdateOne) sqlSave(ctx context.Context) (_node *ReceiptFile
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(profile.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ReceiptCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receiptfile.ReceiptTable,
-			Columns: []string{receiptfile.ReceiptColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ReceiptIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receiptfile.ReceiptTable,
-			Columns: []string{receiptfile.ReceiptColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(receipt.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -145,19 +145,27 @@ func init() {
 	receiptfileFields := schema.ReceiptFile{}.Fields()
 	_ = receiptfileFields
 	// receiptfileDescSourcePath is the schema descriptor for source_path field.
-	receiptfileDescSourcePath := receiptfileFields[3].Descriptor()
+	receiptfileDescSourcePath := receiptfileFields[2].Descriptor()
 	// receiptfile.SourcePathValidator is a validator for the "source_path" field. It is called by the builders before save.
 	receiptfile.SourcePathValidator = receiptfileDescSourcePath.Validators[0].(func(string) error)
 	// receiptfileDescContentHash is the schema descriptor for content_hash field.
-	receiptfileDescContentHash := receiptfileFields[4].Descriptor()
+	receiptfileDescContentHash := receiptfileFields[3].Descriptor()
 	// receiptfile.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
 	receiptfile.ContentHashValidator = receiptfileDescContentHash.Validators[0].(func([]byte) error)
+	// receiptfileDescFilename is the schema descriptor for filename field.
+	receiptfileDescFilename := receiptfileFields[4].Descriptor()
+	// receiptfile.FilenameValidator is a validator for the "filename" field. It is called by the builders before save.
+	receiptfile.FilenameValidator = receiptfileDescFilename.Validators[0].(func(string) error)
 	// receiptfileDescFileExt is the schema descriptor for file_ext field.
 	receiptfileDescFileExt := receiptfileFields[5].Descriptor()
 	// receiptfile.FileExtValidator is a validator for the "file_ext" field. It is called by the builders before save.
 	receiptfile.FileExtValidator = receiptfileDescFileExt.Validators[0].(func(string) error)
+	// receiptfileDescFileSize is the schema descriptor for file_size field.
+	receiptfileDescFileSize := receiptfileFields[6].Descriptor()
+	// receiptfile.FileSizeValidator is a validator for the "file_size" field. It is called by the builders before save.
+	receiptfile.FileSizeValidator = receiptfileDescFileSize.Validators[0].(func(int) error)
 	// receiptfileDescUploadedAt is the schema descriptor for uploaded_at field.
-	receiptfileDescUploadedAt := receiptfileFields[6].Descriptor()
+	receiptfileDescUploadedAt := receiptfileFields[7].Descriptor()
 	// receiptfile.DefaultUploadedAt holds the default value on creation for the uploaded_at field.
 	receiptfile.DefaultUploadedAt = receiptfileDescUploadedAt.Default.(func() time.Time)
 	// receiptfileDescID is the schema descriptor for id field.

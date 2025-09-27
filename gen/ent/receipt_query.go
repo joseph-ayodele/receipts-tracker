@@ -602,9 +602,7 @@ func (_q *ReceiptQuery) loadFiles(ctx context.Context, query *ReceiptFileQuery, 
 			init(nodes[i])
 		}
 	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(receiptfile.FieldReceiptID)
-	}
+	query.withFKs = true
 	query.Where(predicate.ReceiptFile(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(receipt.FilesColumn), fks...))
 	}))
@@ -613,13 +611,13 @@ func (_q *ReceiptQuery) loadFiles(ctx context.Context, query *ReceiptFileQuery, 
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.ReceiptID
+		fk := n.receipt_files
 		if fk == nil {
-			return fmt.Errorf(`foreign-key "receipt_id" is nil for node %v`, n.ID)
+			return fmt.Errorf(`foreign-key "receipt_files" is nil for node %v`, n.ID)
 		}
 		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "receipt_id" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "receipt_files" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

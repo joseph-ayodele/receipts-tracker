@@ -23,7 +23,6 @@ import (
 type FSIngestor struct {
 	ProfileRepo repository.ProfileRepository
 	FilesRepo   repository.ReceiptFileRepository
-	AllowedExts map[string]struct{} // lowercased sans '.'; nil -> default set
 }
 
 func NewFSIngestor(p repository.ProfileRepository, f repository.ReceiptFileRepository) *FSIngestor {
@@ -48,10 +47,6 @@ func (i *FSIngestor) IngestPath(ctx context.Context, profileID uuid.UUID, path s
 		return out, fmt.Errorf("unsupported or missing extension")
 	}
 
-	if err := ValidateProfile(ctx, i.ProfileRepo, profileID); err != nil {
-		return out, err
-	}
-
 	f, err := os.Open(abs)
 	if err != nil {
 		log.Printf("open error: %v", err)
@@ -72,7 +67,11 @@ func (i *FSIngestor) IngestPath(ctx context.Context, profileID uuid.UUID, path s
 	sum := h.Sum(nil)
 	now := time.Now().UTC()
 
-	row, dedup, err := i.FilesRepo.UpsertByHash(ctx, profileID, abs, ext, sum, now)
+	stat, _ := f.Stat()
+	filename := filepath.Base(abs)
+	size := int(stat.Size())
+
+	row, dedup, err := i.FilesRepo.UpsertByHash(ctx, profileID, abs, filename, ext, size, sum, now)
 	if err != nil {
 		return out, err
 	}
@@ -83,6 +82,8 @@ func (i *FSIngestor) IngestPath(ctx context.Context, profileID uuid.UUID, path s
 		Deduplicated: dedup,
 		HashHex:      hex.EncodeToString(sum),
 		FileExt:      row.FileExt,
+		FileSize:     row.FileSize,
+		Filename:     row.Filename,
 		UploadedAt:   row.UploadedAt,
 	}
 	return out, nil

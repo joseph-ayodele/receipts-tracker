@@ -17,20 +17,20 @@ const (
 	FieldID = "id"
 	// FieldProfileID holds the string denoting the profile_id field in the database.
 	FieldProfileID = "profile_id"
-	// FieldReceiptID holds the string denoting the receipt_id field in the database.
-	FieldReceiptID = "receipt_id"
 	// FieldSourcePath holds the string denoting the source_path field in the database.
 	FieldSourcePath = "source_path"
 	// FieldContentHash holds the string denoting the content_hash field in the database.
 	FieldContentHash = "content_hash"
+	// FieldFilename holds the string denoting the filename field in the database.
+	FieldFilename = "filename"
 	// FieldFileExt holds the string denoting the file_ext field in the database.
 	FieldFileExt = "file_ext"
+	// FieldFileSize holds the string denoting the file_size field in the database.
+	FieldFileSize = "file_size"
 	// FieldUploadedAt holds the string denoting the uploaded_at field in the database.
 	FieldUploadedAt = "uploaded_at"
 	// EdgeProfile holds the string denoting the profile edge name in mutations.
 	EdgeProfile = "profile"
-	// EdgeReceipt holds the string denoting the receipt edge name in mutations.
-	EdgeReceipt = "receipt"
 	// EdgeJobs holds the string denoting the jobs edge name in mutations.
 	EdgeJobs = "jobs"
 	// Table holds the table name of the receiptfile in the database.
@@ -42,13 +42,6 @@ const (
 	ProfileInverseTable = "profiles"
 	// ProfileColumn is the table column denoting the profile relation/edge.
 	ProfileColumn = "profile_id"
-	// ReceiptTable is the table that holds the receipt relation/edge.
-	ReceiptTable = "receipt_files"
-	// ReceiptInverseTable is the table name for the Receipt entity.
-	// It exists in this package in order to avoid circular dependency with the "receipt" package.
-	ReceiptInverseTable = "receipts"
-	// ReceiptColumn is the table column denoting the receipt relation/edge.
-	ReceiptColumn = "receipt_id"
 	// JobsTable is the table that holds the jobs relation/edge.
 	JobsTable = "extract_job"
 	// JobsInverseTable is the table name for the ExtractJob entity.
@@ -62,17 +55,29 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldProfileID,
-	FieldReceiptID,
 	FieldSourcePath,
 	FieldContentHash,
+	FieldFilename,
 	FieldFileExt,
+	FieldFileSize,
 	FieldUploadedAt,
+}
+
+// ForeignKeys holds the SQL foreign-keys that are owned by the "receipt_files"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"receipt_files",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -84,8 +89,12 @@ var (
 	SourcePathValidator func(string) error
 	// ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
 	ContentHashValidator func([]byte) error
+	// FilenameValidator is a validator for the "filename" field. It is called by the builders before save.
+	FilenameValidator func(string) error
 	// FileExtValidator is a validator for the "file_ext" field. It is called by the builders before save.
 	FileExtValidator func(string) error
+	// FileSizeValidator is a validator for the "file_size" field. It is called by the builders before save.
+	FileSizeValidator func(int) error
 	// DefaultUploadedAt holds the default value on creation for the "uploaded_at" field.
 	DefaultUploadedAt func() time.Time
 	// DefaultID holds the default value on creation for the "id" field.
@@ -105,19 +114,24 @@ func ByProfileID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProfileID, opts...).ToFunc()
 }
 
-// ByReceiptID orders the results by the receipt_id field.
-func ByReceiptID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldReceiptID, opts...).ToFunc()
-}
-
 // BySourcePath orders the results by the source_path field.
 func BySourcePath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSourcePath, opts...).ToFunc()
 }
 
+// ByFilename orders the results by the filename field.
+func ByFilename(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFilename, opts...).ToFunc()
+}
+
 // ByFileExt orders the results by the file_ext field.
 func ByFileExt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFileExt, opts...).ToFunc()
+}
+
+// ByFileSize orders the results by the file_size field.
+func ByFileSize(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFileSize, opts...).ToFunc()
 }
 
 // ByUploadedAt orders the results by the uploaded_at field.
@@ -129,13 +143,6 @@ func ByUploadedAt(opts ...sql.OrderTermOption) OrderOption {
 func ByProfileField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newProfileStep(), sql.OrderByField(field, opts...))
-	}
-}
-
-// ByReceiptField orders the results by receipt field.
-func ByReceiptField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newReceiptStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -157,13 +164,6 @@ func newProfileStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProfileInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, ProfileTable, ProfileColumn),
-	)
-}
-func newReceiptStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(ReceiptInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, ReceiptTable, ReceiptColumn),
 	)
 }
 func newJobsStep() *sqlgraph.Step {

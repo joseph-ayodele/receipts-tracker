@@ -32,11 +32,12 @@ func (ReceiptFile) Fields() []ent.Field {
 			StorageKey("id"),
 		// explicit FKs so we can define a composite unique index
 		field.UUID("profile_id", uuid.UUID{}),
-		field.UUID("receipt_id", uuid.UUID{}).Optional().Nillable(),
 		field.String("source_path").NotEmpty(),
 		field.Bytes("content_hash").NotEmpty().
 			SchemaType(map[string]string{dialect.Postgres: "bytea"}),
+		field.String("filename").NotEmpty(),
 		field.String("file_ext").NotEmpty(),
+		field.Int("file_size").NonNegative(),
 		field.Time("uploaded_at").Default(time.Now),
 	}
 }
@@ -49,11 +50,6 @@ func (ReceiptFile) Edges() []ent.Edge {
 			Field("profile_id").
 			Required().
 			Unique(),
-		// MANY files -> ONE receipt (nullable)
-		edge.From("receipt", Receipt.Type).
-			Ref("files").
-			Field("receipt_id").
-			Unique(),
 		// ONE file -> MANY jobs
 		edge.To("jobs", ExtractJob.Type),
 	}
@@ -62,7 +58,6 @@ func (ReceiptFile) Edges() []ent.Edge {
 func (ReceiptFile) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("profile_id", "content_hash").Unique(),
-		index.Fields("profile_id", "receipt_id"),
 		index.Fields("profile_id", "uploaded_at"),
 	}
 }

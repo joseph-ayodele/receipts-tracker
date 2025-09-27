@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
+	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
 	"google.golang.org/grpc"
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
@@ -59,11 +60,16 @@ func main() {
 
 	profilesRepo := repo.NewProfileRepository(entc)
 	receiptsRepo := repo.NewReceiptRepository(entc)
+	receiptsFileRepo := repo.NewReceiptFileRepository(entc)
 
 	profilesService := svc.NewProfileService(profilesRepo)
 	v1.RegisterProfilesServiceServer(grpcServer, profilesService)
 	receiptsService := svc.NewReceiptService(receiptsRepo)
 	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
+
+	ingestor := ingest.NewFSIngestor(profilesRepo, receiptsFileRepo)
+	ingestionService := svc.NewIngestionService(ingestor, profilesRepo)
+	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
 
 	log.Printf("receiptsd listening on %s", addr)
 	go func() {

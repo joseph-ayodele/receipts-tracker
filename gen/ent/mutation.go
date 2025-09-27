@@ -4079,13 +4079,14 @@ type ReceiptFileMutation struct {
 	id             *uuid.UUID
 	source_path    *string
 	content_hash   *[]byte
+	filename       *string
 	file_ext       *string
+	file_size      *int
+	addfile_size   *int
 	uploaded_at    *time.Time
 	clearedFields  map[string]struct{}
 	profile        *uuid.UUID
 	clearedprofile bool
-	receipt        *uuid.UUID
-	clearedreceipt bool
 	jobs           map[uuid.UUID]struct{}
 	removedjobs    map[uuid.UUID]struct{}
 	clearedjobs    bool
@@ -4234,55 +4235,6 @@ func (m *ReceiptFileMutation) ResetProfileID() {
 	m.profile = nil
 }
 
-// SetReceiptID sets the "receipt_id" field.
-func (m *ReceiptFileMutation) SetReceiptID(u uuid.UUID) {
-	m.receipt = &u
-}
-
-// ReceiptID returns the value of the "receipt_id" field in the mutation.
-func (m *ReceiptFileMutation) ReceiptID() (r uuid.UUID, exists bool) {
-	v := m.receipt
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldReceiptID returns the old "receipt_id" field's value of the ReceiptFile entity.
-// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ReceiptFileMutation) OldReceiptID(ctx context.Context) (v *uuid.UUID, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldReceiptID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldReceiptID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldReceiptID: %w", err)
-	}
-	return oldValue.ReceiptID, nil
-}
-
-// ClearReceiptID clears the value of the "receipt_id" field.
-func (m *ReceiptFileMutation) ClearReceiptID() {
-	m.receipt = nil
-	m.clearedFields[receiptfile.FieldReceiptID] = struct{}{}
-}
-
-// ReceiptIDCleared returns if the "receipt_id" field was cleared in this mutation.
-func (m *ReceiptFileMutation) ReceiptIDCleared() bool {
-	_, ok := m.clearedFields[receiptfile.FieldReceiptID]
-	return ok
-}
-
-// ResetReceiptID resets all changes to the "receipt_id" field.
-func (m *ReceiptFileMutation) ResetReceiptID() {
-	m.receipt = nil
-	delete(m.clearedFields, receiptfile.FieldReceiptID)
-}
-
 // SetSourcePath sets the "source_path" field.
 func (m *ReceiptFileMutation) SetSourcePath(s string) {
 	m.source_path = &s
@@ -4355,6 +4307,42 @@ func (m *ReceiptFileMutation) ResetContentHash() {
 	m.content_hash = nil
 }
 
+// SetFilename sets the "filename" field.
+func (m *ReceiptFileMutation) SetFilename(s string) {
+	m.filename = &s
+}
+
+// Filename returns the value of the "filename" field in the mutation.
+func (m *ReceiptFileMutation) Filename() (r string, exists bool) {
+	v := m.filename
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFilename returns the old "filename" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldFilename(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFilename is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFilename requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFilename: %w", err)
+	}
+	return oldValue.Filename, nil
+}
+
+// ResetFilename resets all changes to the "filename" field.
+func (m *ReceiptFileMutation) ResetFilename() {
+	m.filename = nil
+}
+
 // SetFileExt sets the "file_ext" field.
 func (m *ReceiptFileMutation) SetFileExt(s string) {
 	m.file_ext = &s
@@ -4389,6 +4377,62 @@ func (m *ReceiptFileMutation) OldFileExt(ctx context.Context) (v string, err err
 // ResetFileExt resets all changes to the "file_ext" field.
 func (m *ReceiptFileMutation) ResetFileExt() {
 	m.file_ext = nil
+}
+
+// SetFileSize sets the "file_size" field.
+func (m *ReceiptFileMutation) SetFileSize(i int) {
+	m.file_size = &i
+	m.addfile_size = nil
+}
+
+// FileSize returns the value of the "file_size" field in the mutation.
+func (m *ReceiptFileMutation) FileSize() (r int, exists bool) {
+	v := m.file_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileSize returns the old "file_size" field's value of the ReceiptFile entity.
+// If the ReceiptFile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptFileMutation) OldFileSize(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileSize: %w", err)
+	}
+	return oldValue.FileSize, nil
+}
+
+// AddFileSize adds i to the "file_size" field.
+func (m *ReceiptFileMutation) AddFileSize(i int) {
+	if m.addfile_size != nil {
+		*m.addfile_size += i
+	} else {
+		m.addfile_size = &i
+	}
+}
+
+// AddedFileSize returns the value that was added to the "file_size" field in this mutation.
+func (m *ReceiptFileMutation) AddedFileSize() (r int, exists bool) {
+	v := m.addfile_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFileSize resets all changes to the "file_size" field.
+func (m *ReceiptFileMutation) ResetFileSize() {
+	m.file_size = nil
+	m.addfile_size = nil
 }
 
 // SetUploadedAt sets the "uploaded_at" field.
@@ -4452,33 +4496,6 @@ func (m *ReceiptFileMutation) ProfileIDs() (ids []uuid.UUID) {
 func (m *ReceiptFileMutation) ResetProfile() {
 	m.profile = nil
 	m.clearedprofile = false
-}
-
-// ClearReceipt clears the "receipt" edge to the Receipt entity.
-func (m *ReceiptFileMutation) ClearReceipt() {
-	m.clearedreceipt = true
-	m.clearedFields[receiptfile.FieldReceiptID] = struct{}{}
-}
-
-// ReceiptCleared reports if the "receipt" edge to the Receipt entity was cleared.
-func (m *ReceiptFileMutation) ReceiptCleared() bool {
-	return m.ReceiptIDCleared() || m.clearedreceipt
-}
-
-// ReceiptIDs returns the "receipt" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ReceiptID instead. It exists only for internal usage by the builders.
-func (m *ReceiptFileMutation) ReceiptIDs() (ids []uuid.UUID) {
-	if id := m.receipt; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetReceipt resets all changes to the "receipt" edge.
-func (m *ReceiptFileMutation) ResetReceipt() {
-	m.receipt = nil
-	m.clearedreceipt = false
 }
 
 // AddJobIDs adds the "jobs" edge to the ExtractJob entity by ids.
@@ -4569,12 +4586,9 @@ func (m *ReceiptFileMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ReceiptFileMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.profile != nil {
 		fields = append(fields, receiptfile.FieldProfileID)
-	}
-	if m.receipt != nil {
-		fields = append(fields, receiptfile.FieldReceiptID)
 	}
 	if m.source_path != nil {
 		fields = append(fields, receiptfile.FieldSourcePath)
@@ -4582,8 +4596,14 @@ func (m *ReceiptFileMutation) Fields() []string {
 	if m.content_hash != nil {
 		fields = append(fields, receiptfile.FieldContentHash)
 	}
+	if m.filename != nil {
+		fields = append(fields, receiptfile.FieldFilename)
+	}
 	if m.file_ext != nil {
 		fields = append(fields, receiptfile.FieldFileExt)
+	}
+	if m.file_size != nil {
+		fields = append(fields, receiptfile.FieldFileSize)
 	}
 	if m.uploaded_at != nil {
 		fields = append(fields, receiptfile.FieldUploadedAt)
@@ -4598,14 +4618,16 @@ func (m *ReceiptFileMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case receiptfile.FieldProfileID:
 		return m.ProfileID()
-	case receiptfile.FieldReceiptID:
-		return m.ReceiptID()
 	case receiptfile.FieldSourcePath:
 		return m.SourcePath()
 	case receiptfile.FieldContentHash:
 		return m.ContentHash()
+	case receiptfile.FieldFilename:
+		return m.Filename()
 	case receiptfile.FieldFileExt:
 		return m.FileExt()
+	case receiptfile.FieldFileSize:
+		return m.FileSize()
 	case receiptfile.FieldUploadedAt:
 		return m.UploadedAt()
 	}
@@ -4619,14 +4641,16 @@ func (m *ReceiptFileMutation) OldField(ctx context.Context, name string) (ent.Va
 	switch name {
 	case receiptfile.FieldProfileID:
 		return m.OldProfileID(ctx)
-	case receiptfile.FieldReceiptID:
-		return m.OldReceiptID(ctx)
 	case receiptfile.FieldSourcePath:
 		return m.OldSourcePath(ctx)
 	case receiptfile.FieldContentHash:
 		return m.OldContentHash(ctx)
+	case receiptfile.FieldFilename:
+		return m.OldFilename(ctx)
 	case receiptfile.FieldFileExt:
 		return m.OldFileExt(ctx)
+	case receiptfile.FieldFileSize:
+		return m.OldFileSize(ctx)
 	case receiptfile.FieldUploadedAt:
 		return m.OldUploadedAt(ctx)
 	}
@@ -4645,13 +4669,6 @@ func (m *ReceiptFileMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetProfileID(v)
 		return nil
-	case receiptfile.FieldReceiptID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetReceiptID(v)
-		return nil
 	case receiptfile.FieldSourcePath:
 		v, ok := value.(string)
 		if !ok {
@@ -4666,12 +4683,26 @@ func (m *ReceiptFileMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetContentHash(v)
 		return nil
+	case receiptfile.FieldFilename:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFilename(v)
+		return nil
 	case receiptfile.FieldFileExt:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetFileExt(v)
+		return nil
+	case receiptfile.FieldFileSize:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileSize(v)
 		return nil
 	case receiptfile.FieldUploadedAt:
 		v, ok := value.(time.Time)
@@ -4687,13 +4718,21 @@ func (m *ReceiptFileMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *ReceiptFileMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addfile_size != nil {
+		fields = append(fields, receiptfile.FieldFileSize)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *ReceiptFileMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case receiptfile.FieldFileSize:
+		return m.AddedFileSize()
+	}
 	return nil, false
 }
 
@@ -4702,6 +4741,13 @@ func (m *ReceiptFileMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *ReceiptFileMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case receiptfile.FieldFileSize:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFileSize(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ReceiptFile numeric field %s", name)
 }
@@ -4709,11 +4755,7 @@ func (m *ReceiptFileMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *ReceiptFileMutation) ClearedFields() []string {
-	var fields []string
-	if m.FieldCleared(receiptfile.FieldReceiptID) {
-		fields = append(fields, receiptfile.FieldReceiptID)
-	}
-	return fields
+	return nil
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -4726,11 +4768,6 @@ func (m *ReceiptFileMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *ReceiptFileMutation) ClearField(name string) error {
-	switch name {
-	case receiptfile.FieldReceiptID:
-		m.ClearReceiptID()
-		return nil
-	}
 	return fmt.Errorf("unknown ReceiptFile nullable field %s", name)
 }
 
@@ -4741,17 +4778,20 @@ func (m *ReceiptFileMutation) ResetField(name string) error {
 	case receiptfile.FieldProfileID:
 		m.ResetProfileID()
 		return nil
-	case receiptfile.FieldReceiptID:
-		m.ResetReceiptID()
-		return nil
 	case receiptfile.FieldSourcePath:
 		m.ResetSourcePath()
 		return nil
 	case receiptfile.FieldContentHash:
 		m.ResetContentHash()
 		return nil
+	case receiptfile.FieldFilename:
+		m.ResetFilename()
+		return nil
 	case receiptfile.FieldFileExt:
 		m.ResetFileExt()
+		return nil
+	case receiptfile.FieldFileSize:
+		m.ResetFileSize()
 		return nil
 	case receiptfile.FieldUploadedAt:
 		m.ResetUploadedAt()
@@ -4762,12 +4802,9 @@ func (m *ReceiptFileMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ReceiptFileMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 2)
 	if m.profile != nil {
 		edges = append(edges, receiptfile.EdgeProfile)
-	}
-	if m.receipt != nil {
-		edges = append(edges, receiptfile.EdgeReceipt)
 	}
 	if m.jobs != nil {
 		edges = append(edges, receiptfile.EdgeJobs)
@@ -4783,10 +4820,6 @@ func (m *ReceiptFileMutation) AddedIDs(name string) []ent.Value {
 		if id := m.profile; id != nil {
 			return []ent.Value{*id}
 		}
-	case receiptfile.EdgeReceipt:
-		if id := m.receipt; id != nil {
-			return []ent.Value{*id}
-		}
 	case receiptfile.EdgeJobs:
 		ids := make([]ent.Value, 0, len(m.jobs))
 		for id := range m.jobs {
@@ -4799,7 +4832,7 @@ func (m *ReceiptFileMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ReceiptFileMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 2)
 	if m.removedjobs != nil {
 		edges = append(edges, receiptfile.EdgeJobs)
 	}
@@ -4822,12 +4855,9 @@ func (m *ReceiptFileMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ReceiptFileMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 2)
 	if m.clearedprofile {
 		edges = append(edges, receiptfile.EdgeProfile)
-	}
-	if m.clearedreceipt {
-		edges = append(edges, receiptfile.EdgeReceipt)
 	}
 	if m.clearedjobs {
 		edges = append(edges, receiptfile.EdgeJobs)
@@ -4841,8 +4871,6 @@ func (m *ReceiptFileMutation) EdgeCleared(name string) bool {
 	switch name {
 	case receiptfile.EdgeProfile:
 		return m.clearedprofile
-	case receiptfile.EdgeReceipt:
-		return m.clearedreceipt
 	case receiptfile.EdgeJobs:
 		return m.clearedjobs
 	}
@@ -4856,9 +4884,6 @@ func (m *ReceiptFileMutation) ClearEdge(name string) error {
 	case receiptfile.EdgeProfile:
 		m.ClearProfile()
 		return nil
-	case receiptfile.EdgeReceipt:
-		m.ClearReceipt()
-		return nil
 	}
 	return fmt.Errorf("unknown ReceiptFile unique edge %s", name)
 }
@@ -4869,9 +4894,6 @@ func (m *ReceiptFileMutation) ResetEdge(name string) error {
 	switch name {
 	case receiptfile.EdgeProfile:
 		m.ResetProfile()
-		return nil
-	case receiptfile.EdgeReceipt:
-		m.ResetReceipt()
 		return nil
 	case receiptfile.EdgeJobs:
 		m.ResetJobs()
