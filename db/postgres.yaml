@@ -64,11 +64,12 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_DB
-          volumeMounts:
-            - name: receipts-db-storage
-              mountPath: /var/lib/postgresql/data
-              subPath: postgres
+#          volumeMounts:
+#            - name: receipts-db-storage
+#              mountPath: /var/lib/postgresql/data
+#              subPath: postgres
       volumes:
         - name: receipts-db-storage
-          persistentVolumeClaim:
-            claimName: receipts-db-volume
+          emptyDir: {}
+#          persistentVolumeClaim:
+#            claimName: receipts-db-volume

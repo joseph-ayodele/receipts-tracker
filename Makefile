@@ -12,10 +12,9 @@ db/health:
 srv/run:
 	go run ./cmd/receiptsd
 
-# Option A: local protoc (brew/choco/winget)
 .PHONY: proto/gen
 proto/gen:
-	protoc -I . --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. ./gen/proto/receipts/v1/receipts.proto
+	go run ./db/ent
 
 
 # Option B: Dockerized protoc (no local install required)

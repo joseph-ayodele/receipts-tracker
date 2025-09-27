@@ -12,8 +12,7 @@ func main() {
 		"./db/ent/schema",
 		&gen.Config{
 			Target:  "gen/ent",
-			Package: "ent",
-			Schema:  "ent/schema",
+			Package: "github.com/joseph-ayodele/receipts-tracker/gen/ent",
 		},
 	)
 	if err != nil {
