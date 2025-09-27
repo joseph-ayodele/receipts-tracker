@@ -4,7 +4,7 @@
 // - protoc             v6.32.1
 // source: api/receipts/v1/receipts.proto
 
-package receiptspb
+package v1
 
 import (
 	context "context"
