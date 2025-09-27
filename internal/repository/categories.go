@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
-	"receipts-tracker/db/ent"
+
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 )
 
 type Category struct {

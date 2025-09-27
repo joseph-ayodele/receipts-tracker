@@ -3,18 +3,19 @@ package server
 import (
 	"context"
 	"fmt"
-	receiptsv2 "receipts-tracker/gen/receipts/v1"
 	"time"
+
+	receiptsv1 "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"receipts-tracker/internal/repository"
+	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
 type ReceiptsService struct {
-	receiptsv2.UnimplementedReceiptsServiceServer
+	receiptsv1.UnimplementedReceiptsServiceServer
 	pool   repository.Pool
 	logger *zap.Logger
 }
@@ -23,7 +24,7 @@ func NewReceiptsService(pool repository.Pool, logger *zap.Logger) *ReceiptsServi
 	return &ReceiptsService{pool: pool, logger: logger}
 }
 
-func (s *ReceiptsService) CreateProfile(ctx context.Context, req *receiptsv2.CreateProfileRequest) (*receiptsv2.CreateProfileResponse, error) {
+func (s *ReceiptsService) CreateProfile(ctx context.Context, req *receiptsv1.CreateProfileRequest) (*receiptsv1.CreateProfileResponse, error) {
 	name := req.GetName()
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
@@ -36,8 +37,8 @@ func (s *ReceiptsService) CreateProfile(ctx context.Context, req *receiptsv2.Cre
 		return nil, status.Error(codes.Internal, "create profile failed")
 	}
 
-	return &receiptsv2.CreateProfileResponse{
-		Profile: &receiptsv2.Profile{
+	return &receiptsv1.CreateProfileResponse{
+		Profile: &receiptsv1.Profile{
 			Id:              p.ID,
 			Name:            p.Name,
 			DefaultCurrency: p.DefaultCurrency,
@@ -47,15 +48,15 @@ func (s *ReceiptsService) CreateProfile(ctx context.Context, req *receiptsv2.Cre
 	}, nil
 }
 
-func (s *ReceiptsService) ListProfiles(ctx context.Context, _ *receiptsv2.ListProfilesRequest) (*receiptsv2.ListProfilesResponse, error) {
+func (s *ReceiptsService) ListProfiles(ctx context.Context, _ *receiptsv1.ListProfilesRequest) (*receiptsv1.ListProfilesResponse, error) {
 	ps, err := repository.ListProfiles(ctx, s.pool)
 	if err != nil {
 		s.logger.Warn("list profiles failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "list profiles failed")
 	}
-	out := make([]*receiptsv2.Profile, 0, len(ps))
+	out := make([]*receiptsv1.Profile, 0, len(ps))
 	for _, p := range ps {
-		out = append(out, &receiptsv2.Profile{
+		out = append(out, &receiptsv1.Profile{
 			Id:              p.ID,
 			Name:            p.Name,
 			DefaultCurrency: p.DefaultCurrency,
@@ -63,10 +64,10 @@ func (s *ReceiptsService) ListProfiles(ctx context.Context, _ *receiptsv2.ListPr
 			UpdatedAt:       p.UpdatedAt.Format(time.RFC3339Nano),
 		})
 	}
-	return &receiptsv2.ListProfilesResponse{Profiles: out}, nil
+	return &receiptsv1.ListProfilesResponse{Profiles: out}, nil
 }
 
-func (s *ReceiptsService) ListReceipts(ctx context.Context, req *receiptsv2.ListReceiptsRequest) (*receiptsv2.ListReceiptsResponse, error) {
+func (s *ReceiptsService) ListReceipts(ctx context.Context, req *receiptsv1.ListReceiptsRequest) (*receiptsv1.ListReceiptsResponse, error) {
 	profileID := req.GetProfileId()
 	if profileID == "" {
 		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
@@ -98,9 +99,9 @@ func (s *ReceiptsService) ListReceipts(ctx context.Context, req *receiptsv2.List
 		return nil, status.Error(codes.Internal, "list receipts failed")
 	}
 
-	out := make([]*receiptsv2.Receipt, 0, len(recs))
+	out := make([]*receiptsv1.Receipt, 0, len(recs))
 	for _, r := range recs {
-		out = append(out, &receiptsv2.Receipt{
+		out = append(out, &receiptsv1.Receipt{
 			Id:           r.ID,
 			ProfileId:    r.ProfileID,
 			MerchantName: r.MerchantName,
@@ -111,10 +112,10 @@ func (s *ReceiptsService) ListReceipts(ctx context.Context, req *receiptsv2.List
 			UpdatedAt:    r.UpdatedAt.Format(time.RFC3339Nano),
 		})
 	}
-	return &receiptsv2.ListReceiptsResponse{Receipts: out}, nil
+	return &receiptsv1.ListReceiptsResponse{Receipts: out}, nil
 }
 
-func (s *ReceiptsService) ExportReceipts(context.Context, *receiptsv2.ExportReceiptsRequest) (*receiptsv2.ExportReceiptsResponse, error) {
+func (s *ReceiptsService) ExportReceipts(context.Context, *receiptsv1.ExportReceiptsRequest) (*receiptsv1.ExportReceiptsResponse, error) {
 	// Implemented in Step 8
 	return nil, status.Error(codes.Unimplemented, "ExportReceipts not implemented yet")
 }

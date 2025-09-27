@@ -4,11 +4,10 @@
 // - protoc             v6.32.1
 // source: api/receipts/v1/receipts.proto
 
-package receiptsv1
+package receiptspb
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

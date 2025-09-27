@@ -2,52 +2,63 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 
-	entpkg "receipts-tracker/db/ent"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 )
 
 type Config struct {
-	URL             string
-	MaxConns        int32
-	MinConns        int32
-	MaxConnLifetime time.Duration
-	MaxConnIdleTime time.Duration
-	HealthTimeout   time.Duration
+	DSN              string
+	MaxConns         int32
+	MinConns         int32
+	MaxConnLifetime  time.Duration
+	MaxConnIdleTime  time.Duration
+	DialTimeout      time.Duration
+	StatementTimeout time.Duration
 }
 
-// NewEntClient returns an ent client backed by the pgx stdlib driver.
-func NewEntClient(dsn string) (*entpkg.Client, error) {
-	client, err := entpkg.Open("pgx", dsn)
+// Open creates a pgx pool, wraps it for Ent, and returns both.
+func Open(ctx context.Context, cfg Config) (*ent.Client, *pgxpool.Pool, error) {
+	pc, err := pgxpool.ParseConfig(cfg.DSN)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// Optional tuning
-	if db, ok := client.DB().(*sql.DB); ok && db != nil {
-		db.SetMaxOpenConns(10)
-		db.SetMaxIdleConns(5)
-		db.SetConnMaxLifetime(30 * time.Minute)
+	pc.MaxConns = cfg.MaxConns
+	pc.MinConns = cfg.MinConns
+	pc.MaxConnLifetime = cfg.MaxConnLifetime
+	pc.MaxConnIdleTime = cfg.MaxConnIdleTime
+	pc.ConnConfig.RuntimeParams["application_name"] = "receipts-tracker"
+	if cfg.StatementTimeout > 0 {
+		pc.ConnConfig.RuntimeParams["statement_timeout"] = cfg.StatementTimeout.String()
 	}
 
-	return client, nil
+	ctx, cancel := context.WithTimeout(ctx, cfg.DialTimeout)
+	defer cancel()
+	pool, err := pgxpool.NewWithConfig(ctx, pc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Wrap pool as *sql.DB for Ent
+	db := stdlib.OpenDBFromPool(pool)
+	drv := entsql.OpenDB(dialect.Postgres, db)
+	client := ent.NewClient(ent.Driver(drv))
+	return client, pool, nil
 }
+
 
 // HealthCheck pings using database/sql to catch DSN issues early.
-func HealthCheck(ctx context.Context, dsn string, timeout time.Duration) error {
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
+func HealthCheck(ctx context.Context, pool *pgxpool.Pool, timeout time.Duration) error {
 	if timeout > 0 {
-		ctx2, cancel := context.WithTimeout(ctx, timeout)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
-		return db.PingContext(ctx2)
 	}
-	return db.PingContext(ctx)
+	return pool.Ping(ctx)
 }

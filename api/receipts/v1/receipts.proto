@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package receipts.v1;
 
-option go_package = "receipts-tracker/api/gen/receipts/v1;receiptsv1";
+option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1;receiptspb";
 
 // --------- Profiles ---------
 message Profile {

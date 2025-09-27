@@ -1,4 +1,4 @@
-module receipts-tracker
+module github.com/joseph-ayodele/receipts-tracker
 
 go 1.24
 

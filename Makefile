@@ -15,7 +15,7 @@ srv/run:
 # Option A: local protoc (brew/choco/winget)
 .PHONY: proto/gen
 proto/gen:
-	protoc -I . --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. api/receipts/v1/receipts.proto
+	protoc -I . --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. ./gen/proto/receipts/v1/receipts.proto
 
 
 # Option B: Dockerized protoc (no local install required)

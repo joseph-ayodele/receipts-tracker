@@ -1,3 +1,22 @@
-package ent
+package main
 
-//go:generate go run entgo.io/ent/cmd/ent generate ./schema --target ../../gen/ent
+import (
+	"log"
+
+	"entgo.io/ent/entc"
+	"entgo.io/ent/entc/gen"
+)
+
+func main() {
+	err := entc.Generate(
+		"./db/ent/schema",
+		&gen.Config{
+			Target:  "gen/ent",
+			Package: "ent",
+			Schema:  "ent/schema",
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
