@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
-	"github.com/joseph-ayodele/receipts-tracker/db/ent/schema/constants"
-	"github.com/joseph-ayodele/receipts-tracker/db/ent/schema/utils"
+	"github.com/joseph-ayodele/receipts-tracker/constants"
+	"github.com/joseph-ayodele/receipts-tracker/utils"
 
 	"github.com/google/uuid"
 )
