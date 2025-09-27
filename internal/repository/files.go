@@ -11,6 +11,7 @@ import (
 )
 
 type ReceiptFileRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*ent.ReceiptFile, error)
 	GetByProfileAndHash(ctx context.Context, profileID uuid.UUID, hash []byte) (*ent.ReceiptFile, error)
 	Create(ctx context.Context, profileID uuid.UUID, sourcePath, filename, ext string, size int, hash []byte, uploadedAt time.Time) (*ent.ReceiptFile, error)
 	UpsertByHash(ctx context.Context, profileID uuid.UUID, sourcePath, filename, ext string, size int, hash []byte, uploadedAt time.Time) (*ent.ReceiptFile, bool, error)
@@ -26,6 +27,10 @@ func NewReceiptFileRepository(entc *ent.Client, logger *slog.Logger) ReceiptFile
 		ent:    entc,
 		logger: logger,
 	}
+}
+
+func (r *receiptFileRepo) GetByID(ctx context.Context, id uuid.UUID) (*ent.ReceiptFile, error) {
+	return r.ent.ReceiptFile.Get(ctx, id)
 }
 
 func (r *receiptFileRepo) GetByProfileAndHash(ctx context.Context, profileID uuid.UUID, hash []byte) (*ent.ReceiptFile, error) {
