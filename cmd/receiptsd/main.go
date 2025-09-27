@@ -24,7 +24,7 @@ func main() {
 	}
 	addr := os.Getenv("GRPC_ADDR")
 	if addr == "" {
-		addr = ":50051"
+		addr = ":8080"
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
