@@ -89,7 +89,6 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 		return nil, status.Error(codes.InvalidArgument, "root_path is required")
 	}
 	
-
 	// default skipHidden := true when field not present (optional bool)
 	skipHidden := true
 	if req.SkipHidden != false {

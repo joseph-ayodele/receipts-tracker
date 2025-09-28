@@ -14,6 +14,13 @@ import (
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -62,7 +69,10 @@ func main() {
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 
 	// Build OCR extractor (Stage 1) and adapt it to TextExtractor.
-	ocrx := ocr.NewExtractor(ocr.Config{}) // <-- single argument (matches your code)
+	ocrx := ocr.NewExtractor(ocr.Config{
+		TessdataDir:   os.Getenv("TESSDATA_DIR"),               // optional (helps on Windows)
+		HeicConverter: getenv("HEIC_CONVERTER", "magick"),      // "magick" | "heif-convert" | "sips"
+	})
 	textExtractor := extract.NewOCRAdapter(ocrx, logger)
 
 	p := textextract.NewPipeline(filesRepo, jobsRepo, textExtractor, logger)

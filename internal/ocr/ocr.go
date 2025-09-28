@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/joseph-ayodele/receipts-tracker/constants"
 )
 
 type Config struct {
@@ -19,12 +21,15 @@ type Config struct {
 	TesseractLang string // default "eng"
 	DPI           int    // rasterization DPI for scanned PDFs, default 300
 	MaxPages      int    // 0 = no limit
+
+	TessdataDir   string
+	HeicConverter string
 }
 
 type ExtractionResult struct {
 	Text       string
 	Pages      int
-	SourceType string // "PDF" | "IMAGE"
+	SourceType string // constants.PDF | constants.IMAGE
 	Method     string // "pdf-text" | "pdf-ocr" | "image-ocr"
 	Language   string
 	Duration   time.Duration
@@ -55,24 +60,33 @@ func NewExtractor(cfg Config) *Extractor {
 	return &Extractor{cfg: cfg, runner: execRunner{}}
 }
 
-// For tests.
-func (e *Extractor) WithRunner(r Runner) *Extractor {
-	e.runner = r
-	return e
-}
-
 // Extract picks a strategy based on file extension.
 func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult, error) {
 	start := time.Now()
-	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
-	switch ext {
-	case "pdf":
+	ext := constants.NormalizeExt(filepath.Ext(path))
+	switch constants.MapExtToFormat(ext) {
+	case constants.PDF:
 		res, err := e.extractPDF(ctx, path)
 		res.Duration = time.Since(start)
 		return res, err
-	case "jpg", "jpeg", "png":
+	case constants.IMAGE:
+		var cleanup func()
+		var warns []string
+		if constants.IsHEICExt(ext) {
+			out, w, c, err := ConvertHEICtoPNG(ctx, e.runner, e.cfg.HeicConverter, path)
+			warns = append(warns, w...)
+			if err != nil {
+				return ExtractionResult{SourceType: constants.IMAGE, Warnings: warns}, err
+			}
+			cleanup = c
+			path = out
+		}
+		if cleanup != nil {
+			defer cleanup()
+		}
 		res, err := e.extractImage(ctx, path)
 		res.Duration = time.Since(start)
+		res.Warnings = append(res.Warnings, warns...)
 		return res, err
 	default:
 		return ExtractionResult{}, fmt.Errorf("unsupported extension: %q", ext)
@@ -86,7 +100,7 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 		return ExtractionResult{
 			Text:       Normalize(text),
 			Pages:      pages,
-			SourceType: "PDF",
+			SourceType: constants.PDF,
 			Method:     "pdf-text",
 			Language:   "", // n/a for text
 			Warnings:   warn,
@@ -101,12 +115,12 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 		if err != nil {
 			w = append(w, err.Error())
 		}
-		return ExtractionResult{Warnings: w, SourceType: "PDF"}, fmt.Errorf("pdf ocr failed: %w", err2)
+		return ExtractionResult{Warnings: w, SourceType: constants.PDF}, fmt.Errorf("pdf ocr failed: %w", err2)
 	}
 	return ExtractionResult{
 		Text:       Normalize(text2),
 		Pages:      pages2,
-		SourceType: "PDF",
+		SourceType: constants.PDF,
 		Method:     "pdf-ocr",
 		Language:   e.cfg.TesseractLang,
 		Warnings:   append(warn, warn2...),
@@ -116,12 +130,12 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 func (e *Extractor) extractImage(ctx context.Context, path string) (ExtractionResult, error) {
 	text, warn, err := e.tesseractOCR(ctx, path)
 	if err != nil {
-		return ExtractionResult{SourceType: "IMAGE", Warnings: warn}, err
+		return ExtractionResult{SourceType: constants.IMAGE, Warnings: warn}, err
 	}
 	return ExtractionResult{
 		Text:       Normalize(text),
 		Pages:      1,
-		SourceType: "IMAGE",
+		SourceType: constants.IMAGE,
 		Method:     "image-ocr",
 		Language:   e.cfg.TesseractLang,
 		Warnings:   warn,
@@ -145,7 +159,12 @@ func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pag
 	if err != nil {
 		return "", 0, nil, err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func(path string) {
+		err := os.RemoveAll(path)
+		if err != nil {
+			fmt.Printf("warning: failed to remove temp dir %q: %v\n", path, err)
+		}
+	}(tmpDir)
 
 	prefix := filepath.Join(tmpDir, "page")
 	// pdftoppm -r 300 -png <in.pdf> <tmp/page>
@@ -185,11 +204,17 @@ func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pag
 var reBoxNoise = regexp.MustCompile(`(?m)^\s*[_\-]{3,}\s*$`)
 
 func (e *Extractor) tesseractOCR(ctx context.Context, path string) (string, []string, error) {
+	args := []string{path, "stdout", "-l", e.cfg.TesseractLang}
+	if e.cfg.TessdataDir != "" {
+		args = append(args, "--tessdata-dir", e.cfg.TessdataDir)
+	}
+
 	// tesseract <file> stdout -l <lang>
-	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, path, "stdout", "-l", e.cfg.TesseractLang)
+	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, args...)
 	if err != nil {
 		return "", []string{string(errb)}, fmt.Errorf("tesseract: %w", err)
 	}
+
 	// minor cleanup of obvious line noise
 	txt := reBoxNoise.ReplaceAllString(string(out), "")
 	return txt, nil, nil

@@ -5,7 +5,9 @@
 # Runtime config (overridable)
 # -----------------------------
 DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(POSTGRES_DB)
-GRPC_ADDR ?= :50051
+GRPC_ADDR ?= :8080
+# TODO: Update this path to your Tesseract data files location.
+TESSDATA_PREFIX := C:/Users/joseph/scoop/apps/tesseract-languages/current
 
 # -----------------------------
 # Tooling dependency matrix
@@ -18,9 +20,6 @@ ENT_VERSION                  ?= latest         # ent is used via `go run` below;
 # -----------------------------
 # Helpers
 # -----------------------------
-# Define a single, reusable macro for checking prerequisites
-# $(1) = Binary name (e.g., protoc)
-# $(2) = Specific error/installation message
 define check_prereq
 	@echo -n "  -> Checking $(1)... "
 	if command -v $(1) >/dev/null 2>&1; then \
@@ -43,25 +42,28 @@ deps/go: ## Verify that the Go compiler is installed
 .PHONY: deps/tools
 deps/tools: deps/go ## Install pinned codegen tools (protoc plugins)
 	$(call check_prereq, protoc, Install from https://grpc.io/docs/protoc-installation/)
-
 	@echo "Installing code generation tools..."
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
+#	go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
+#	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
 	@echo "Tools installed:"
 	@echo "  protoc-gen-go        @ $(PROTOC_GEN_GO_VERSION)"
 	@echo "  protoc-gen-go-grpc   @ $(PROTOC_GEN_GO_GRPC_VERSION)"
 
-.PHONY: deps/bin
-deps/bin: ## Checks for external binaries required for OCR processing.
+.PHONY: deps/ocr-tools
+deps/ocr-tools: ## Checks for external binaries required for OCR processing.
 	@echo "Checking for external binary dependencies..."
-	# Check Tesseract
-	$(call check_prereq, tesseract, Use 'brew/scoop install tesseract' or similar.)
-
-	# Check Poppler utilities
-	$(call check_prereq, pdftotext, Poppler utilities not found. Use 'brew/scoop install poppler' or similar.)
-	$(call check_prereq, pdftoppm, Poppler utilities not found. Use 'brew/scoop install poppler' or similar.)
-
+	$(call check_prereq, tesseract, Use 'brew/scoop install tesseract'.)
+	$(call check_prereq, pdftotext, Poppler utilities not found. Use 'brew/scoop install poppler'.)
+	$(call check_prereq, pdftoppm, Poppler utilities not found. Use 'brew/scoop install poppler'.)
+	$(call check_prereq, magick, ImageMagick not found. Use 'brew/scoop install imagemagick'.)
 	@echo "All external binaries found."
+
+.PHONY: deps/ocr
+deps/ocr: deps/ocr-tools
+	@echo "Using TESSDATA_PREFIX=$(TESSDATA_PREFIX)"
+
+.PHONY: deps
+deps: deps/go deps/ocr
 
 # -----------------------------
 # Database utilities
@@ -93,16 +95,24 @@ build/server: ## Build the gRPC server binary
 	go build -o bin/receiptsd ./cmd/receiptsd
 
 .PHONY: srv/run
-srv/run: ## Run the gRPC server (uses DB_URL and GRPC_ADDR)
+srv/run: deps ## Run the gRPC server (uses DB_URL and GRPC_ADDR)
 	export DB_URL=$(DB_URL)
 	export GRPC_ADDR=$(GRPC_ADDR)
+	# If you configure TESSDATA_PREFIX here, it will override system env.
+ifneq ($(strip $(TESSDATA_PREFIX)),)
+	export TESSDATA_PREFIX=$(TESSDATA_PREFIX)
+endif
 	go run ./cmd/receiptsd
 
-.PHONY: srv/dev
-srv/dev: ## Run the gRPC server with live reload style (same as srv/run, alias for dev)
+.PHONY: srv/run-ocr
+srv/run-ocr: deps ## Run the gRPC server (uses DB_URL and GRPC_ADDR)
 	export DB_URL=$(DB_URL)
 	export GRPC_ADDR=$(GRPC_ADDR)
-	go run ./cmd/receiptsd
+	# If you configure TESSDATA_PREFIX here, it will override system env.
+ifneq ($(strip $(TESSDATA_PREFIX)),)
+	export TESSDATA_PREFIX=$(TESSDATA_PREFIX)
+endif
+	go run ./cmd/runocr
 
 # -----------------------------
 # Misc
@@ -112,8 +122,9 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets:\n"} /^[a-zA-Z0-9_\/-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Current config:"
-	@echo "  DB_URL     = $(DB_URL)"
-	@echo "  GRPC_ADDR  = $(GRPC_ADDR)"
+	@echo "  DB_URL          = $(DB_URL)"
+	@echo "  GRPC_ADDR       = $(GRPC_ADDR)"
+	@echo "  TESSDATA_PREFIX = $(TESSDATA_PREFIX)"
 	@echo "Tool versions:"
 	@echo "  protoc-gen-go        = $(PROTOC_GEN_GO_VERSION)"
 	@echo "  protoc-gen-go-grpc   = $(PROTOC_GEN_GO_GRPC_VERSION)"
