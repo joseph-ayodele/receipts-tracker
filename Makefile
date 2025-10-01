@@ -74,7 +74,7 @@ deps/ocr: deps/ocr-tools
 	@echo "Using TESSDATA_PREFIX=$(TESSDATA_PREFIX)"
 
 .PHONY: deps
-deps: deps/go deps/kubectl deps/protoc deps/ocr
+deps: deps/go deps/kubectl deps/protoc
 
 # -----------------------------
 # Database utilities

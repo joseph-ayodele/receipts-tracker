@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
 	"google.golang.org/grpc/codes"
@@ -32,11 +33,12 @@ func validateProfileInput(name, currency string) (string, string, error) {
 	if name == "" {
 		return "", "", status.Error(codes.InvalidArgument, "name is required")
 	}
-	cur := strings.TrimSpace(currency)
-	if len(cur) != 3 {
+	cur := strings.ToUpper(strings.TrimSpace(currency))
+	if cur == "" {
+		cur = constants.DefaultCurrency
+	} else if len(cur) != 3 {
 		return "", "", status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
 	}
-	cur = strings.ToUpper(cur)
 	return name, cur, nil
 }
 
