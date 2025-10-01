@@ -39,6 +39,16 @@ deps/go: ## Verify that the Go compiler is installed
 	@echo "Checking for Go compiler..."
 	$(call check_prereq, go, Install Go from https://go.dev/doc/install)
 
+.PHONY: deps/kubectl
+deps/kubectl: ## Verify that kubectl is installed (for local dev env)
+	@echo "Checking for kubectl..."
+	$(call check_prereq, kubectl, Install from https://kubernetes.io/docs/tasks/tools/)
+
+.PHONY: deps/tilt
+deps/tilt: deps/kubectl ## Verify that Tilt is installed (for local dev env)
+	@echo "Checking for Tilt..."
+	$(call check_prereq, tilt, Install from https://docs.tilt.dev/install.html)
+
 .PHONY: deps/protoc
 deps/protoc: ## Install pinned codegen tools (protoc plugins)
 	@echo "Checking for code generation tools..."
@@ -64,7 +74,7 @@ deps/ocr: deps/ocr-tools
 	@echo "Using TESSDATA_PREFIX=$(TESSDATA_PREFIX)"
 
 .PHONY: deps
-deps: deps/go deps/protoc deps/ocr
+deps: deps/go deps/kubectl deps/protoc deps/ocr
 
 # -----------------------------
 # Database utilities
