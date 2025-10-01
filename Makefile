@@ -39,8 +39,9 @@ deps/go: ## Verify that the Go compiler is installed
 	@echo "Checking for Go compiler..."
 	$(call check_prereq, go, Install Go from https://go.dev/doc/install)
 
-.PHONY: deps/tools
-deps/tools: deps/go ## Install pinned codegen tools (protoc plugins)
+.PHONY: deps/protoc
+deps/protoc: ## Install pinned codegen tools (protoc plugins)
+	@echo "Checking for code generation tools..."
 	$(call check_prereq, protoc, Install from https://grpc.io/docs/protoc-installation/)
 	@echo "Installing code generation tools..."
 #	go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
@@ -63,7 +64,7 @@ deps/ocr: deps/ocr-tools
 	@echo "Using TESSDATA_PREFIX=$(TESSDATA_PREFIX)"
 
 .PHONY: deps
-deps: deps/go deps/ocr
+deps: deps/go deps/protoc deps/ocr
 
 # -----------------------------
 # Database utilities
@@ -81,7 +82,7 @@ ent/generate: ## Generate ent code (to gen/ent)
 	go run entgo.io/ent/cmd/ent generate --target gen/ent ./db/ent/schema
 
 .PHONY: proto/generate
-proto/generate: deps/tools ## Generate protobuf + gRPC stubs into ./gen
+proto/generate: deps/protoc ## Generate protobuf + gRPC stubs into ./gen
 	protoc -I . \
 	  --go_out=Mapi/receipts/v1/common.proto=proto/receipts/v1,Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
 	  --go-grpc_out=Mapi/receipts/v1/common.proto=proto/receipts/v1,Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
