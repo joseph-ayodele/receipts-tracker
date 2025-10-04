@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: receipts-app-db
+          image: receipts-db
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
@@ -64,10 +64,10 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_DB
-#          volumeMounts:
-#            - name: receipts-db-storage
-#              mountPath: /var/lib/postgresql/data
-#              subPath: postgres
+      #          volumeMounts:
+      #            - name: receipts-db-storage
+      #              mountPath: /var/lib/postgresql/data
+      #              subPath: postgres
       volumes:
         - name: receipts-db-storage
           emptyDir: {}
