@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/joseph-ayodele/receipts-tracker/constants"
@@ -93,31 +92,4 @@ func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult,
 	default:
 		return ExtractionResult{}, fmt.Errorf("unsupported extension: %q", ext)
 	}
-}
-
-func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResult, error) {
-	// 1) try pdftotext
-	text, pages, warn, err := e.pdfToText(ctx, path)
-	if err == nil && len(strings.TrimSpace(text)) >= 20 {
-		return ExtractionResult{
-			Text:       Normalize(text),
-			Pages:      pages,
-			SourceType: constants.PDF,
-			Method:     "pdf-text",
-			Language:   "", // n/a for text
-			Warnings:   warn,
-		}, nil
-	}
-
-	// 2) fallback: rasterize + tesseract
-	res, err2 := e.extractImage(ctx, path)
-	if err2 != nil {
-		// If text was short but present, surface both warnings for debugging
-		w := append(warn, res.Warnings...)
-		if err != nil {
-			w = append(w, err.Error())
-		}
-		return ExtractionResult{Warnings: w, SourceType: constants.IMAGE}, fmt.Errorf("pdf ocr failed: %w", err2)
-	}
-	return res, nil
 }
