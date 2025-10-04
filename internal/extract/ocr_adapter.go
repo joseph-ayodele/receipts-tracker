@@ -17,6 +17,9 @@ func NewOCRAdapter(e *ocr.Extractor, _ *slog.Logger) *OCRAdapter {
 
 func (a *OCRAdapter) Extract(ctx context.Context, path string) (TextExtractionResult, error) {
 	r, err := a.e.Extract(ctx, path)
+	if err != nil {
+		return TextExtractionResult{}, err
+	}
 	return TextExtractionResult{
 		Text:       r.Text,
 		Pages:      r.Pages,
@@ -25,5 +28,6 @@ func (a *OCRAdapter) Extract(ctx context.Context, path string) (TextExtractionRe
 		Language:   r.Language,
 		Duration:   r.Duration,
 		Warnings:   r.Warnings,
-	}, err
+		Confidence: r.Confidence,
+	}, nil
 }

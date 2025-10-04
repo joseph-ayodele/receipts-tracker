@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -48,13 +49,31 @@ func (p *Pipeline) Run(ctx context.Context, fileID uuid.UUID) (uuid.UUID, extrac
 	// OCR
 	res, err := p.TextExtractor.Extract(ctx, row.SourcePath)
 	if err != nil {
-		_ = p.JobsRepo.FinishFailure(ctx, job.ID, err.Error())
+		_ = p.JobsRepo.FinishOCR(ctx, job.ID, repository.OCROutcome{
+			ErrorMessage: err.Error(),
+		})
 		return job.ID, res, err
 	}
 
+	// Decide if review is needed
+	needsReview := false
+	if format == constants.IMAGE {
+		// for images, flag low-confidence OCR for review (or LLM fallback later)
+		if res.Confidence > 0 && res.Confidence < ocr.ImageConfidenceThreshold {
+			p.Log.Warn("Image ocr confidence low; needs review", "file_id", fileID, "job_id", job.ID, "conf", res.Confidence)
+			needsReview = true
+		}
+	}
+
 	// Persist OCR result (mark OCR_OK)
-	params := map[string]any{"lang": res.Language}
-	if err := p.JobsRepo.FinishOCRSuccess(ctx, job.ID, res.Text, res.Method, params); err != nil {
+	out := repository.OCROutcome{
+		OCRText:     res.Text,
+		Method:      res.Method,
+		Confidence:  res.Confidence,
+		NeedsReview: needsReview,
+		ModelParams: map[string]any{"lang": res.Language},
+	}
+	if err := p.JobsRepo.FinishOCR(ctx, job.ID, out); err != nil {
 		return job.ID, res, err
 	}
 

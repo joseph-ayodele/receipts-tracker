@@ -7,13 +7,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 )
 
+type OCROutcome struct {
+	ErrorMessage string
+	OCRText      string
+	Method       string  // "pdf-text" | "pdf-ocr" | "image-ocr"
+	Confidence   float32 // 0..1
+	NeedsReview  bool
+	ModelParams  map[string]any // e.g., {"lang":"eng"}
+}
+
 type ExtractJobRepository interface {
 	Start(ctx context.Context, fileID, profileID uuid.UUID, format, status string) (*ent.ExtractJob, error)
-	FinishOCRSuccess(ctx context.Context, jobID uuid.UUID, ocrText string, method string, modelParams map[string]any) error
-	FinishFailure(ctx context.Context, jobID uuid.UUID, message string) error
+	FinishOCR(ctx context.Context, jobID uuid.UUID, outcome OCROutcome) error
 }
 
 type extractJobRepo struct {
@@ -41,42 +50,30 @@ func (r *extractJobRepo) Start(ctx context.Context, fileID, profileID uuid.UUID,
 	return job, nil
 }
 
-func (r *extractJobRepo) FinishOCRSuccess(ctx context.Context, jobID uuid.UUID, ocrText string, method string, modelParams map[string]any) error {
+func (r *extractJobRepo) FinishOCR(ctx context.Context, jobID uuid.UUID, outcome OCROutcome) error {
+	u := r.ent.ExtractJob.UpdateOneID(jobID).SetFinishedAt(time.Now())
+	if outcome.ErrorMessage != "" {
+		_, err := u.
+			SetStatus(string(constants.JobStatusFailed)).
+			SetErrorMessage(outcome.ErrorMessage).
+			Save(ctx)
+		return err
+	}
+
 	var params []byte
-	if modelParams != nil {
-		if b, err := json.Marshal(modelParams); err == nil {
+	if outcome.ModelParams != nil {
+		if b, err := json.Marshal(outcome.ModelParams); err == nil {
 			params = b
 		}
 	}
-	// Note: field names assume your Ent schema generated: OcrText, ModelName, ModelParams, FinishedAt, Status
-	_, err := r.ent.ExtractJob.
-		UpdateOneID(jobID).
-		SetOcrText(ocrText).
-		SetModelName(method).
-		SetModelParams(params).
-		SetFinishedAt(time.Now()).
-		SetStatus("OCR_OK").
-		Save(ctx)
-	if err != nil {
-		r.log.Error("extract_job finish(OK) failed", "job_id", jobID, "err", err)
-		return err
-	}
-	r.log.Info("extract_job finished (OCR_OK)", "job_id", jobID, "method", method)
-	return nil
-}
 
-func (r *extractJobRepo) FinishFailure(ctx context.Context, jobID uuid.UUID, message string) error {
-	_, err := r.ent.ExtractJob.
-		UpdateOneID(jobID).
-		SetFinishedAt(time.Now()).
-		SetNeedsReview(true).
-		SetStatus("FAILED").
-		SetErrorMessage(message).
+	_, err := u.
+		SetStatus(string(constants.JobStatusOCROK)).
+		SetOcrText(outcome.OCRText).
+		SetModelName(outcome.Method).
+		SetModelParams(params).
+		SetExtractionConfidence(outcome.Confidence).
+		SetNeedsReview(outcome.NeedsReview).
 		Save(ctx)
-	if err != nil {
-		r.log.Error("extract_job finish(FAILED) failed", "job_id", jobID, "err", err)
-		return err
-	}
-	r.log.Warn("extract_job finished (FAILED)", "job_id", jobID, "error", message)
-	return nil
+	return err
 }

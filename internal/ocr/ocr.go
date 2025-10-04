@@ -3,10 +3,7 @@ package ocr
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -22,8 +19,12 @@ type Config struct {
 	DPI           int    // rasterization DPI for scanned PDFs, default 300
 	MaxPages      int    // 0 = no limit
 
-	TessdataDir   string
-	HeicConverter string
+	TessdataDir         string
+	HeicConverter       string
+	EnableTSVConfidence bool
+
+	PSM int // e.g., 6 is good for uniform block of text
+	OEM int // 1 = LSTM; leave 0 to use default
 }
 
 type ExtractionResult struct {
@@ -34,6 +35,7 @@ type ExtractionResult struct {
 	Language   string
 	Duration   time.Duration
 	Warnings   []string
+	Confidence float32
 }
 
 type Extractor struct {
@@ -108,114 +110,14 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 	}
 
 	// 2) fallback: rasterize + tesseract
-	text2, pages2, warn2, err2 := e.pdfToOCR(ctx, path)
+	res, err2 := e.extractImage(ctx, path)
 	if err2 != nil {
 		// If text was short but present, surface both warnings for debugging
-		w := append(warn, warn2...)
+		w := append(warn, res.Warnings...)
 		if err != nil {
 			w = append(w, err.Error())
 		}
-		return ExtractionResult{Warnings: w, SourceType: constants.PDF}, fmt.Errorf("pdf ocr failed: %w", err2)
+		return ExtractionResult{Warnings: w, SourceType: constants.IMAGE}, fmt.Errorf("pdf ocr failed: %w", err2)
 	}
-	return ExtractionResult{
-		Text:       Normalize(text2),
-		Pages:      pages2,
-		SourceType: constants.PDF,
-		Method:     "pdf-ocr",
-		Language:   e.cfg.TesseractLang,
-		Warnings:   append(warn, warn2...),
-	}, nil
-}
-
-func (e *Extractor) extractImage(ctx context.Context, path string) (ExtractionResult, error) {
-	text, warn, err := e.tesseractOCR(ctx, path)
-	if err != nil {
-		return ExtractionResult{SourceType: constants.IMAGE, Warnings: warn}, err
-	}
-	return ExtractionResult{
-		Text:       Normalize(text),
-		Pages:      1,
-		SourceType: constants.IMAGE,
-		Method:     "image-ocr",
-		Language:   e.cfg.TesseractLang,
-		Warnings:   warn,
-	}, nil
-}
-
-func (e *Extractor) pdfToText(ctx context.Context, path string) (text string, pages int, warnings []string, err error) {
-	// pdftotext -layout -enc UTF-8 -eol unix <path> -
-	out, errb, err := e.runner.Run(ctx, e.cfg.Pdftotext, "-layout", "-enc", "UTF-8", "-eol", "unix", path, "-")
-	if err != nil {
-		return "", 0, []string{string(errb)}, err
-	}
-	text = string(out)
-	// A form-feed \f is used as page separator by default
-	pages = 1 + strings.Count(text, "\f")
-	return text, pages, nil, nil
-}
-
-func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pages int, warnings []string, err error) {
-	tmpDir, err := os.MkdirTemp("", "rt-pp-*")
-	if err != nil {
-		return "", 0, nil, err
-	}
-	defer func(path string) {
-		err := os.RemoveAll(path)
-		if err != nil {
-			fmt.Printf("warning: failed to remove temp dir %q: %v\n", path, err)
-		}
-	}(tmpDir)
-
-	prefix := filepath.Join(tmpDir, "page")
-	// pdftoppm -r 300 -png <in.pdf> <tmp/page>
-	_, errb, err := e.runner.Run(ctx, e.cfg.Pdftoppm, "-r", fmt.Sprintf("%d", e.cfg.DPI), "-png", path, prefix)
-	if err != nil {
-		return "", 0, []string{string(errb)}, err
-	}
-
-	// collect generated pngs (prefix-1.png, prefix-2.png, ...)
-	matches, _ := filepath.Glob(prefix + "-*.png")
-	sort.Strings(matches)
-	if e.cfg.MaxPages > 0 && len(matches) > e.cfg.MaxPages {
-		matches = matches[:e.cfg.MaxPages]
-	}
-	if len(matches) == 0 {
-		return "", 0, []string{"pdftoppm produced no images"}, fmt.Errorf("no pages rendered")
-	}
-
-	var b strings.Builder
-	var warns []string
-	for _, img := range matches {
-		txt, w, err := e.tesseractOCR(ctx, img)
-		if err != nil {
-			warns = append(warns, err.Error())
-			continue
-		}
-		if b.Len() > 0 {
-			b.WriteString("\n\f\n") // keep a clear page break marker
-		}
-		b.WriteString(txt)
-		warns = append(warns, w...)
-	}
-	pages = len(matches)
-	return b.String(), pages, warns, nil
-}
-
-var reBoxNoise = regexp.MustCompile(`(?m)^\s*[_\-]{3,}\s*$`)
-
-func (e *Extractor) tesseractOCR(ctx context.Context, path string) (string, []string, error) {
-	args := []string{path, "stdout", "-l", e.cfg.TesseractLang}
-	if e.cfg.TessdataDir != "" {
-		args = append(args, "--tessdata-dir", e.cfg.TessdataDir)
-	}
-
-	// tesseract <file> stdout -l <lang>
-	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, args...)
-	if err != nil {
-		return "", []string{string(errb)}, fmt.Errorf("tesseract: %w", err)
-	}
-
-	// minor cleanup of obvious line noise
-	txt := reBoxNoise.ReplaceAllString(string(out), "")
-	return txt, nil, nil
+	return res, nil
 }

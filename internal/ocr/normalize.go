@@ -13,6 +13,8 @@ var (
 	reO0Artifacts = regexp.MustCompile(`\b0([1-9])\b`) // loose "0" vs "O" artifacts
 )
 
+var reBoxNoise = regexp.MustCompile(`(?m)^\s*[_\-]{3,}\s*$`)
+
 // Normalize collapses noisy whitespace and fixes common OCR artifacts.
 // Conservative: keeps line breaks; collapses >2 newlines into a single blank line.
 func Normalize(s string) string {

@@ -18,6 +18,7 @@ type TextExtractionResult struct {
 	Language   string
 	Duration   time.Duration
 	Warnings   []string
+	Confidence float32
 }
 
 // FieldExtractor is Stage 2: text -> JSON fields (LLM or rules).
