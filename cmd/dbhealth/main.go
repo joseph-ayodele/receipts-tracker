@@ -12,6 +12,12 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+		//AddSource: true,
+	}))
+	slog.SetDefault(logger)
+
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		slog.Error("missing DB_URL environment variable")
@@ -29,8 +35,7 @@ func main() {
 		MaxConnLifetime: 30 * time.Minute,
 		MaxConnIdleTime: 5 * time.Minute,
 		DialTimeout:     3 * time.Second,
-		// StatementTimeout: 2 * time.Second, // optional: server-side cap
-	})
+	}, logger)
 	if err != nil {
 		slog.Error("failed to open database", "error", err, "db_url", dbURL)
 		os.Exit(1)
@@ -44,7 +49,7 @@ func main() {
 	defer pool.Close()
 
 	// Health check via pool
-	if err := repo.HealthCheck(ctx, pool, 1*time.Second); err != nil {
+	if err := repo.HealthCheck(ctx, pool, 1*time.Second, logger); err != nil {
 		slog.Error("DB health check failed", "error", err)
 		os.Exit(1)
 	}

@@ -40,16 +40,23 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Open DB (ent client + pgx pool)
-	entc, pool, err := svc.ConnectDB(ctx, dbURL, logger)
+	dbConfig := repo.Config{
+		DSN:             dbURL,
+		MaxConns:        20,
+		MinConns:        5,
+		MaxConnLifetime: 30 * time.Minute,
+		MaxConnIdleTime: 5 * time.Minute,
+		DialTimeout:     3 * time.Second,
+	}
+	entc, pool, err := repo.Open(ctx, dbConfig, logger)
 	if err != nil {
 		slog.Error("failed to open database", "error", err, "db_url", dbURL)
 		os.Exit(1)
 	}
-	defer svc.CloseDB(entc, pool, logger)
+	defer repo.Close(entc, pool, logger)
 
 	// Ping DB to ensure connectivity
-	err = svc.PingDB(ctx, pool, logger, 5*time.Second)
+	err = repo.HealthCheck(ctx, pool, 5*time.Second, logger)
 	if err != nil {
 		slog.Error("failed to ping database", "error", err)
 		os.Exit(1)
@@ -82,7 +89,7 @@ func main() {
 	// Set the service as serving (empty string means overall server health)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
-	logger.Info("receiptsd listening", "addr", addr)
+	logger.Info("receipts-tracker listening", "addr", addr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			slog.Error("gRPC serve error", "error", err)

@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: receiptsd
+  name: receipts-tracker
   labels:
-    app: receiptsd
+    app: receipts-tracker
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: receiptsd
+      app: receipts-tracker
   template:
     metadata:
       labels:
-        app: receiptsd
+        app: receipts-tracker
     spec:
       containers:
-        - name: receiptsd
-          image: receipts-app:latest
+        - name: receipts-tracker
+          image: receipts-tracker:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
