@@ -3,7 +3,6 @@ package ocr
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -72,16 +71,6 @@ func (e *Extractor) tesseractOCR(ctx context.Context, path string) (string, []st
 	txt := reBoxNoise.ReplaceAllString(string(out), "")
 	return txt, nil, nil
 }
-
-var (
-	reDate   = regexp.MustCompile(`\b(20\d{2}?\d{2})\b`)
-	reCurr   = regexp.MustCompile(`\b(usd|eur|gbp|cad|aud|inr|jpy)\b|[$£€]`)
-	reAmount = regexp.MustCompile(`\b\d{1,3}(,\d{3})*(\.\d{2})\b|\b\d+\.\d{2}\b`)
-)
-
-func hasDatePattern(s string) bool     { return reDate.MatchString(s) }
-func hasCurrencyPattern(s string) bool { return reCurr.MatchString(s) }
-func hasAmountPattern(s string) bool   { return reAmount.MatchString(s) }
 
 // tesseractTSVConfidence runs tesseract in TSV mode and returns mean word conf in 0..1.
 func (e *Extractor) tesseractTSVConfidence(ctx context.Context, path string) (float32, []string, error) {
