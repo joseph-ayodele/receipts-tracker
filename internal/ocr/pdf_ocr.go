@@ -89,7 +89,6 @@ func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pag
 	var b strings.Builder
 	var warns []string
 	for _, img := range matches {
-		// 🔽 use the shared image path which includes TSV/heuristics/confidence
 		res, err := e.extractImage(ctx, img)
 		if err != nil {
 			warns = append(warns, err.Error())
