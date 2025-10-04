@@ -29,7 +29,7 @@ func main() {
 
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		slog.Error("missing DB_URL environment variable")
+		logger.Error("missing DB_URL environment variable")
 		os.Exit(1)
 	}
 	addr := os.Getenv("GRPC_ADDR")
@@ -50,7 +50,7 @@ func main() {
 	}
 	entc, pool, err := repo.Open(ctx, dbConfig, logger)
 	if err != nil {
-		slog.Error("failed to open database", "error", err, "db_url", dbURL)
+		logger.Error("failed to open database", "error", err, "db_url", dbURL)
 		os.Exit(1)
 	}
 	defer repo.Close(entc, pool, logger)
@@ -58,14 +58,14 @@ func main() {
 	// Ping DB to ensure connectivity
 	err = repo.HealthCheck(ctx, pool, 5*time.Second, logger)
 	if err != nil {
-		slog.Error("failed to ping database", "error", err)
+		logger.Error("failed to ping database", "error", err)
 		os.Exit(1)
 	}
 
 	// gRPC server
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		slog.Error("failed to listen on address", "addr", addr, "error", err)
+		logger.Error("failed to listen on address", "addr", addr, "error", err)
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
@@ -98,6 +98,6 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	slog.Info("shutting down gracefully")
+	logger.Info("shutting down gracefully")
 	grpcServer.GracefulStop()
 }
