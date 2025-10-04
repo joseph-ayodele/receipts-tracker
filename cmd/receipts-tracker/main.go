@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -35,6 +36,9 @@ func main() {
 	addr := os.Getenv("GRPC_ADDR")
 	if addr == "" {
 		addr = ":8080"
+	}
+	if !strings.HasPrefix(addr, ":") {
+		addr = ":" + addr
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

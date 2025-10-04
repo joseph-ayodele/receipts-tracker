@@ -53,7 +53,7 @@ func main() {
 		MaxConnLifetime: 30 * time.Minute,
 		MaxConnIdleTime: 5 * time.Minute,
 		DialTimeout:     3 * time.Second,
-	})
+	}, logger)
 	if err != nil {
 		logger.Error("open db", "error", err)
 		os.Exit(1)
@@ -70,8 +70,8 @@ func main() {
 
 	// Build OCR extractor (Stage 1) and adapt it to TextExtractor.
 	ocrx := ocr.NewExtractor(ocr.Config{
-		TessdataDir:   os.Getenv("TESSDATA_DIR"),               // optional (helps on Windows)
-		HeicConverter: getenv("HEIC_CONVERTER", "magick"),      // "magick" | "heif-convert" | "sips"
+		TessdataDir:   os.Getenv("TESSDATA_DIR"),          // optional (helps on Windows)
+		HeicConverter: getenv("HEIC_CONVERTER", "magick"), // "magick" | "heif-convert" | "sips"
 	})
 	textExtractor := extract.NewOCRAdapter(ocrx, logger)
 
