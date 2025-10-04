@@ -74,7 +74,7 @@ func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult,
 		var cleanup func()
 		var warns []string
 		if constants.IsHEICExt(ext) {
-			out, w, c, err := ConvertHEICtoPNG(ctx, e.runner, e.cfg.HeicConverter, path)
+			out, w, c, err := convertHEICtoPNG(ctx, e.runner, e.cfg.HeicConverter, path)
 			warns = append(warns, w...)
 			if err != nil {
 				return ExtractionResult{SourceType: constants.IMAGE, Warnings: warns}, err

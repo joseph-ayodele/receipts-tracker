@@ -73,30 +73,6 @@ func (e *Extractor) tesseractOCR(ctx context.Context, path string) (string, []st
 	return txt, nil, nil
 }
 
-// naive heuristic confidence based on decoded text characteristics
-func heuristicConfidence(txt string) float32 {
-	// very simple: boost if we see common receipt artifacts
-	// (date-ish, currency-ish, amount-ish). Each adds ~0.15.
-	txtL := strings.ToLower(txt)
-	score := float32(0.2) // base
-	if hasDatePattern(txtL) {
-		score += 0.2
-	}
-	if hasCurrencyPattern(txtL) {
-		score += 0.15
-	}
-	if hasAmountPattern(txtL) {
-		score += 0.15
-	}
-	if len(txt) > 120 {
-		score += 0.1
-	} // enough content
-	if score > 1.0 {
-		score = 1.0
-	}
-	return score
-}
-
 var (
 	reDate   = regexp.MustCompile(`\b(20\d{2}?\d{2})\b`)
 	reCurr   = regexp.MustCompile(`\b(usd|eur|gbp|cad|aud|inr|jpy)\b|[$£€]`)

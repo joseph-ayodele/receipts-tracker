@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// ConvertHEICtoPNG converts a HEIC/HEIF file to a temporary PNG using the chosen converter.
+// convertHEICtoPNG converts a HEIC/HEIF file to a temporary PNG using the chosen converter.
 // converter: "heif-convert" | "magick" | "sips"
 //
 // Returns (outPath, warnings, cleanup, err). Call cleanup() to remove temp files.
-func ConvertHEICtoPNG(ctx context.Context, r Runner, converter, in string) (string, []string, func(), error) {
+func convertHEICtoPNG(ctx context.Context, r Runner, converter, in string) (string, []string, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "rt-heic-*")
 	if err != nil {
 		return "", nil, nil, err
@@ -40,4 +41,28 @@ func ConvertHEICtoPNG(ctx context.Context, r Runner, converter, in string) (stri
 		return "", nil, cleanup, fmt.Errorf("HEIC conversion produced no output: %v", statErr)
 	}
 	return out, nil, cleanup, nil
+}
+
+// naive heuristic confidence based on decoded text characteristics
+func heuristicConfidence(txt string) float32 {
+	// very simple: boost if we see common receipt artifacts
+	// (date-ish, currency-ish, amount-ish). Each adds ~0.15.
+	txtL := strings.ToLower(txt)
+	score := float32(0.2) // base
+	if hasDatePattern(txtL) {
+		score += 0.2
+	}
+	if hasCurrencyPattern(txtL) {
+		score += 0.15
+	}
+	if hasAmountPattern(txtL) {
+		score += 0.15
+	}
+	if len(txt) > 120 {
+		score += 0.1
+	} // enough content
+	if score > 1.0 {
+		score = 1.0
+	}
+	return score
 }

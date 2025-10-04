@@ -15,33 +15,62 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 	// 1) try pdftotext
 	text, pages, warn, err := e.pdfToText(ctx, path)
 	if err == nil && len(strings.TrimSpace(text)) >= 20 {
+		norm := Normalize(text)
+		confidence := heuristicConfidence(norm) // heuristic only (no OCR confidence)
 		return ExtractionResult{
-			Text:       Normalize(text),
+			Text:       norm,
 			Pages:      pages,
 			SourceType: constants.PDF,
 			Method:     "pdf-text",
 			Language:   "", // n/a for text
 			Warnings:   warn,
+			Confidence: confidence,
 		}, nil
 	}
 
-	// 2) fallback: rasterize + tesseract
-	text2, pages2, warn2, err2 := e.pdfToOCR(ctx, path)
+	// 2) fallback: rasterize + tesseract (per page via extractImage)
+	pageResults, warn2, err2 := e.pdfToOCRPages(ctx, path)
 	if err2 != nil {
-		// If text was short but present, surface both warnings for debugging
 		w := append(warn, warn2...)
 		if err != nil {
 			w = append(w, err.Error())
 		}
 		return ExtractionResult{Warnings: w, SourceType: constants.PDF}, fmt.Errorf("pdf ocr failed: %w", err2)
 	}
+
+	// concatenate text and aggregate confidence
+	var b strings.Builder
+	var allWarns []string
+	var sumConf float32
+	var nConf int
+	for i, pr := range pageResults {
+		if i > 0 {
+			b.WriteString("\n\f\n") // explicit page break
+		}
+		b.WriteString(pr.Text)
+		allWarns = append(allWarns, pr.Warnings...)
+		if pr.Confidence > 0 {
+			sumConf += pr.Confidence
+			nConf++
+		}
+	}
+	norm := Normalize(b.String())
+	confidence := float32(0)
+	if nConf > 0 {
+		confidence = sumConf / float32(nConf)
+	} else {
+		// fallback if page confidences weren’t computed
+		confidence = heuristicConfidence(norm)
+	}
+
 	return ExtractionResult{
-		Text:       Normalize(text2),
-		Pages:      pages2,
+		Text:       norm,
+		Pages:      len(pageResults),
 		SourceType: constants.PDF,
 		Method:     "pdf-ocr",
 		Language:   e.cfg.TesseractLang,
-		Warnings:   append(warn, warn2...),
+		Warnings:   append(warn, append(warn2, allWarns...)...),
+		Confidence: confidence,
 	}, nil
 }
 
@@ -57,14 +86,16 @@ func (e *Extractor) pdfToText(ctx context.Context, path string) (text string, pa
 	return text, pages, nil, nil
 }
 
-func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pages int, warnings []string, err error) {
+// pdfToOCRPages renders PDF pages to PNG then runs extractImage() per page.
+// It returns per-page ExtractionResult (with per-page Confidence) and aggregated warnings.
+func (e *Extractor) pdfToOCRPages(ctx context.Context, path string) ([]ExtractionResult, []string, error) {
 	tmpDir, err := os.MkdirTemp("", "rt-pp-*")
 	if err != nil {
-		return "", 0, nil, err
+		return nil, nil, err
 	}
 	defer func(path string) {
 		if rmErr := os.RemoveAll(path); rmErr != nil {
-			// keep this a warning; OCR succeeded already
+			// keep as warning; OCR may have succeeded already
 			fmt.Printf("warning: failed to remove temp dir %q: %v\n", path, rmErr)
 		}
 	}(tmpDir)
@@ -73,7 +104,7 @@ func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pag
 	// pdftoppm -r <DPI> -png <in.pdf> <tmp/page>
 	_, errb, runErr := e.runner.Run(ctx, e.cfg.Pdftoppm, "-r", fmt.Sprintf("%d", e.cfg.DPI), "-png", path, prefix)
 	if runErr != nil {
-		return "", 0, []string{string(errb)}, runErr
+		return nil, []string{string(errb)}, runErr
 	}
 
 	// collect generated pngs (prefix-1.png, prefix-2.png, ...)
@@ -83,25 +114,19 @@ func (e *Extractor) pdfToOCR(ctx context.Context, path string) (text string, pag
 		matches = matches[:e.cfg.MaxPages]
 	}
 	if len(matches) == 0 {
-		return "", 0, []string{"pdftoppm produced no images"}, fmt.Errorf("no pages rendered")
+		return nil, []string{"pdftoppm produced no images"}, fmt.Errorf("no pages rendered")
 	}
 
-	var b strings.Builder
+	var results []ExtractionResult
 	var warns []string
 	for _, img := range matches {
-		res, err := e.extractImage(ctx, img)
+		pr, err := e.extractImage(ctx, img)
 		if err != nil {
 			warns = append(warns, err.Error())
 			continue
 		}
-		if b.Len() > 0 {
-			b.WriteString("\n\f\n") // clear page break marker
-		}
-		b.WriteString(res.Text)
-		// include any page-level warnings (e.g., TSV errors)
-		warns = append(warns, res.Warnings...)
+		results = append(results, pr)
+		warns = append(warns, pr.Warnings...)
 	}
-
-	// pages reported = number rendered (even if some failed OCR)
-	return b.String(), len(matches), warns, nil
+	return results, warns, nil
 }
