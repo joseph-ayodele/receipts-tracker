@@ -40,7 +40,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	}
 
 	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
-	sys := buildSystemPrompt(req.AllowedCategories, req.DefaultCurrency, req.Timezone, req.Profile)
+	sys := buildSystemPrompt(req)
 	user := buildUserPrompt(req.OCRText, req.FilenameHint, req.FolderHint)
 
 	body := map[string]any{
@@ -178,38 +178,38 @@ func (c *Client) post(ctx context.Context, url string, body map[string]any) ([]b
 	return buf.Bytes(), nil
 }
 
-func buildSystemPrompt(categories []string, defaultCurrency, tz string, pc llm.ProfileContext) string {
+func buildSystemPrompt(req llm.ExtractRequest) string {
 	var catLine string
-	if len(categories) > 0 {
-		catLine = "Allowed categories (enum): " + strings.Join(categories, ", ") + ". "
+	if len(req.AllowedCategories) > 0 {
+		catLine = "Allowed categories (enum): " + strings.Join(req.AllowedCategories, ", ") + ". "
 	} else {
 		catLine = "Category must be a short, sensible label if present. "
 	}
-	if defaultCurrency == "" {
-		defaultCurrency = "USD"
+	if req.DefaultCurrency == "" {
+		req.DefaultCurrency = "USD"
 	}
 	ctxBits := []string{}
-	if pc.ProfileName != "" {
-		ctxBits = append(ctxBits, "Profile: "+pc.ProfileName+".")
+	if req.Profile.ProfileName != "" {
+		ctxBits = append(ctxBits, "Profile: "+req.Profile.ProfileName+".")
 	}
-	if pc.JobTitle != "" {
-		ctxBits = append(ctxBits, "Job Title: "+pc.JobTitle+".")
+	if req.Profile.JobTitle != "" {
+		ctxBits = append(ctxBits, "Job Title: "+req.Profile.JobTitle+".")
 	}
-	if pc.JobDescription != "" {
-		ctxBits = append(ctxBits, "Job Description: "+pc.JobDescription+".")
+	if req.Profile.JobDescription != "" {
+		ctxBits = append(ctxBits, "Job Description: "+req.Profile.JobDescription+".")
 	}
 
 	parts := []string{
-		"You are a receipts parser. Given OCR text & file hints, extract fields and return ONLY JSON that matches the JSON Schema provided.",
+		"You are a receipts parser. Return ONLY JSON that matches the JSON Schema provided.",
 		"Use ISO-8601 dates (YYYY-MM-DD).",
-		"Currency must be a 3-letter ISO 4217 code; default to " + defaultCurrency + " if uncertain.",
+		"Currency must be a 3-letter ISO 4217 code; default to " + req.DefaultCurrency + " if uncertain.",
 		catLine,
-		// NEW: business context so the model can justify category & description
 		"Business context: " + strings.Join(ctxBits, " "),
-		"When present, 'description' should be a concise business need, coherent with the job context and category.",
+		"For 'description', produce a concise tax-appropriate business need that explains the expense in the context of the job (e.g., purpose, usage). Avoid consumer-y language.",
+		"Include 'discount' and 'shipping_fee' if visible.",
 	}
-	if tz != "" {
-		parts = append(parts, "If you need to disambiguate dates, prefer timezone: "+tz+".")
+	if tz := strings.TrimSpace(req.Timezone); tz != "" {
+		parts = append(parts, "If dates are ambiguous, prefer timezone: "+tz+".")
 	}
 	return strings.Join(parts, " ")
 }
