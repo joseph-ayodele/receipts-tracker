@@ -87,6 +87,14 @@ func main() {
 		logger.Error("load profile", "profile_id", job.ProfileID, "error", err)
 		os.Exit(1)
 	}
+	jobTitle := ""
+	if profileRow.JobTitle != nil {
+		jobTitle = *profileRow.JobTitle
+	}
+	jobDesc := ""
+	if profileRow.JobDescription != nil {
+		jobDesc = *profileRow.JobDescription
+	}
 
 	// categories
 	cats, err := catRepo.ListCategories(ctx)
@@ -104,12 +112,16 @@ func main() {
 		OCRText:           *job.OcrText,
 		FilenameHint:      filepath.Base(fileRow.SourcePath),
 		FolderHint:        filepath.Dir(fileRow.SourcePath),
-		CountryHint:       "", // optional; set if you have it
 		AllowedCategories: allowed,
 		DefaultCurrency:   profileRow.DefaultCurrency,
-		Timezone:          "",                        // optional; can be set from config later
-		PrepConfidence:    *job.ExtractionConfidence, // 0..1 (if you stored it)
-		FilePath:          fileRow.SourcePath,        // vision future-path
+		Timezone:          "",
+		PrepConfidence:    *job.ExtractionConfidence,
+		FilePath:          fileRow.SourcePath,
+		Profile: llm.ProfileContext{
+			ProfileName:    profileRow.Name,
+			JobTitle:       jobTitle,
+			JobDescription: jobDesc,
+		},
 	}
 
 	client := openail.New(openail.Config{

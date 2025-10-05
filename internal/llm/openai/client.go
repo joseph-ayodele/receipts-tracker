@@ -31,7 +31,6 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		"allowed_categories", len(req.AllowedCategories),
 		"default_currency", req.DefaultCurrency,
 		"timezone", req.Timezone,
-		"country_hint", req.CountryHint,
 	)
 
 	if req.FilePath != "" && req.PrepConfidence > 0 && req.PrepConfidence < c.cfg.LowConfThreshold {
@@ -41,7 +40,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	}
 
 	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
-	sys := buildSystemPrompt(req.AllowedCategories, req.DefaultCurrency, req.Timezone, req.CountryHint)
+	sys := buildSystemPrompt(req.AllowedCategories, req.DefaultCurrency, req.Timezone, req.Profile)
 	user := buildUserPrompt(req.OCRText, req.FilenameHint, req.FolderHint)
 
 	body := map[string]any{
@@ -179,7 +178,7 @@ func (c *Client) post(ctx context.Context, url string, body map[string]any) ([]b
 	return buf.Bytes(), nil
 }
 
-func buildSystemPrompt(categories []string, defaultCurrency, tz, country string) string {
+func buildSystemPrompt(categories []string, defaultCurrency, tz string, pc llm.ProfileContext) string {
 	var catLine string
 	if len(categories) > 0 {
 		catLine = "Allowed categories (enum): " + strings.Join(categories, ", ") + ". "
@@ -189,17 +188,28 @@ func buildSystemPrompt(categories []string, defaultCurrency, tz, country string)
 	if defaultCurrency == "" {
 		defaultCurrency = "USD"
 	}
+	ctxBits := []string{}
+	if pc.ProfileName != "" {
+		ctxBits = append(ctxBits, "Profile: "+pc.ProfileName+".")
+	}
+	if pc.JobTitle != "" {
+		ctxBits = append(ctxBits, "Job Title: "+pc.JobTitle+".")
+	}
+	if pc.JobDescription != "" {
+		ctxBits = append(ctxBits, "Job Description: "+pc.JobDescription+".")
+	}
+
 	parts := []string{
 		"You are a receipts parser. Given OCR text & file hints, extract fields and return ONLY JSON that matches the JSON Schema provided.",
 		"Use ISO-8601 dates (YYYY-MM-DD).",
 		"Currency must be a 3-letter ISO 4217 code; default to " + defaultCurrency + " if uncertain.",
 		catLine,
+		// NEW: business context so the model can justify category & description
+		"Business context: " + strings.Join(ctxBits, " "),
+		"When present, 'description' should be a concise business need, coherent with the job context and category.",
 	}
 	if tz != "" {
 		parts = append(parts, "If you need to disambiguate dates, prefer timezone: "+tz+".")
-	}
-	if country != "" {
-		parts = append(parts, "Country hint: "+country+".")
 	}
 	return strings.Join(parts, " ")
 }

@@ -2,6 +2,12 @@ package llm
 
 import "context"
 
+type ProfileContext struct {
+	ProfileName    string `json:"profile_name,omitempty"`
+	JobTitle       string `json:"job_title,omitempty"`
+	JobDescription string `json:"job_description,omitempty"`
+}
+
 // ReceiptFields is the normalized shape we want from the LLM.
 type ReceiptFields struct {
 	MerchantName    string  `json:"merchant_name"`
@@ -22,12 +28,12 @@ type ExtractRequest struct {
 	OCRText           string   // normalized OCR text (from our OCR pipeline)
 	FilenameHint      string   // e.g. "2024-07-21-costco.pdf"
 	FolderHint        string   // optional, to help with routing / categorization
-	CountryHint       string   // optional, e.g., "US"
 	AllowedCategories []string // optional; if empty we won't constrain the enum
 	DefaultCurrency   string   // fallback currency if not found, e.g., "USD"
 	Timezone          string   // optional; helps parse local dates
 	PrepConfidence    float32  // our confidence in the OCR text (0..1)
 	FilePath          string   // original file path, if our confidence is low we upload the file directly
+	Profile           ProfileContext
 }
 
 // FieldExtractor is the interface our pipeline depends on.
