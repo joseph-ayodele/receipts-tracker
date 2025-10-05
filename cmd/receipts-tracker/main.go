@@ -44,6 +44,10 @@ func main() {
 	if !strings.HasPrefix(addr, ":") {
 		addr = ":" + addr
 	}
+	if os.Getenv("OPENAI_API_KEY") == "" {
+		logger.Error("OPENAI_API_KEY env var is required")
+		os.Exit(2)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
