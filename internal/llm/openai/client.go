@@ -7,80 +7,69 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"log/slog"
-
+	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
 )
 
-// Config for the OpenAI client.
-type Config struct {
-	APIKey      string  // if empty, falls back to env OPENAI_API_KEY
-	BaseURL     string  // default https://api.openai.com/v1
-	Model       string  // e.g., "gpt-4o-mini" or "gpt-4.1-mini"
-	Temperature float32 // 0..2
-	Timeout     time.Duration
-}
-
-type Client struct {
-	cfg        Config
-	httpClient *http.Client
-	log        *slog.Logger
-}
-
-func New(cfg Config, log *slog.Logger) *Client {
-	if cfg.APIKey == "" {
-		cfg.APIKey = os.Getenv("OPENAI_API_KEY")
-	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = "https://api.openai.com/v1"
-	}
-	if cfg.Model == "" {
-		cfg.Model = "gpt-4o-mini" // safe default; override in env or config
-	}
-	if cfg.Timeout <= 0 {
-		cfg.Timeout = 30 * time.Second
-	}
-	if log == nil {
-		log = slog.Default()
-	}
-	return &Client{
-		cfg:        cfg,
-		httpClient: &http.Client{Timeout: cfg.Timeout},
-		log:        log,
-	}
-}
-
-// ExtractFields implements llm.FieldExtractor using OpenAI "chat/completions" with JSON object format.
-// We instruct the model with a strict schema and then validate locally.
+// ExtractFields implements llm.FieldExtractor using text-only chat/completions.
+// If PrepConfidence is low and FilePath is provided, we LOG that a vision path
+// would be preferable, but we DO NOT switch behavior yet (future step).
 func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm.ReceiptFields, []byte, error) {
-	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
+	rid := uuid.New().String()
+	start := time.Now()
 
+	// pre-flight log
+	c.log.Info("llm.extract.start",
+		"req_id", rid,
+		"model", c.cfg.Model,
+		"temp", c.cfg.Temperature,
+		"text_len", len(req.OCRText),
+		"has_file_path", req.FilePath != "",
+		"prep_confidence", req.PrepConfidence,
+		"allowed_categories", len(req.AllowedCategories),
+		"default_currency", req.DefaultCurrency,
+		"timezone", req.Timezone,
+		"country_hint", req.CountryHint,
+	)
+
+	// For now: just log the low-confidence + file path situation.
+	if req.FilePath != "" && req.PrepConfidence > 0 && req.PrepConfidence < c.cfg.LowConfThreshold {
+		c.log.Warn("llm.extract.low_ocr_confidence",
+			"req_id", rid,
+			"prep_confidence", req.PrepConfidence,
+			"hint", "vision path not implemented; proceeding with text-only")
+	}
+
+	// Build schema & prompts
+	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
 	sys := buildSystemPrompt(req.AllowedCategories, req.DefaultCurrency, req.Timezone, req.CountryHint)
 	user := buildUserPrompt(req.OCRText, req.FilenameHint, req.FolderHint)
 
 	body := map[string]any{
 		"model":       c.cfg.Model,
 		"temperature": c.cfg.Temperature,
-		// Ask for JSON only
-		"response_format": map[string]any{"type": "json_object"},
+		"response_format": map[string]any{
+			"type": "json_object",
+		},
 		"messages": []map[string]any{
 			{"role": "system", "content": sys},
 			{"role": "user", "content": user + "\n\nReturn ONLY JSON that matches the provided schema."},
-			// Stuff the schema as a visible instruction (since chat/completions doesn't accept json_schema directly).
 			{"role": "system", "content": "JSON Schema:\n" + mustJSON(schema)},
 		},
-		// Low max-tokens is usually fine; leave unset to let the model decide, or set a cap:
-		// "max_tokens": 800,
 	}
 
 	endpoint := strings.TrimRight(c.cfg.BaseURL, "/") + "/chat/completions"
-	raw, err := c.post(ctx, endpoint, body)
-	if err != nil {
-		return llm.ReceiptFields{}, nil, err
+	raw, httpErr := c.post(ctx, endpoint, body)
+	if httpErr != nil {
+		c.log.Error("llm.extract.http_error",
+			"req_id", rid,
+			"error", httpErr,
+			"elapsed_ms", time.Since(start).Milliseconds(),
+		)
+		return llm.ReceiptFields{}, nil, httpErr
 	}
 
 	// Parse choices[0].message.content
@@ -92,23 +81,59 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(raw, &cc); err != nil {
+		c.log.Error("llm.extract.decode_error",
+			"req_id", rid,
+			"error", err,
+			"raw_bytes", len(raw),
+			"elapsed_ms", time.Since(start).Milliseconds(),
+		)
 		return llm.ReceiptFields{}, raw, fmt.Errorf("decode openai response: %w", err)
 	}
 	if len(cc.Choices) == 0 {
+		c.log.Error("llm.extract.no_choices",
+			"req_id", rid,
+			"raw", string(raw),
+			"elapsed_ms", time.Since(start).Milliseconds(),
+		)
 		return llm.ReceiptFields{}, raw, fmt.Errorf("no choices in openai response")
 	}
 	content := strings.TrimSpace(cc.Choices[0].Message.Content)
+	c.log.Debug("llm.extract.content_received",
+		"req_id", rid,
+		"content_len", len(content),
+	)
 
-	// content should be JSON — validate against schema
+	// Validate content against schema
 	if err := llm.ValidateJSONAgainstSchema(schema, []byte(content)); err != nil {
+		c.log.Error("llm.extract.schema_validation_failed",
+			"req_id", rid,
+			"error", err,
+			"content", content,
+			"elapsed_ms", time.Since(start).Milliseconds(),
+		)
 		return llm.ReceiptFields{}, []byte(content), fmt.Errorf("schema validation failed: %w", err)
 	}
 
-	// Finally decode to our struct.
+	// Decode to struct
 	var out llm.ReceiptFields
 	if err := json.Unmarshal([]byte(content), &out); err != nil {
+		c.log.Error("llm.extract.unmarshal_failed",
+			"req_id", rid,
+			"error", err,
+			"elapsed_ms", time.Since(start).Milliseconds(),
+		)
 		return llm.ReceiptFields{}, []byte(content), fmt.Errorf("unmarshal fields: %w", err)
 	}
+
+	c.log.Info("llm.extract.ok",
+		"req_id", rid,
+		"merchant", out.MerchantName,
+		"date", out.TxDate,
+		"total", out.Total,
+		"currency", out.CurrencyCode,
+		"category", out.Category,
+		"elapsed_ms", time.Since(start).Milliseconds(),
+	)
 	return out, []byte(content), nil
 }
 
@@ -131,7 +156,7 @@ func (c *Client) post(ctx context.Context, url string, body map[string]any) ([]b
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			c.log.Warn("close response body", "error", err)
+			c.log.Warn("openai response body close error", "error", err)
 		}
 	}(resp.Body)
 
