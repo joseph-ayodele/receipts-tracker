@@ -92,7 +92,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	if err := llm.ValidateJSONAgainstSchema(schema, rawContent); err != nil {
 		if c.cfg.LenientOptional {
 			// Try a lenient sanitize: drop/normalize optional offenders and re-validate.
-			cleaned, dropped, sErr := llm.SanitizeOptionalFields(rawContent, req.AllowedCategories)
+			cleaned, dropped, sErr := llm.SanitizeOptionalFields(rawContent)
 			if sErr == nil {
 				if vErr := llm.ValidateJSONAgainstSchema(schema, cleaned); vErr == nil {
 					c.log.Warn("llm.extract.lenient_sanitize_applied",
@@ -205,9 +205,17 @@ func buildSystemPrompt(req llm.ExtractRequest) string {
 		"Currency must be a 3-letter ISO 4217 code; default to " + req.DefaultCurrency + " if uncertain.",
 		catLine,
 		"Business context: " + strings.Join(ctxBits, " "),
-		"For 'description', produce a concise tax-appropriate business need that explains the expense in the context of the job (e.g., purpose, usage). Avoid consumer-y language.",
-		"Include 'discount' and 'shipping_fee' if visible.",
+		// concise, generic, tax-friendly:
+		"For 'description', write a few words explaining the business need (concise, generic, professional) for the irs. Avoid addresses, timestamps, names.",
+
+		// money fields behavior:
 		"If a tip appears, include it under 'tip'.",
+		"If taxes appear, put them in 'tax' (never include taxes in 'other_fees').",
+		"Sum non-tax, non-tip surcharges into 'other_fees' (e.g., booking, airport, regulatory).",
+		"Include 'discount' if visible (positive amount representing the discount magnitude).",
+
+		// formatting hygiene:
+		"Never output null. If a field is not present, omit it.",
 	}
 	if tz := strings.TrimSpace(req.Timezone); tz != "" {
 		parts = append(parts, "If dates are ambiguous, prefer timezone: "+tz+".")
