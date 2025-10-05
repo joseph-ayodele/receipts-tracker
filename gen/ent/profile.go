@@ -20,6 +20,10 @@ type Profile struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// JobTitle holds the value of the "job_title" field.
+	JobTitle *string `json:"job_title,omitempty"`
+	// JobDescription holds the value of the "job_description" field.
+	JobDescription *string `json:"job_description,omitempty"`
 	// DefaultCurrency holds the value of the "default_currency" field.
 	DefaultCurrency string `json:"default_currency,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -77,7 +81,7 @@ func (*Profile) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case profile.FieldName, profile.FieldDefaultCurrency:
+		case profile.FieldName, profile.FieldJobTitle, profile.FieldJobDescription, profile.FieldDefaultCurrency:
 			values[i] = new(sql.NullString)
 		case profile.FieldCreatedAt, profile.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -109,6 +113,20 @@ func (_m *Profile) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case profile.FieldJobTitle:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field job_title", values[i])
+			} else if value.Valid {
+				_m.JobTitle = new(string)
+				*_m.JobTitle = value.String
+			}
+		case profile.FieldJobDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field job_description", values[i])
+			} else if value.Valid {
+				_m.JobDescription = new(string)
+				*_m.JobDescription = value.String
 			}
 		case profile.FieldDefaultCurrency:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -181,6 +199,16 @@ func (_m *Profile) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	if v := _m.JobTitle; v != nil {
+		builder.WriteString("job_title=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.JobDescription; v != nil {
+		builder.WriteString("job_description=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("default_currency=")
 	builder.WriteString(_m.DefaultCurrency)

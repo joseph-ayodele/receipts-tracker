@@ -17,6 +17,10 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldJobTitle holds the string denoting the job_title field in the database.
+	FieldJobTitle = "job_title"
+	// FieldJobDescription holds the string denoting the job_description field in the database.
+	FieldJobDescription = "job_description"
 	// FieldDefaultCurrency holds the string denoting the default_currency field in the database.
 	FieldDefaultCurrency = "default_currency"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -58,6 +62,8 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
+	FieldJobTitle,
+	FieldJobDescription,
 	FieldDefaultCurrency,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -99,6 +105,16 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByJobTitle orders the results by the job_title field.
+func ByJobTitle(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldJobTitle, opts...).ToFunc()
+}
+
+// ByJobDescription orders the results by the job_description field.
+func ByJobDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldJobDescription, opts...).ToFunc()
 }
 
 // ByDefaultCurrency orders the results by the default_currency field.

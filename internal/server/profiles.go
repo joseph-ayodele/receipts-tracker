@@ -27,31 +27,41 @@ func NewProfileService(profileRepo repository.ProfileRepository, logger *slog.Lo
 	}
 }
 
-// validateProfileInput trims and validates name and currency.
-func validateProfileInput(name, currency string) (string, string, error) {
-	name = strings.TrimSpace(name)
+// validateProfileInput validates and creates a Profile from the request.
+func validateProfileCreateInput(req *receiptspb.CreateProfileRequest) (*repository.Profile, error) {
+	name := strings.TrimSpace(req.GetName())
 	if name == "" {
-		return "", "", status.Error(codes.InvalidArgument, "name is required")
+		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
-	cur := strings.ToUpper(strings.TrimSpace(currency))
+
+	jobTitle := strings.TrimSpace(req.GetJobTitle())
+	jobDesc := strings.TrimSpace(req.GetJobDescription())
+
+	cur := strings.ToUpper(strings.TrimSpace(req.GetDefaultCurrency()))
 	if cur == "" {
 		cur = constants.DefaultCurrency
 	} else if len(cur) != 3 {
-		return "", "", status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
+		return nil, status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
 	}
-	return name, cur, nil
+
+	return &repository.Profile{
+		Name:            name,
+		DefaultCurrency: cur,
+		JobTitle:        jobTitle,
+		JobDescription:  jobDesc,
+	}, nil
 }
 
-// CreateProfile creates a new profile with the given name and default currency.
+// CreateProfile creates a new profile.
 func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
-	name, cur, err := validateProfileInput(req.GetName(), req.GetDefaultCurrency())
+	dto, err := validateProfileCreateInput(req)
 	if err != nil {
 		return nil, err
 	}
 
-	s.logger.Info("creating profile", "name", name, "currency", cur)
+	s.logger.Info("creating profile", "name", dto.Name, "currency", dto.DefaultCurrency)
 
-	p, err := s.profileRepo.CreateProfile(ctx, name, cur)
+	p, err := s.profileRepo.CreateProfile(ctx, dto)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create profile: %v", err)
 	}

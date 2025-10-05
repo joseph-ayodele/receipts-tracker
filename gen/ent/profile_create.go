@@ -30,6 +30,34 @@ func (_c *ProfileCreate) SetName(v string) *ProfileCreate {
 	return _c
 }
 
+// SetJobTitle sets the "job_title" field.
+func (_c *ProfileCreate) SetJobTitle(v string) *ProfileCreate {
+	_c.mutation.SetJobTitle(v)
+	return _c
+}
+
+// SetNillableJobTitle sets the "job_title" field if the given value is not nil.
+func (_c *ProfileCreate) SetNillableJobTitle(v *string) *ProfileCreate {
+	if v != nil {
+		_c.SetJobTitle(*v)
+	}
+	return _c
+}
+
+// SetJobDescription sets the "job_description" field.
+func (_c *ProfileCreate) SetJobDescription(v string) *ProfileCreate {
+	_c.mutation.SetJobDescription(v)
+	return _c
+}
+
+// SetNillableJobDescription sets the "job_description" field if the given value is not nil.
+func (_c *ProfileCreate) SetNillableJobDescription(v *string) *ProfileCreate {
+	if v != nil {
+		_c.SetJobDescription(*v)
+	}
+	return _c
+}
+
 // SetDefaultCurrency sets the "default_currency" field.
 func (_c *ProfileCreate) SetDefaultCurrency(v string) *ProfileCreate {
 	_c.mutation.SetDefaultCurrency(v)
@@ -234,6 +262,14 @@ func (_c *ProfileCreate) createSpec() (*Profile, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(profile.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.JobTitle(); ok {
+		_spec.SetField(profile.FieldJobTitle, field.TypeString, value)
+		_node.JobTitle = &value
+	}
+	if value, ok := _c.mutation.JobDescription(); ok {
+		_spec.SetField(profile.FieldJobDescription, field.TypeString, value)
+		_node.JobDescription = &value
 	}
 	if value, ok := _c.mutation.DefaultCurrency(); ok {
 		_spec.SetField(profile.FieldDefaultCurrency, field.TypeString, value)

@@ -61,6 +61,16 @@ func Name(v string) predicate.Profile {
 	return predicate.Profile(sql.FieldEQ(FieldName, v))
 }
 
+// JobTitle applies equality check predicate on the "job_title" field. It's identical to JobTitleEQ.
+func JobTitle(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldEQ(FieldJobTitle, v))
+}
+
+// JobDescription applies equality check predicate on the "job_description" field. It's identical to JobDescriptionEQ.
+func JobDescription(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldEQ(FieldJobDescription, v))
+}
+
 // DefaultCurrency applies equality check predicate on the "default_currency" field. It's identical to DefaultCurrencyEQ.
 func DefaultCurrency(v string) predicate.Profile {
 	return predicate.Profile(sql.FieldEQ(FieldDefaultCurrency, v))
@@ -139,6 +149,156 @@ func NameEqualFold(v string) predicate.Profile {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.Profile {
 	return predicate.Profile(sql.FieldContainsFold(FieldName, v))
+}
+
+// JobTitleEQ applies the EQ predicate on the "job_title" field.
+func JobTitleEQ(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldEQ(FieldJobTitle, v))
+}
+
+// JobTitleNEQ applies the NEQ predicate on the "job_title" field.
+func JobTitleNEQ(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldNEQ(FieldJobTitle, v))
+}
+
+// JobTitleIn applies the In predicate on the "job_title" field.
+func JobTitleIn(vs ...string) predicate.Profile {
+	return predicate.Profile(sql.FieldIn(FieldJobTitle, vs...))
+}
+
+// JobTitleNotIn applies the NotIn predicate on the "job_title" field.
+func JobTitleNotIn(vs ...string) predicate.Profile {
+	return predicate.Profile(sql.FieldNotIn(FieldJobTitle, vs...))
+}
+
+// JobTitleGT applies the GT predicate on the "job_title" field.
+func JobTitleGT(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldGT(FieldJobTitle, v))
+}
+
+// JobTitleGTE applies the GTE predicate on the "job_title" field.
+func JobTitleGTE(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldGTE(FieldJobTitle, v))
+}
+
+// JobTitleLT applies the LT predicate on the "job_title" field.
+func JobTitleLT(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldLT(FieldJobTitle, v))
+}
+
+// JobTitleLTE applies the LTE predicate on the "job_title" field.
+func JobTitleLTE(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldLTE(FieldJobTitle, v))
+}
+
+// JobTitleContains applies the Contains predicate on the "job_title" field.
+func JobTitleContains(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldContains(FieldJobTitle, v))
+}
+
+// JobTitleHasPrefix applies the HasPrefix predicate on the "job_title" field.
+func JobTitleHasPrefix(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldHasPrefix(FieldJobTitle, v))
+}
+
+// JobTitleHasSuffix applies the HasSuffix predicate on the "job_title" field.
+func JobTitleHasSuffix(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldHasSuffix(FieldJobTitle, v))
+}
+
+// JobTitleIsNil applies the IsNil predicate on the "job_title" field.
+func JobTitleIsNil() predicate.Profile {
+	return predicate.Profile(sql.FieldIsNull(FieldJobTitle))
+}
+
+// JobTitleNotNil applies the NotNil predicate on the "job_title" field.
+func JobTitleNotNil() predicate.Profile {
+	return predicate.Profile(sql.FieldNotNull(FieldJobTitle))
+}
+
+// JobTitleEqualFold applies the EqualFold predicate on the "job_title" field.
+func JobTitleEqualFold(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldEqualFold(FieldJobTitle, v))
+}
+
+// JobTitleContainsFold applies the ContainsFold predicate on the "job_title" field.
+func JobTitleContainsFold(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldContainsFold(FieldJobTitle, v))
+}
+
+// JobDescriptionEQ applies the EQ predicate on the "job_description" field.
+func JobDescriptionEQ(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldEQ(FieldJobDescription, v))
+}
+
+// JobDescriptionNEQ applies the NEQ predicate on the "job_description" field.
+func JobDescriptionNEQ(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldNEQ(FieldJobDescription, v))
+}
+
+// JobDescriptionIn applies the In predicate on the "job_description" field.
+func JobDescriptionIn(vs ...string) predicate.Profile {
+	return predicate.Profile(sql.FieldIn(FieldJobDescription, vs...))
+}
+
+// JobDescriptionNotIn applies the NotIn predicate on the "job_description" field.
+func JobDescriptionNotIn(vs ...string) predicate.Profile {
+	return predicate.Profile(sql.FieldNotIn(FieldJobDescription, vs...))
+}
+
+// JobDescriptionGT applies the GT predicate on the "job_description" field.
+func JobDescriptionGT(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldGT(FieldJobDescription, v))
+}
+
+// JobDescriptionGTE applies the GTE predicate on the "job_description" field.
+func JobDescriptionGTE(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldGTE(FieldJobDescription, v))
+}
+
+// JobDescriptionLT applies the LT predicate on the "job_description" field.
+func JobDescriptionLT(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldLT(FieldJobDescription, v))
+}
+
+// JobDescriptionLTE applies the LTE predicate on the "job_description" field.
+func JobDescriptionLTE(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldLTE(FieldJobDescription, v))
+}
+
+// JobDescriptionContains applies the Contains predicate on the "job_description" field.
+func JobDescriptionContains(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldContains(FieldJobDescription, v))
+}
+
+// JobDescriptionHasPrefix applies the HasPrefix predicate on the "job_description" field.
+func JobDescriptionHasPrefix(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldHasPrefix(FieldJobDescription, v))
+}
+
+// JobDescriptionHasSuffix applies the HasSuffix predicate on the "job_description" field.
+func JobDescriptionHasSuffix(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldHasSuffix(FieldJobDescription, v))
+}
+
+// JobDescriptionIsNil applies the IsNil predicate on the "job_description" field.
+func JobDescriptionIsNil() predicate.Profile {
+	return predicate.Profile(sql.FieldIsNull(FieldJobDescription))
+}
+
+// JobDescriptionNotNil applies the NotNil predicate on the "job_description" field.
+func JobDescriptionNotNil() predicate.Profile {
+	return predicate.Profile(sql.FieldNotNull(FieldJobDescription))
+}
+
+// JobDescriptionEqualFold applies the EqualFold predicate on the "job_description" field.
+func JobDescriptionEqualFold(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldEqualFold(FieldJobDescription, v))
+}
+
+// JobDescriptionContainsFold applies the ContainsFold predicate on the "job_description" field.
+func JobDescriptionContainsFold(v string) predicate.Profile {
+	return predicate.Profile(sql.FieldContainsFold(FieldJobDescription, v))
 }
 
 // DefaultCurrencyEQ applies the EQ predicate on the "default_currency" field.

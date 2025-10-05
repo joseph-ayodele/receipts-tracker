@@ -46,6 +46,46 @@ func (_u *ProfileUpdate) SetNillableName(v *string) *ProfileUpdate {
 	return _u
 }
 
+// SetJobTitle sets the "job_title" field.
+func (_u *ProfileUpdate) SetJobTitle(v string) *ProfileUpdate {
+	_u.mutation.SetJobTitle(v)
+	return _u
+}
+
+// SetNillableJobTitle sets the "job_title" field if the given value is not nil.
+func (_u *ProfileUpdate) SetNillableJobTitle(v *string) *ProfileUpdate {
+	if v != nil {
+		_u.SetJobTitle(*v)
+	}
+	return _u
+}
+
+// ClearJobTitle clears the value of the "job_title" field.
+func (_u *ProfileUpdate) ClearJobTitle() *ProfileUpdate {
+	_u.mutation.ClearJobTitle()
+	return _u
+}
+
+// SetJobDescription sets the "job_description" field.
+func (_u *ProfileUpdate) SetJobDescription(v string) *ProfileUpdate {
+	_u.mutation.SetJobDescription(v)
+	return _u
+}
+
+// SetNillableJobDescription sets the "job_description" field if the given value is not nil.
+func (_u *ProfileUpdate) SetNillableJobDescription(v *string) *ProfileUpdate {
+	if v != nil {
+		_u.SetJobDescription(*v)
+	}
+	return _u
+}
+
+// ClearJobDescription clears the value of the "job_description" field.
+func (_u *ProfileUpdate) ClearJobDescription() *ProfileUpdate {
+	_u.mutation.ClearJobDescription()
+	return _u
+}
+
 // SetDefaultCurrency sets the "default_currency" field.
 func (_u *ProfileUpdate) SetDefaultCurrency(v string) *ProfileUpdate {
 	_u.mutation.SetDefaultCurrency(v)
@@ -259,6 +299,18 @@ func (_u *ProfileUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(profile.FieldName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.JobTitle(); ok {
+		_spec.SetField(profile.FieldJobTitle, field.TypeString, value)
+	}
+	if _u.mutation.JobTitleCleared() {
+		_spec.ClearField(profile.FieldJobTitle, field.TypeString)
+	}
+	if value, ok := _u.mutation.JobDescription(); ok {
+		_spec.SetField(profile.FieldJobDescription, field.TypeString, value)
+	}
+	if _u.mutation.JobDescriptionCleared() {
+		_spec.ClearField(profile.FieldJobDescription, field.TypeString)
+	}
 	if value, ok := _u.mutation.DefaultCurrency(); ok {
 		_spec.SetField(profile.FieldDefaultCurrency, field.TypeString, value)
 	}
@@ -434,6 +486,46 @@ func (_u *ProfileUpdateOne) SetNillableName(v *string) *ProfileUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
 	}
+	return _u
+}
+
+// SetJobTitle sets the "job_title" field.
+func (_u *ProfileUpdateOne) SetJobTitle(v string) *ProfileUpdateOne {
+	_u.mutation.SetJobTitle(v)
+	return _u
+}
+
+// SetNillableJobTitle sets the "job_title" field if the given value is not nil.
+func (_u *ProfileUpdateOne) SetNillableJobTitle(v *string) *ProfileUpdateOne {
+	if v != nil {
+		_u.SetJobTitle(*v)
+	}
+	return _u
+}
+
+// ClearJobTitle clears the value of the "job_title" field.
+func (_u *ProfileUpdateOne) ClearJobTitle() *ProfileUpdateOne {
+	_u.mutation.ClearJobTitle()
+	return _u
+}
+
+// SetJobDescription sets the "job_description" field.
+func (_u *ProfileUpdateOne) SetJobDescription(v string) *ProfileUpdateOne {
+	_u.mutation.SetJobDescription(v)
+	return _u
+}
+
+// SetNillableJobDescription sets the "job_description" field if the given value is not nil.
+func (_u *ProfileUpdateOne) SetNillableJobDescription(v *string) *ProfileUpdateOne {
+	if v != nil {
+		_u.SetJobDescription(*v)
+	}
+	return _u
+}
+
+// ClearJobDescription clears the value of the "job_description" field.
+func (_u *ProfileUpdateOne) ClearJobDescription() *ProfileUpdateOne {
+	_u.mutation.ClearJobDescription()
 	return _u
 }
 
@@ -679,6 +771,18 @@ func (_u *ProfileUpdateOne) sqlSave(ctx context.Context) (_node *Profile, err er
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(profile.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.JobTitle(); ok {
+		_spec.SetField(profile.FieldJobTitle, field.TypeString, value)
+	}
+	if _u.mutation.JobTitleCleared() {
+		_spec.ClearField(profile.FieldJobTitle, field.TypeString)
+	}
+	if value, ok := _u.mutation.JobDescription(); ok {
+		_spec.SetField(profile.FieldJobDescription, field.TypeString, value)
+	}
+	if _u.mutation.JobDescriptionCleared() {
+		_spec.ClearField(profile.FieldJobDescription, field.TypeString)
 	}
 	if value, ok := _u.mutation.DefaultCurrency(); ok {
 		_spec.SetField(profile.FieldDefaultCurrency, field.TypeString, value)

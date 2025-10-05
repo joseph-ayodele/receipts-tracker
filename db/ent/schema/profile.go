@@ -25,6 +25,8 @@ func (Profile) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New).Immutable(),
 		field.String("name").NotEmpty().Unique(),
+		field.String("job_title").Optional().Nillable(),
+		field.String("job_description").Optional().Nillable(),
 		field.String("default_currency").NotEmpty().MinLen(3).MaxLen(3).
 			SchemaType(map[string]string{dialect.Postgres: "char(3)"}),
 		field.Time("created_at").Default(time.Now),

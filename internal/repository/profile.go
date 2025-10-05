@@ -9,9 +9,16 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
 )
 
+type Profile struct {
+	Name            string
+	DefaultCurrency string
+	JobTitle        string
+	JobDescription  string
+}
+
 type ProfileRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*ent.Profile, error)
-	CreateProfile(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error)
+	CreateProfile(ctx context.Context, profile *Profile) (*ent.Profile, error)
 	ListProfiles(ctx context.Context) ([]*ent.Profile, error)
 	Exists(ctx context.Context, id uuid.UUID) (bool, error)
 }
@@ -35,10 +42,15 @@ func (r *profileRepository) GetByID(ctx context.Context, id uuid.UUID) (*ent.Pro
 		Only(ctx)
 }
 
-func (r *profileRepository) CreateProfile(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error) {
-	p, err := r.client.Profile.Create().SetName(name).SetDefaultCurrency(defaultCurrency).Save(ctx)
+func (r *profileRepository) CreateProfile(ctx context.Context, profile *Profile) (*ent.Profile, error) {
+	p, err := r.client.Profile.Create().
+		SetName(profile.Name).
+		SetDefaultCurrency(profile.DefaultCurrency).
+		SetJobTitle(profile.JobTitle).
+		SetJobDescription(profile.JobDescription).
+		Save(ctx)
 	if err != nil {
-		r.logger.Error("failed to create profile", "name", name, "currency", defaultCurrency, "error", err)
+		r.logger.Error("failed to create profile", "name", profile.Name, "currency", profile.DefaultCurrency, "error", err)
 		return nil, err
 	}
 	return p, nil

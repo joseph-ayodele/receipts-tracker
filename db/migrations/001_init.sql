@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS profiles
 (
     id               uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
     name             text        NOT NULL UNIQUE,
+    job_title text,
+    job_description text,
     default_currency char(3)     NOT NULL DEFAULT 'USD',
     created_at       timestamptz NOT NULL DEFAULT now(),
     updated_at       timestamptz NOT NULL DEFAULT now()

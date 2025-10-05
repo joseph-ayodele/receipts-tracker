@@ -85,6 +85,8 @@ var (
 	ProfilesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString, Unique: true},
+		{Name: "job_title", Type: field.TypeString, Nullable: true},
+		{Name: "job_description", Type: field.TypeString, Nullable: true},
 		{Name: "default_currency", Type: field.TypeString, Size: 3, SchemaType: map[string]string{"postgres": "char(3)"}},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},

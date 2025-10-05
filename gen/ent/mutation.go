@@ -1894,6 +1894,8 @@ type ProfileMutation struct {
 	typ              string
 	id               *uuid.UUID
 	name             *string
+	job_title        *string
+	job_description  *string
 	default_currency *string
 	created_at       *time.Time
 	updated_at       *time.Time
@@ -2050,6 +2052,104 @@ func (m *ProfileMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *ProfileMutation) ResetName() {
 	m.name = nil
+}
+
+// SetJobTitle sets the "job_title" field.
+func (m *ProfileMutation) SetJobTitle(s string) {
+	m.job_title = &s
+}
+
+// JobTitle returns the value of the "job_title" field in the mutation.
+func (m *ProfileMutation) JobTitle() (r string, exists bool) {
+	v := m.job_title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldJobTitle returns the old "job_title" field's value of the Profile entity.
+// If the Profile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProfileMutation) OldJobTitle(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldJobTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldJobTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldJobTitle: %w", err)
+	}
+	return oldValue.JobTitle, nil
+}
+
+// ClearJobTitle clears the value of the "job_title" field.
+func (m *ProfileMutation) ClearJobTitle() {
+	m.job_title = nil
+	m.clearedFields[profile.FieldJobTitle] = struct{}{}
+}
+
+// JobTitleCleared returns if the "job_title" field was cleared in this mutation.
+func (m *ProfileMutation) JobTitleCleared() bool {
+	_, ok := m.clearedFields[profile.FieldJobTitle]
+	return ok
+}
+
+// ResetJobTitle resets all changes to the "job_title" field.
+func (m *ProfileMutation) ResetJobTitle() {
+	m.job_title = nil
+	delete(m.clearedFields, profile.FieldJobTitle)
+}
+
+// SetJobDescription sets the "job_description" field.
+func (m *ProfileMutation) SetJobDescription(s string) {
+	m.job_description = &s
+}
+
+// JobDescription returns the value of the "job_description" field in the mutation.
+func (m *ProfileMutation) JobDescription() (r string, exists bool) {
+	v := m.job_description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldJobDescription returns the old "job_description" field's value of the Profile entity.
+// If the Profile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProfileMutation) OldJobDescription(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldJobDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldJobDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldJobDescription: %w", err)
+	}
+	return oldValue.JobDescription, nil
+}
+
+// ClearJobDescription clears the value of the "job_description" field.
+func (m *ProfileMutation) ClearJobDescription() {
+	m.job_description = nil
+	m.clearedFields[profile.FieldJobDescription] = struct{}{}
+}
+
+// JobDescriptionCleared returns if the "job_description" field was cleared in this mutation.
+func (m *ProfileMutation) JobDescriptionCleared() bool {
+	_, ok := m.clearedFields[profile.FieldJobDescription]
+	return ok
+}
+
+// ResetJobDescription resets all changes to the "job_description" field.
+func (m *ProfileMutation) ResetJobDescription() {
+	m.job_description = nil
+	delete(m.clearedFields, profile.FieldJobDescription)
 }
 
 // SetDefaultCurrency sets the "default_currency" field.
@@ -2356,9 +2456,15 @@ func (m *ProfileMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProfileMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 6)
 	if m.name != nil {
 		fields = append(fields, profile.FieldName)
+	}
+	if m.job_title != nil {
+		fields = append(fields, profile.FieldJobTitle)
+	}
+	if m.job_description != nil {
+		fields = append(fields, profile.FieldJobDescription)
 	}
 	if m.default_currency != nil {
 		fields = append(fields, profile.FieldDefaultCurrency)
@@ -2379,6 +2485,10 @@ func (m *ProfileMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case profile.FieldName:
 		return m.Name()
+	case profile.FieldJobTitle:
+		return m.JobTitle()
+	case profile.FieldJobDescription:
+		return m.JobDescription()
 	case profile.FieldDefaultCurrency:
 		return m.DefaultCurrency()
 	case profile.FieldCreatedAt:
@@ -2396,6 +2506,10 @@ func (m *ProfileMutation) OldField(ctx context.Context, name string) (ent.Value,
 	switch name {
 	case profile.FieldName:
 		return m.OldName(ctx)
+	case profile.FieldJobTitle:
+		return m.OldJobTitle(ctx)
+	case profile.FieldJobDescription:
+		return m.OldJobDescription(ctx)
 	case profile.FieldDefaultCurrency:
 		return m.OldDefaultCurrency(ctx)
 	case profile.FieldCreatedAt:
@@ -2417,6 +2531,20 @@ func (m *ProfileMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
+		return nil
+	case profile.FieldJobTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetJobTitle(v)
+		return nil
+	case profile.FieldJobDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetJobDescription(v)
 		return nil
 	case profile.FieldDefaultCurrency:
 		v, ok := value.(string)
@@ -2468,7 +2596,14 @@ func (m *ProfileMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *ProfileMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(profile.FieldJobTitle) {
+		fields = append(fields, profile.FieldJobTitle)
+	}
+	if m.FieldCleared(profile.FieldJobDescription) {
+		fields = append(fields, profile.FieldJobDescription)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -2481,6 +2616,14 @@ func (m *ProfileMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *ProfileMutation) ClearField(name string) error {
+	switch name {
+	case profile.FieldJobTitle:
+		m.ClearJobTitle()
+		return nil
+	case profile.FieldJobDescription:
+		m.ClearJobDescription()
+		return nil
+	}
 	return fmt.Errorf("unknown Profile nullable field %s", name)
 }
 
@@ -2490,6 +2633,12 @@ func (m *ProfileMutation) ResetField(name string) error {
 	switch name {
 	case profile.FieldName:
 		m.ResetName()
+		return nil
+	case profile.FieldJobTitle:
+		m.ResetJobTitle()
+		return nil
+	case profile.FieldJobDescription:
+		m.ResetJobDescription()
 		return nil
 	case profile.FieldDefaultCurrency:
 		m.ResetDefaultCurrency()

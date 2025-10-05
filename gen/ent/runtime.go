@@ -53,7 +53,7 @@ func init() {
 	// profile.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	profile.NameValidator = profileDescName.Validators[0].(func(string) error)
 	// profileDescDefaultCurrency is the schema descriptor for default_currency field.
-	profileDescDefaultCurrency := profileFields[2].Descriptor()
+	profileDescDefaultCurrency := profileFields[4].Descriptor()
 	// profile.DefaultCurrencyValidator is a validator for the "default_currency" field. It is called by the builders before save.
 	profile.DefaultCurrencyValidator = func() func(string) error {
 		validators := profileDescDefaultCurrency.Validators
@@ -72,11 +72,11 @@ func init() {
 		}
 	}()
 	// profileDescCreatedAt is the schema descriptor for created_at field.
-	profileDescCreatedAt := profileFields[3].Descriptor()
+	profileDescCreatedAt := profileFields[5].Descriptor()
 	// profile.DefaultCreatedAt holds the default value on creation for the created_at field.
 	profile.DefaultCreatedAt = profileDescCreatedAt.Default.(func() time.Time)
 	// profileDescUpdatedAt is the schema descriptor for updated_at field.
-	profileDescUpdatedAt := profileFields[4].Descriptor()
+	profileDescUpdatedAt := profileFields[6].Descriptor()
 	// profile.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	profile.DefaultUpdatedAt = profileDescUpdatedAt.Default.(func() time.Time)
 	// profile.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

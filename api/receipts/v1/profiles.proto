@@ -10,11 +10,15 @@ message Profile {
   string default_currency = 3;
   string created_at = 4; // RFC3339
   string updated_at = 5; // RFC3339
+  string job_title = 6;
+  string job_description = 7;
 }
 
 message CreateProfileRequest {
   string name = 1;
   string default_currency = 2; // optional; if empty -> DB default
+  string job_title = 3; // optional
+  string job_description = 4; // optional
 }
 message CreateProfileResponse {
   Profile profile = 1;
