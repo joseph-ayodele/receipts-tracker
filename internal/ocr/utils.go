@@ -3,6 +3,7 @@ package ocr
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -11,7 +12,7 @@ import (
 // converter: "heif-convert" | "magick" | "sips"
 //
 // Returns (outPath, warnings, cleanup, err). Call cleanup() to remove temp files.
-func convertHEICtoPNG(ctx context.Context, r Runner, converter, in string) (string, []string, func(), error) {
+func convertHEICtoPNG(ctx context.Context, r Runner, logger *slog.Logger, converter, in string) (string, []string, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "rt-heic-*")
 	if err != nil {
 		return "", nil, nil, err
@@ -21,15 +22,15 @@ func convertHEICtoPNG(ctx context.Context, r Runner, converter, in string) (stri
 
 	switch converter {
 	case "heif-convert":
-		if _, errb, err2 := r.Run(ctx, "heif-convert", in, out); err2 != nil {
+		if _, errb, err2 := r.Run(ctx, "heif-convert", logger, in, out); err2 != nil {
 			return "", []string{string(errb)}, cleanup, fmt.Errorf("heif-convert failed: %w", err2)
 		}
 	case "magick":
-		if _, errb, err2 := r.Run(ctx, "magick", in, out); err2 != nil {
+		if _, errb, err2 := r.Run(ctx, "magick", logger, in, out); err2 != nil {
 			return "", []string{string(errb)}, cleanup, fmt.Errorf("magick convert failed: %w", err2)
 		}
 	case "sips":
-		if _, errb, err2 := r.Run(ctx, "sips", "-s", "format", "png", in, "--out", out); err2 != nil {
+		if _, errb, err2 := r.Run(ctx, "sips", logger, "-s", "format", "png", in, "--out", out); err2 != nil {
 			return "", []string{string(errb)}, cleanup, fmt.Errorf("sips convert failed: %w", err2)
 		}
 	default:

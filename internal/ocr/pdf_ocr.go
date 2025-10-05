@@ -12,11 +12,14 @@ import (
 )
 
 func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResult, error) {
-	// 1) try pdftotext
+	e.logger.Info("starting pdf extraction", "path", path)
+
+	// try pdftotext
 	text, pages, warn, err := e.pdfToText(ctx, path)
 	if err == nil && len(strings.TrimSpace(text)) >= 20 {
 		norm := Normalize(text)
 		confidence := heuristicConfidence(norm) // heuristic only (no OCR confidence)
+		e.logger.Info("pdf text extraction succeeded", "pages", pages, "confidence", confidence)
 		return ExtractionResult{
 			Text:       norm,
 			Pages:      pages,
@@ -28,13 +31,15 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 		}, nil
 	}
 
-	// 2) fallback: rasterize + tesseract (per page via extractImage)
+	// fallback: rasterize + tesseract (per page via extractImage)
+	e.logger.Warn("pdf text extraction failed, falling back to ocr", "path", path, "pdftotext_error", err)
 	pageResults, warn2, err2 := e.pdfToOCRPages(ctx, path)
 	if err2 != nil {
 		w := append(warn, warn2...)
 		if err != nil {
 			w = append(w, err.Error())
 		}
+		e.logger.Error("pdf ocr failed", "path", path, "pdftotext_error", err, "ocr_error", err2)
 		return ExtractionResult{Warnings: w, SourceType: constants.PDF}, fmt.Errorf("pdf ocr failed: %w", err2)
 	}
 
@@ -63,6 +68,7 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 		confidence = heuristicConfidence(norm)
 	}
 
+	e.logger.Info("pdf ocr extraction completed", "pages", len(pageResults), "confidence", confidence, "language", e.cfg.TesseractLang)
 	return ExtractionResult{
 		Text:       norm,
 		Pages:      len(pageResults),
@@ -76,7 +82,7 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 
 func (e *Extractor) pdfToText(ctx context.Context, path string) (text string, pages int, warnings []string, err error) {
 	// pdftotext -layout -enc UTF-8 -eol unix <path> -
-	out, errb, err := e.runner.Run(ctx, e.cfg.Pdftotext, "-layout", "-enc", "UTF-8", "-eol", "unix", path, "-")
+	out, errb, err := e.runner.Run(ctx, e.cfg.Pdftotext, e.logger, "-layout", "-enc", "UTF-8", "-eol", "unix", path, "-")
 	if err != nil {
 		return "", 0, []string{string(errb)}, err
 	}
@@ -96,13 +102,13 @@ func (e *Extractor) pdfToOCRPages(ctx context.Context, path string) ([]Extractio
 	defer func(path string) {
 		if rmErr := os.RemoveAll(path); rmErr != nil {
 			// keep as warning; OCR may have succeeded already
-			fmt.Printf("warning: failed to remove temp dir %q: %v\n", path, rmErr)
+			e.logger.Warn("failed to remove temp dir", "path", path, "error", rmErr)
 		}
 	}(tmpDir)
 
 	prefix := filepath.Join(tmpDir, "page")
 	// pdftoppm -r <DPI> -png <in.pdf> <tmp/page>
-	_, errb, runErr := e.runner.Run(ctx, e.cfg.Pdftoppm, "-r", fmt.Sprintf("%d", e.cfg.DPI), "-png", path, prefix)
+	_, errb, runErr := e.runner.Run(ctx, e.cfg.Pdftoppm, e.logger, "-r", fmt.Sprintf("%d", e.cfg.DPI), "-png", path, prefix)
 	if runErr != nil {
 		return nil, []string{string(errb)}, runErr
 	}
@@ -114,6 +120,7 @@ func (e *Extractor) pdfToOCRPages(ctx context.Context, path string) ([]Extractio
 		matches = matches[:e.cfg.MaxPages]
 	}
 	if len(matches) == 0 {
+		e.logger.Error("pdf rendering produced no images", "path", path)
 		return nil, []string{"pdftoppm produced no images"}, fmt.Errorf("no pages rendered")
 	}
 

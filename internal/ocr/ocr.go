@@ -3,6 +3,7 @@ package ocr
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"time"
 
@@ -40,9 +41,13 @@ type ExtractionResult struct {
 type Extractor struct {
 	cfg    Config
 	runner Runner
+	logger *slog.Logger
 }
 
-func NewExtractor(cfg Config) *Extractor {
+func NewExtractor(cfg Config, logger *slog.Logger) *Extractor {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	if cfg.Pdftotext == "" {
 		cfg.Pdftotext = "pdftotext"
 	}
@@ -58,13 +63,14 @@ func NewExtractor(cfg Config) *Extractor {
 	if cfg.DPI <= 0 {
 		cfg.DPI = 300
 	}
-	return &Extractor{cfg: cfg, runner: execRunner{}}
+	return &Extractor{cfg: cfg, runner: execRunner{}, logger: logger}
 }
 
 // Extract picks a strategy based on file extension.
 func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult, error) {
 	start := time.Now()
 	ext := constants.NormalizeExt(filepath.Ext(path))
+	e.logger.Debug("starting ocr extraction", "path", path, "method", "auto", "ext", ext)
 	switch constants.MapExtToFormat(ext) {
 	case constants.PDF:
 		res, err := e.extractPDF(ctx, path)
@@ -74,9 +80,10 @@ func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult,
 		var cleanup func()
 		var warns []string
 		if constants.IsHEICExt(ext) {
-			out, w, c, err := convertHEICtoPNG(ctx, e.runner, e.cfg.HeicConverter, path)
+			out, w, c, err := convertHEICtoPNG(ctx, e.runner, e.logger, e.cfg.HeicConverter, path)
 			warns = append(warns, w...)
 			if err != nil {
+				e.logger.Error("heic conversion failed", "path", path, "error", err)
 				return ExtractionResult{SourceType: constants.IMAGE, Warnings: warns}, err
 			}
 			cleanup = c
@@ -90,6 +97,7 @@ func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult,
 		res.Warnings = append(res.Warnings, warns...)
 		return res, err
 	default:
+		e.logger.Error("unsupported ocr extension", "extension", ext)
 		return ExtractionResult{}, fmt.Errorf("unsupported extension: %q", ext)
 	}
 }

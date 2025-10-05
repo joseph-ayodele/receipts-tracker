@@ -11,13 +11,16 @@ import (
 
 // Runner lets us stub external commands in tests.
 type Runner interface {
-	Run(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error)
+	Run(ctx context.Context, name string, logger *slog.Logger, args ...string) (stdout, stderr []byte, err error)
 }
 
 type execRunner struct{}
 
-func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte, []byte, error) {
+func (execRunner) Run(ctx context.Context, name string, logger *slog.Logger, args ...string) ([]byte, []byte, error) {
 	start := time.Now()
+
+	cmdLine := strings.Join(append([]string{name}, args...), " ")
+	logger.Info("running command", "cmd_line", cmdLine)
 
 	cmd := exec.CommandContext(ctx, name, args...)
 	var out, errb bytes.Buffer
@@ -28,15 +31,14 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 	dur := time.Since(start)
 
 	if err != nil {
-		slog.Error("exec failed",
+		logger.Error("exec failed",
 			"cmd", name,
-			"args", strings.Join(args, " "),
 			"duration_ms", dur.Milliseconds(),
 			"error", err,
 			"stderr", truncate(errb.String(), 8<<10), // cap at 8KB
 		)
 	} else {
-		slog.Debug("exec ok",
+		logger.Debug("exec ok",
 			"cmd", name,
 			"args", strings.Join(args, " "),
 			"duration_ms", dur.Milliseconds(),

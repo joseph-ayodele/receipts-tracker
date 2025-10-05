@@ -12,8 +12,10 @@ import (
 const ImageConfidenceThreshold = 0.6
 
 func (e *Extractor) extractImage(ctx context.Context, path string) (ExtractionResult, error) {
+	e.logger.Debug("starting image ocr", "path", path)
 	txt, warn, err := e.tesseractOCR(ctx, path)
 	if err != nil {
+		e.logger.Error("tesseract ocr failed", "path", path, "error", err)
 		return ExtractionResult{SourceType: constants.IMAGE, Warnings: warn}, err
 	}
 	txt = Normalize(txt)
@@ -44,6 +46,7 @@ func (e *Extractor) extractImage(ctx context.Context, path string) (ExtractionRe
 
 	warn = append(warn, warn2...)
 
+	e.logger.Info("image ocr completed", "pages", 1, "confidence", conf, "language", e.cfg.TesseractLang)
 	return ExtractionResult{
 		Text:       txt,
 		Pages:      1,
@@ -62,7 +65,7 @@ func (e *Extractor) tesseractOCR(ctx context.Context, path string) (string, []st
 	}
 
 	// tesseract <file> stdout -l <lang>
-	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, args...)
+	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, e.logger, args...)
 	if err != nil {
 		return "", []string{string(errb)}, fmt.Errorf("tesseract: %w", err)
 	}
@@ -87,7 +90,7 @@ func (e *Extractor) tesseractTSVConfidence(ctx context.Context, path string) (fl
 	// TSV output
 	args = append(args, "tsv")
 
-	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, args...)
+	out, errb, err := e.runner.Run(ctx, e.cfg.Tesseract, e.logger, args...)
 	if err != nil {
 		return 0, []string{string(errb)}, fmt.Errorf("tesseract TSV: %w", err)
 	}

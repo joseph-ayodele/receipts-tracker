@@ -2,6 +2,7 @@ package extract
 
 import (
 	"context"
+
 	"log/slog"
 
 	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
@@ -11,8 +12,8 @@ type OCRAdapter struct {
 	e *ocr.Extractor
 }
 
-func NewOCRAdapter(e *ocr.Extractor, _ *slog.Logger) *OCRAdapter {
-	return &OCRAdapter{e: e}
+func NewOCRAdapter(cfg ocr.Config, logger *slog.Logger) *OCRAdapter {
+	return &OCRAdapter{e: ocr.NewExtractor(cfg, logger)}
 }
 
 func (a *OCRAdapter) Extract(ctx context.Context, path string) (TextExtractionResult, error) {
