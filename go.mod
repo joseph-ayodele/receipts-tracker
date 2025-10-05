@@ -7,6 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	google.golang.org/grpc v1.75.1
 	google.golang.org/protobuf v1.36.6
 )
