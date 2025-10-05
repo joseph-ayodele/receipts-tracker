@@ -3,9 +3,10 @@
 package category
 
 import (
+	"fmt"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/google/uuid"
 )
 
 const (
@@ -15,6 +16,8 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldCategoryType holds the string denoting the category_type field in the database.
+	FieldCategoryType = "category_type"
 	// EdgeReceipts holds the string denoting the receipts edge name in mutations.
 	EdgeReceipts = "receipts"
 	// Table holds the table name of the category in the database.
@@ -32,6 +35,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
+	FieldCategoryType,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -47,9 +51,33 @@ func ValidColumn(column string) bool {
 var (
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
-	// DefaultID holds the default value on creation for the "id" field.
-	DefaultID func() uuid.UUID
 )
+
+// CategoryType defines the type for the "category_type" enum field.
+type CategoryType string
+
+// CategoryTypeDIRECT is the default value of the CategoryType enum.
+const DefaultCategoryType = CategoryTypeDIRECT
+
+// CategoryType values.
+const (
+	CategoryTypeDIRECT   CategoryType = "DIRECT"
+	CategoryTypeINDIRECT CategoryType = "INDIRECT"
+)
+
+func (ct CategoryType) String() string {
+	return string(ct)
+}
+
+// CategoryTypeValidator is a validator for the "category_type" field enum values. It is called by the builders before save.
+func CategoryTypeValidator(ct CategoryType) error {
+	switch ct {
+	case CategoryTypeDIRECT, CategoryTypeINDIRECT:
+		return nil
+	default:
+		return fmt.Errorf("category: invalid enum value for category_type field: %q", ct)
+	}
+}
 
 // OrderOption defines the ordering options for the Category queries.
 type OrderOption func(*sql.Selector)
@@ -62,6 +90,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByCategoryType orders the results by the category_type field.
+func ByCategoryType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCategoryType, opts...).ToFunc()
 }
 
 // ByReceiptsCount orders the results by receipts count.

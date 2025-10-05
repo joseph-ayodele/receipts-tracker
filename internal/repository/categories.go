@@ -15,6 +15,7 @@ type Category struct {
 
 type CategoryRepository interface {
 	ListCategories(ctx context.Context) ([]*ent.Category, error)
+	ListByType(ctx context.Context, catType string) ([]*ent.Category, error)
 }
 
 type categoryRepository struct {
@@ -32,6 +33,13 @@ func NewCategoryRepository(client *ent.Client, logger *slog.Logger) CategoryRepo
 func (r *categoryRepository) ListCategories(ctx context.Context) ([]*ent.Category, error) {
 	return r.client.Category.
 		Query().
+		Order(category.ByName()).
+		All(ctx)
+}
+
+func (r *categoryRepository) ListByType(ctx context.Context, t string) ([]*ent.Category, error) {
+	return r.client.Category.Query().
+		Where(category.CategoryTypeEQ(category.CategoryType(t))).
 		Order(category.ByName()).
 		All(ctx)
 }

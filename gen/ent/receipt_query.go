@@ -564,8 +564,8 @@ func (_q *ReceiptQuery) loadProfile(ctx context.Context, query *ProfileQuery, no
 	return nil
 }
 func (_q *ReceiptQuery) loadCategory(ctx context.Context, query *CategoryQuery, nodes []*Receipt, init func(*Receipt), assign func(*Receipt, *Category)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*Receipt)
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Receipt)
 	for i := range nodes {
 		fk := nodes[i].CategoryID
 		if _, ok := nodeids[fk]; !ok {

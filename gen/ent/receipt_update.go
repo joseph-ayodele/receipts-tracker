@@ -151,13 +151,13 @@ func (_u *ReceiptUpdate) SetNillableCurrencyCode(v *string) *ReceiptUpdate {
 }
 
 // SetCategoryID sets the "category_id" field.
-func (_u *ReceiptUpdate) SetCategoryID(v uuid.UUID) *ReceiptUpdate {
+func (_u *ReceiptUpdate) SetCategoryID(v int) *ReceiptUpdate {
 	_u.mutation.SetCategoryID(v)
 	return _u
 }
 
 // SetNillableCategoryID sets the "category_id" field if the given value is not nil.
-func (_u *ReceiptUpdate) SetNillableCategoryID(v *uuid.UUID) *ReceiptUpdate {
+func (_u *ReceiptUpdate) SetNillableCategoryID(v *int) *ReceiptUpdate {
 	if v != nil {
 		_u.SetCategoryID(*v)
 	}
@@ -499,7 +499,7 @@ func (_u *ReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{receipt.CategoryColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -512,7 +512,7 @@ func (_u *ReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{receipt.CategoryColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -748,13 +748,13 @@ func (_u *ReceiptUpdateOne) SetNillableCurrencyCode(v *string) *ReceiptUpdateOne
 }
 
 // SetCategoryID sets the "category_id" field.
-func (_u *ReceiptUpdateOne) SetCategoryID(v uuid.UUID) *ReceiptUpdateOne {
+func (_u *ReceiptUpdateOne) SetCategoryID(v int) *ReceiptUpdateOne {
 	_u.mutation.SetCategoryID(v)
 	return _u
 }
 
 // SetNillableCategoryID sets the "category_id" field if the given value is not nil.
-func (_u *ReceiptUpdateOne) SetNillableCategoryID(v *uuid.UUID) *ReceiptUpdateOne {
+func (_u *ReceiptUpdateOne) SetNillableCategoryID(v *int) *ReceiptUpdateOne {
 	if v != nil {
 		_u.SetCategoryID(*v)
 	}
@@ -1126,7 +1126,7 @@ func (_u *ReceiptUpdateOne) sqlSave(ctx context.Context) (_node *Receipt, err er
 			Columns: []string{receipt.CategoryColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -1139,7 +1139,7 @@ func (_u *ReceiptUpdateOne) sqlSave(ctx context.Context) (_node *Receipt, err er
 			Columns: []string{receipt.CategoryColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

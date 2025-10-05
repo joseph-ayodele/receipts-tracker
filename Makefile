@@ -98,6 +98,9 @@ proto/generate: deps/protoc ## Generate protobuf + gRPC stubs into ./gen
 	  --go-grpc_out=Mapi/receipts/v1/common.proto=proto/receipts/v1,Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
 	  api/receipts/v1/*.proto
 
+.PHONY: generate
+generate: ent/generate proto/generate
+
 # -----------------------------
 # Build / Run
 # -----------------------------

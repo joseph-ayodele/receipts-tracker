@@ -43,6 +43,20 @@ func (_u *CategoryUpdate) SetNillableName(v *string) *CategoryUpdate {
 	return _u
 }
 
+// SetCategoryType sets the "category_type" field.
+func (_u *CategoryUpdate) SetCategoryType(v category.CategoryType) *CategoryUpdate {
+	_u.mutation.SetCategoryType(v)
+	return _u
+}
+
+// SetNillableCategoryType sets the "category_type" field if the given value is not nil.
+func (_u *CategoryUpdate) SetNillableCategoryType(v *category.CategoryType) *CategoryUpdate {
+	if v != nil {
+		_u.SetCategoryType(*v)
+	}
+	return _u
+}
+
 // AddReceiptIDs adds the "receipts" edge to the Receipt entity by IDs.
 func (_u *CategoryUpdate) AddReceiptIDs(ids ...uuid.UUID) *CategoryUpdate {
 	_u.mutation.AddReceiptIDs(ids...)
@@ -118,6 +132,11 @@ func (_u *CategoryUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Category.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CategoryType(); ok {
+		if err := category.CategoryTypeValidator(v); err != nil {
+			return &ValidationError{Name: "category_type", err: fmt.Errorf(`ent: validator failed for field "Category.category_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -125,7 +144,7 @@ func (_u *CategoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
+	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -135,6 +154,9 @@ func (_u *CategoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(category.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.CategoryType(); ok {
+		_spec.SetField(category.FieldCategoryType, field.TypeEnum, value)
 	}
 	if _u.mutation.ReceiptsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -211,6 +233,20 @@ func (_u *CategoryUpdateOne) SetName(v string) *CategoryUpdateOne {
 func (_u *CategoryUpdateOne) SetNillableName(v *string) *CategoryUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetCategoryType sets the "category_type" field.
+func (_u *CategoryUpdateOne) SetCategoryType(v category.CategoryType) *CategoryUpdateOne {
+	_u.mutation.SetCategoryType(v)
+	return _u
+}
+
+// SetNillableCategoryType sets the "category_type" field if the given value is not nil.
+func (_u *CategoryUpdateOne) SetNillableCategoryType(v *category.CategoryType) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetCategoryType(*v)
 	}
 	return _u
 }
@@ -303,6 +339,11 @@ func (_u *CategoryUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Category.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CategoryType(); ok {
+		if err := category.CategoryTypeValidator(v); err != nil {
+			return &ValidationError{Name: "category_type", err: fmt.Errorf(`ent: validator failed for field "Category.category_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -310,7 +351,7 @@ func (_u *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err 
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
+	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Category.id" for update`)}
@@ -337,6 +378,9 @@ func (_u *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err 
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(category.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.CategoryType(); ok {
+		_spec.SetField(category.FieldCategoryType, field.TypeEnum, value)
 	}
 	if _u.mutation.ReceiptsCleared() {
 		edge := &sqlgraph.EdgeSpec{

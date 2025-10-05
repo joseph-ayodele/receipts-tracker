@@ -9,6 +9,7 @@ func BuildReceiptJSONSchema(allowedCategories []string) map[string]any {
 		"subtotal":       decimalProp(),
 		"discount":       decimalProp(), // optional
 		"shipping_fee":   decimalProp(), // optional
+		"tip":            decimalProp(),
 		"tax":            decimalProp(),
 		"total":          decimalProp(),
 		"currency_code":  map[string]any{"type": "string", "minLength": 3, "maxLength": 3},

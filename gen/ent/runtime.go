@@ -24,10 +24,6 @@ func init() {
 	categoryDescName := categoryFields[1].Descriptor()
 	// category.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	category.NameValidator = categoryDescName.Validators[0].(func(string) error)
-	// categoryDescID is the schema descriptor for id field.
-	categoryDescID := categoryFields[0].Descriptor()
-	// category.DefaultID holds the default value on creation for the id field.
-	category.DefaultID = categoryDescID.Default.(func() uuid.UUID)
 	extractjobFields := schema.ExtractJob{}.Fields()
 	_ = extractjobFields
 	// extractjobDescFormat is the schema descriptor for format field.

@@ -27,17 +27,23 @@ func (_c *CategoryCreate) SetName(v string) *CategoryCreate {
 	return _c
 }
 
-// SetID sets the "id" field.
-func (_c *CategoryCreate) SetID(v uuid.UUID) *CategoryCreate {
-	_c.mutation.SetID(v)
+// SetCategoryType sets the "category_type" field.
+func (_c *CategoryCreate) SetCategoryType(v category.CategoryType) *CategoryCreate {
+	_c.mutation.SetCategoryType(v)
 	return _c
 }
 
-// SetNillableID sets the "id" field if the given value is not nil.
-func (_c *CategoryCreate) SetNillableID(v *uuid.UUID) *CategoryCreate {
+// SetNillableCategoryType sets the "category_type" field if the given value is not nil.
+func (_c *CategoryCreate) SetNillableCategoryType(v *category.CategoryType) *CategoryCreate {
 	if v != nil {
-		_c.SetID(*v)
+		_c.SetCategoryType(*v)
 	}
+	return _c
+}
+
+// SetID sets the "id" field.
+func (_c *CategoryCreate) SetID(v int) *CategoryCreate {
+	_c.mutation.SetID(v)
 	return _c
 }
 
@@ -91,9 +97,9 @@ func (_c *CategoryCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *CategoryCreate) defaults() {
-	if _, ok := _c.mutation.ID(); !ok {
-		v := category.DefaultID()
-		_c.mutation.SetID(v)
+	if _, ok := _c.mutation.CategoryType(); !ok {
+		v := category.DefaultCategoryType
+		_c.mutation.SetCategoryType(v)
 	}
 }
 
@@ -105,6 +111,14 @@ func (_c *CategoryCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := category.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Category.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.CategoryType(); !ok {
+		return &ValidationError{Name: "category_type", err: errors.New(`ent: missing required field "Category.category_type"`)}
+	}
+	if v, ok := _c.mutation.CategoryType(); ok {
+		if err := category.CategoryTypeValidator(v); err != nil {
+			return &ValidationError{Name: "category_type", err: fmt.Errorf(`ent: validator failed for field "Category.category_type": %w`, err)}
 		}
 	}
 	return nil
@@ -121,12 +135,9 @@ func (_c *CategoryCreate) sqlSave(ctx context.Context) (*Category, error) {
 		}
 		return nil, err
 	}
-	if _spec.ID.Value != nil {
-		if id, ok := _spec.ID.Value.(*uuid.UUID); ok {
-			_node.ID = *id
-		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
-			return nil, err
-		}
+	if _spec.ID.Value != _node.ID {
+		id := _spec.ID.Value.(int64)
+		_node.ID = int(id)
 	}
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
@@ -136,15 +147,19 @@ func (_c *CategoryCreate) sqlSave(ctx context.Context) (*Category, error) {
 func (_c *CategoryCreate) createSpec() (*Category, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Category{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(category.Table, sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID))
+		_spec = sqlgraph.NewCreateSpec(category.Table, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
 	)
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
-		_spec.ID.Value = &id
+		_spec.ID.Value = id
 	}
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(category.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.CategoryType(); ok {
+		_spec.SetField(category.FieldCategoryType, field.TypeEnum, value)
+		_node.CategoryType = value
 	}
 	if nodes := _c.mutation.ReceiptsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -210,6 +225,10 @@ func (_c *CategoryCreateBulk) Save(ctx context.Context) ([]*Category, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
+				if specs[i].ID.Value != nil && nodes[i].ID == 0 {
+					id := specs[i].ID.Value.(int64)
+					nodes[i].ID = int(id)
+				}
 				mutation.done = true
 				return nodes[i], nil
 			})

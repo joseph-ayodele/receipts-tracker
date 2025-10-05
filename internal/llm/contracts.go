@@ -8,6 +8,11 @@ type ProfileContext struct {
 	JobDescription string `json:"job_description,omitempty"`
 }
 
+type FeeItem struct {
+	Name   string `json:"name"`   // e.g., "Airport Pickup/Drop-off Fee"
+	Amount string `json:"amount"` // decimal string
+}
+
 // ReceiptFields is the normalized shape we want from the LLM.
 type ReceiptFields struct {
 	MerchantName    string  `json:"merchant_name"`

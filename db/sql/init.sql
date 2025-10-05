@@ -1,4 +1,3 @@
--- migrations/001_init.sql
 -- Schema for: profiles, categories, receipts, receipt_files, extract_job
 -- UUIDs via pgcrypto.gen_random_uuid()
 
@@ -26,7 +25,8 @@ CREATE TABLE IF NOT EXISTS profiles
 CREATE TABLE IF NOT EXISTS categories
 (
     id   integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name text NOT NULL UNIQUE
+    name          text NOT NULL UNIQUE,
+    category_type text CHECK (category_type IN ('DIRECT', 'INDIRECT'))
 );
 
 -- =========================
@@ -105,5 +105,18 @@ CREATE TABLE IF NOT EXISTS extract_job
 CREATE INDEX IF NOT EXISTS idx_job_profile_status_started ON extract_job (profile_id, status, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_job_file ON extract_job (file_id);
 CREATE INDEX IF NOT EXISTS idx_job_receipt ON extract_job (receipt_id);
+
+INSERT INTO categories (name, category_type)
+VALUES ('Cell phone service', 'INDIRECT'),
+       ('Home office', 'INDIRECT'),
+       ('Internet', 'INDIRECT'),
+       ('Meals', 'INDIRECT'),
+       ('Office Equipment', 'DIRECT'),
+       ('Office Supplies', 'DIRECT'),
+       ('Professional Development', 'DIRECT'),
+       ('Shipping Expenses', 'DIRECT'),
+       ('Software Subscription', 'DIRECT'),
+       ('Licenses & Dues', 'DIRECT'),
+       ('Travel Expenses', 'DIRECT');
 
 COMMIT;

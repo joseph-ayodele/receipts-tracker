@@ -299,7 +299,7 @@ func (c *CategoryClient) UpdateOne(_m *Category) *CategoryUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *CategoryClient) UpdateOneID(id uuid.UUID) *CategoryUpdateOne {
+func (c *CategoryClient) UpdateOneID(id int) *CategoryUpdateOne {
 	mutation := newCategoryMutation(c.config, OpUpdateOne, withCategoryID(id))
 	return &CategoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -316,7 +316,7 @@ func (c *CategoryClient) DeleteOne(_m *Category) *CategoryDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *CategoryClient) DeleteOneID(id uuid.UUID) *CategoryDeleteOne {
+func (c *CategoryClient) DeleteOneID(id int) *CategoryDeleteOne {
 	builder := c.Delete().Where(category.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -333,12 +333,12 @@ func (c *CategoryClient) Query() *CategoryQuery {
 }
 
 // Get returns a Category entity by its id.
-func (c *CategoryClient) Get(ctx context.Context, id uuid.UUID) (*Category, error) {
+func (c *CategoryClient) Get(ctx context.Context, id int) (*Category, error) {
 	return c.Query().Where(category.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *CategoryClient) GetX(ctx context.Context, id uuid.UUID) *Category {
+func (c *CategoryClient) GetX(ctx context.Context, id int) *Category {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)

@@ -35,7 +35,7 @@ type Receipt struct {
 	// CurrencyCode holds the value of the "currency_code" field.
 	CurrencyCode string `json:"currency_code,omitempty"`
 	// CategoryID holds the value of the "category_id" field.
-	CategoryID uuid.UUID `json:"category_id,omitempty"`
+	CategoryID int `json:"category_id,omitempty"`
 	// PaymentMethod holds the value of the "payment_method" field.
 	PaymentMethod *string `json:"payment_method,omitempty"`
 	// PaymentLast4 holds the value of the "payment_last4" field.
@@ -114,11 +114,13 @@ func (*Receipt) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case receipt.FieldSubtotal, receipt.FieldTax, receipt.FieldTotal:
 			values[i] = new(sql.NullFloat64)
+		case receipt.FieldCategoryID:
+			values[i] = new(sql.NullInt64)
 		case receipt.FieldMerchantName, receipt.FieldCurrencyCode, receipt.FieldPaymentMethod, receipt.FieldPaymentLast4, receipt.FieldDescription:
 			values[i] = new(sql.NullString)
 		case receipt.FieldTxDate, receipt.FieldCreatedAt, receipt.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case receipt.FieldID, receipt.FieldProfileID, receipt.FieldCategoryID:
+		case receipt.FieldID, receipt.FieldProfileID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -186,10 +188,10 @@ func (_m *Receipt) assignValues(columns []string, values []any) error {
 				_m.CurrencyCode = value.String
 			}
 		case receipt.FieldCategoryID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
+			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field category_id", values[i])
-			} else if value != nil {
-				_m.CategoryID = *value
+			} else if value.Valid {
+				_m.CategoryID = int(value.Int64)
 			}
 		case receipt.FieldPaymentMethod:
 			if value, ok := values[i].(*sql.NullString); !ok {

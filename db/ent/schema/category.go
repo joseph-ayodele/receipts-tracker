@@ -7,7 +7,6 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
-	"github.com/google/uuid"
 )
 
 // Category maps to the existing public.categories table.
@@ -23,9 +22,13 @@ func (Category) Annotations() []schema.Annotation {
 
 func (Category) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).Default(uuid.New).Immutable(),
+		field.Int("id").Immutable(),
 		field.String("name").NotEmpty().Unique().
 			SchemaType(map[string]string{dialect.Postgres: "text"}),
+		field.Enum("category_type").
+			Values("DIRECT", "INDIRECT").
+			Default("DIRECT").
+			StorageKey("category_type"),
 	}
 }
 

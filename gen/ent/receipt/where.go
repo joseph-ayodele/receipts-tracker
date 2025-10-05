@@ -92,7 +92,7 @@ func CurrencyCode(v string) predicate.Receipt {
 }
 
 // CategoryID applies equality check predicate on the "category_id" field. It's identical to CategoryIDEQ.
-func CategoryID(v uuid.UUID) predicate.Receipt {
+func CategoryID(v int) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldCategoryID, v))
 }
 
@@ -452,22 +452,22 @@ func CurrencyCodeContainsFold(v string) predicate.Receipt {
 }
 
 // CategoryIDEQ applies the EQ predicate on the "category_id" field.
-func CategoryIDEQ(v uuid.UUID) predicate.Receipt {
+func CategoryIDEQ(v int) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldCategoryID, v))
 }
 
 // CategoryIDNEQ applies the NEQ predicate on the "category_id" field.
-func CategoryIDNEQ(v uuid.UUID) predicate.Receipt {
+func CategoryIDNEQ(v int) predicate.Receipt {
 	return predicate.Receipt(sql.FieldNEQ(FieldCategoryID, v))
 }
 
 // CategoryIDIn applies the In predicate on the "category_id" field.
-func CategoryIDIn(vs ...uuid.UUID) predicate.Receipt {
+func CategoryIDIn(vs ...int) predicate.Receipt {
 	return predicate.Receipt(sql.FieldIn(FieldCategoryID, vs...))
 }
 
 // CategoryIDNotIn applies the NotIn predicate on the "category_id" field.
-func CategoryIDNotIn(vs ...uuid.UUID) predicate.Receipt {
+func CategoryIDNotIn(vs ...int) predicate.Receipt {
 	return predicate.Receipt(sql.FieldNotIn(FieldCategoryID, vs...))
 }
 

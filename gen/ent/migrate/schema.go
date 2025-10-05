@@ -11,8 +11,9 @@ import (
 var (
 	// CategoriesColumns holds the columns for the "categories" table.
 	CategoriesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
+		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString, Unique: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "category_type", Type: field.TypeEnum, Enums: []string{"DIRECT", "INDIRECT"}, Default: "DIRECT"},
 	}
 	// CategoriesTable holds the schema information for the "categories" table.
 	CategoriesTable = &schema.Table{
@@ -111,7 +112,7 @@ var (
 		{Name: "description", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "category_id", Type: field.TypeUUID},
+		{Name: "category_id", Type: field.TypeInt},
 		{Name: "profile_id", Type: field.TypeUUID},
 	}
 	// ReceiptsTable holds the schema information for the "receipts" table.

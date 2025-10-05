@@ -207,6 +207,7 @@ func buildSystemPrompt(req llm.ExtractRequest) string {
 		"Business context: " + strings.Join(ctxBits, " "),
 		"For 'description', produce a concise tax-appropriate business need that explains the expense in the context of the job (e.g., purpose, usage). Avoid consumer-y language.",
 		"Include 'discount' and 'shipping_fee' if visible.",
+		"If a tip appears, include it under 'tip'.",
 	}
 	if tz := strings.TrimSpace(req.Timezone); tz != "" {
 		parts = append(parts, "If dates are ambiguous, prefer timezone: "+tz+".")

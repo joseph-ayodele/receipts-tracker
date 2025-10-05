@@ -45,7 +45,7 @@ func (Receipt) Fields() []ent.Field {
 		field.String("currency_code").NotEmpty().MinLen(3).MaxLen(3).
 			SchemaType(map[string]string{dialect.Postgres: "char(3)"}),
 
-		field.UUID("category_id", uuid.UUID{}),
+		field.Int("category_id"),
 		field.String("payment_method").Optional().Nillable(),
 		field.String("payment_last4").Optional().Nillable().
 			Validate(func(s string) error {

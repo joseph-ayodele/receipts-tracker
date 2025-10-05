@@ -84,7 +84,7 @@ func (_c *ReceiptCreate) SetCurrencyCode(v string) *ReceiptCreate {
 }
 
 // SetCategoryID sets the "category_id" field.
-func (_c *ReceiptCreate) SetCategoryID(v uuid.UUID) *ReceiptCreate {
+func (_c *ReceiptCreate) SetCategoryID(v int) *ReceiptCreate {
 	_c.mutation.SetCategoryID(v)
 	return _c
 }
@@ -408,7 +408,7 @@ func (_c *ReceiptCreate) createSpec() (*Receipt, *sqlgraph.CreateSpec) {
 			Columns: []string{receipt.CategoryColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
