@@ -120,7 +120,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	// 6) validate strictly → optional lenient sanitize
 	if err := llm.ValidateJSONAgainstSchema(schema, rawContent); err != nil {
 		if c.cfg.LenientOptional {
-			cleaned, dropped, sErr := llm.SanitizeOptionalFields(rawContent)
+			cleaned, dropped, sErr := llm.NormalizeAndSanitizeJSON(rawContent, c.logger)
 			if sErr == nil {
 				if vErr := llm.ValidateJSONAgainstSchema(schema, cleaned); vErr == nil {
 					c.logger.Warn("llm.extract.lenient_sanitize_applied",

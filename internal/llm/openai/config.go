@@ -33,7 +33,7 @@ func NewClient(cfg Config, logger *slog.Logger) *Client {
 		cfg.BaseURL = "https://api.openai.com/v1"
 	}
 	if cfg.Model == "" {
-		cfg.Model = "gpt-4o-mini"
+		cfg.Model = "gpt-5-mini"
 	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 30 * time.Second

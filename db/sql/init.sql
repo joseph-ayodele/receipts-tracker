@@ -117,6 +117,7 @@ VALUES ('Cell phone service', 'INDIRECT'),
        ('Shipping Expenses', 'DIRECT'),
        ('Software Subscription', 'DIRECT'),
        ('Licenses & Dues', 'DIRECT'),
-       ('Travel Expenses', 'DIRECT');
+       ('Travel Expenses', 'DIRECT'),
+       ('Other', 'DIRECT');
 
 COMMIT;

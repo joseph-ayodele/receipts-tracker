@@ -145,6 +145,7 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 				if _, pErr := s.processor.ProcessFile(ctx, fileUUID); pErr != nil {
 					s.logger.Error("pipeline.failed", "file_id", r.FileID, "err", pErr)
 					item.Error = pErr.Error()
+					break
 				}
 			}
 		}
