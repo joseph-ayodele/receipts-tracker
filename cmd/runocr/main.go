@@ -10,7 +10,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
-	"github.com/joseph-ayodele/receipts-tracker/internal/pipeline/textextract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -75,7 +75,7 @@ func main() {
 	}, logger)
 	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
 
-	p := textextract.NewPipeline(filesRepo, jobsRepo, ocrAdapter, logger)
+	p := processor.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
 
 	start := time.Now()
 	jobID, res, err := p.Run(ctx, fileID)

@@ -1,4 +1,4 @@
-package textextract
+package processor
 
 import (
 	"context"
@@ -12,23 +12,23 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
-type Pipeline struct {
+type OCRStage struct {
 	FilesRepo     repository.ReceiptFileRepository
 	JobsRepo      repository.ExtractJobRepository
 	TextExtractor extract.TextExtractor
 	Logger        *slog.Logger
 }
 
-func NewPipeline(files repository.ReceiptFileRepository, jobs repository.ExtractJobRepository, tx extract.TextExtractor, logger *slog.Logger) *Pipeline {
+func NewOCRStage(files repository.ReceiptFileRepository, jobs repository.ExtractJobRepository, tx extract.TextExtractor, logger *slog.Logger) *OCRStage {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Pipeline{FilesRepo: files, JobsRepo: jobs, TextExtractor: tx, Logger: logger}
+	return &OCRStage{FilesRepo: files, JobsRepo: jobs, TextExtractor: tx, Logger: logger}
 }
 
 // Run starts an extract_job, runs OCR, and persists the OCR text.
 // Returns the job ID and the extraction summary. LLM stage is NOT called.
-func (p *Pipeline) Run(ctx context.Context, fileID uuid.UUID) (uuid.UUID, extract.TextExtractionResult, error) {
+func (p *OCRStage) Run(ctx context.Context, fileID uuid.UUID) (uuid.UUID, extract.TextExtractionResult, error) {
 	// Lookup the file
 	row, err := p.FilesRepo.GetByID(ctx, fileID)
 	if err != nil {

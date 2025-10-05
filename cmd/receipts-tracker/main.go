@@ -15,8 +15,6 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
 	pipeline "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
-	"github.com/joseph-ayodele/receipts-tracker/internal/pipeline/parsefields"
-	"github.com/joseph-ayodele/receipts-tracker/internal/pipeline/textextract"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -89,7 +87,7 @@ func main() {
 	// OCR text pipeline (already present in your codebase)
 	extractor := ocr.NewExtractor(ocr.Config{}, logger)
 	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
-	ocrPipe := textextract.NewPipeline(filesRepo, jobsRepo, ocrAdapter, logger)
+	ocrPipe := pipeline.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
 
 	// LLM parse pipeline (uses your OpenAI client)
 	openaiClient := openai.NewClient(openai.Config{
@@ -100,7 +98,7 @@ func main() {
 		EnableVision: true,
 	}, logger)
 
-	parsePipe := parsefields.NewPipeline(logger, parsefields.Config{MinConfidence: 0.60},
+	parsePipe := pipeline.NewParseStage(logger, pipeline.Config{MinConfidence: 0.60},
 		jobsRepo, filesRepo, profilesRepo, categoriesRepo, receiptsRepo, openaiClient)
 
 	// Orchestrator

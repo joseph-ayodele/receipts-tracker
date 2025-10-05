@@ -1,10 +1,9 @@
-package parsefields
+package processor
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +18,7 @@ type Config struct {
 	MinConfidence float32 // default 0.60
 }
 
-type Pipeline struct {
+type ParseStage struct {
 	Logger         *slog.Logger
 	Cfg            Config
 	JobsRepo       repository.ExtractJobRepository
@@ -30,7 +29,7 @@ type Pipeline struct {
 	Extractor      llm.FieldExtractor
 }
 
-func NewPipeline(
+func NewParseStage(
 	logger *slog.Logger,
 	cfg Config,
 	jobs repository.ExtractJobRepository,
@@ -39,14 +38,14 @@ func NewPipeline(
 	cats repository.CategoryRepository,
 	recs repository.ReceiptRepository,
 	fe llm.FieldExtractor,
-) *Pipeline {
+) *ParseStage {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	if cfg.MinConfidence <= 0 {
 		cfg.MinConfidence = 0.60
 	}
-	return &Pipeline{
+	return &ParseStage{
 		Logger:         logger,
 		Cfg:            cfg,
 		JobsRepo:       jobs,
@@ -63,7 +62,7 @@ func NewPipeline(
 // Effects: writes extracted_json, extraction_confidence, needs_review;
 //
 //	upserts receipts row and links file -> receipt.
-func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) {
+func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) {
 	job, file, err := p.JobsRepo.GetWithFile(ctx, jobID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("load job: %w", err)
@@ -103,7 +102,7 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 		},
 	}
 
-	p.Logger.Info("parsefields.start",
+	p.Logger.Info("parse fields start",
 		"job_id", job.ID, "file_id", file.ID,
 		"ocr_bytes", len(*job.OcrText), "allowed_categories", len(allowed),
 	)
@@ -178,16 +177,4 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 		"confidence", fields.ModelConfidence,
 	)
 	return job.ID, nil
-}
-
-// --- helpers (parsing) if you need them elsewhere ---
-func parseMoneyPtr(s string) *float64 {
-	if s == "" {
-		return nil
-	}
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return nil
-	}
-	return &f
 }
