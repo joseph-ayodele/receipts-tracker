@@ -10,6 +10,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
+	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
 )
 
 type OCROutcome struct {
@@ -25,6 +26,9 @@ type ExtractJobRepository interface {
 	GetByID(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, error)
 	Start(ctx context.Context, fileID, profileID uuid.UUID, format, status string) (*ent.ExtractJob, error)
 	FinishOCR(ctx context.Context, jobID uuid.UUID, outcome OCROutcome) error
+	GetWithFile(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, *ent.ReceiptFile, error)
+	FinishParseSuccess(ctx context.Context, jobID uuid.UUID, fields llm.ReceiptFields, needsReview bool, raw []byte, modelParams map[string]any) error
+	FinishParseFailure(ctx context.Context, jobID uuid.UUID, errMsg string, raw []byte) error
 }
 
 type extractJobRepo struct {
@@ -85,4 +89,39 @@ func (r *extractJobRepo) FinishOCR(ctx context.Context, jobID uuid.UUID, outcome
 		SetNeedsReview(outcome.NeedsReview).
 		Save(ctx)
 	return err
+}
+
+func (r *extractJobRepo) GetWithFile(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, *ent.ReceiptFile, error) {
+	job, err := r.ent.ExtractJob.Get(ctx, jobID)
+	if err != nil {
+		return nil, nil, err
+	}
+	file, err := r.ent.ReceiptFile.Get(ctx, job.FileID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return job, file, nil
+}
+
+func (r *extractJobRepo) FinishParseSuccess(ctx context.Context, jobID uuid.UUID, fields llm.ReceiptFields, needsReview bool, raw []byte, modelParams map[string]any) error {
+	mp, _ := json.Marshal(modelParams)
+	fb, _ := json.Marshal(fields)
+	return r.ent.ExtractJob.
+		UpdateOneID(jobID).
+		SetStatus("PARSE_OK").
+		SetNeedsReview(needsReview).
+		SetExtractionConfidence(fields.ModelConfidence).
+		SetExtractedJSON(fb).
+		SetModelName("openai").
+		SetModelParams(json.RawMessage(mp)).
+		Save(ctx)
+}
+
+func (r *extractJobRepo) FinishParseFailure(ctx context.Context, jobID uuid.UUID, errMsg string, raw []byte) error {
+	return r.ent.ExtractJob.
+		UpdateOneID(jobID).
+		SetStatus("PARSE_ERR").
+		SetErrorMessage(errMsg).
+		SetExtractedJSON(raw).
+		Save(ctx)
 }

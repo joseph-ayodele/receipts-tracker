@@ -43,3 +43,9 @@ func (r *categoryRepository) ListByType(ctx context.Context, t string) ([]*ent.C
 		Order(category.ByName()).
 		All(ctx)
 }
+
+func (r *categoryRepository) FindByName(ctx context.Context, name string) (*ent.Category, error) {
+	return r.client.Category.Query().
+		Where(category.Name(name)).
+		Only(ctx)
+}

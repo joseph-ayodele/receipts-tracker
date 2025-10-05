@@ -4,7 +4,7 @@ package receipts.v1;
 
 option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1;v1";
 
-message IngestRequest {
+message IngestFileRequest {
   string profile_id = 1; // required (UUID)
   string path = 2;       // absolute or project-local file path
 }
@@ -36,6 +36,6 @@ message IngestDirectoryResponse {
 }
 
 service IngestionService {
-  rpc Ingest(IngestRequest) returns (IngestResponse);
+  rpc IngestFile(IngestFileRequest) returns (IngestResponse);
   rpc IngestDirectory(IngestDirectoryRequest) returns (IngestDirectoryResponse);
 }

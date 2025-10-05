@@ -74,3 +74,11 @@ func (r *receiptFileRepo) UpsertByHash(ctx context.Context, profileID uuid.UUID,
 	}
 	return row, false, nil
 }
+
+func (r *receiptFileRepo) SetReceiptID(ctx context.Context, fileID, receiptID uuid.UUID) error {
+	_, err := r.ent.ReceiptFile.
+		UpdateOneID(fileID).
+		SetReceiptID(receiptID).
+		Save(ctx)
+	return err
+}
