@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/joseph-ayodele/receipts-tracker/constants"
+	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
 	"google.golang.org/grpc/codes"
@@ -27,8 +28,7 @@ func NewProfileService(profileRepo repository.ProfileRepository, logger *slog.Lo
 	}
 }
 
-// validateProfileInput validates and creates a Profile from the request.
-func validateProfileCreateInput(req *receiptspb.CreateProfileRequest) (*repository.Profile, error) {
+func validateProfileCreateInput(req *receiptspb.CreateProfileRequest) (*entity.Profile, error) {
 	name := strings.TrimSpace(req.GetName())
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
@@ -44,32 +44,39 @@ func validateProfileCreateInput(req *receiptspb.CreateProfileRequest) (*reposito
 		return nil, status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
 	}
 
-	return &repository.Profile{
+	jobTitlePtr := &jobTitle
+	jobDescPtr := &jobDesc
+	if jobTitle == "" {
+		jobTitlePtr = nil
+	}
+	if jobDesc == "" {
+		jobDescPtr = nil
+	}
+
+	return &entity.Profile{
 		Name:            name,
 		DefaultCurrency: cur,
-		JobTitle:        jobTitle,
-		JobDescription:  jobDesc,
+		JobTitle:        jobTitlePtr,
+		JobDescription:  jobDescPtr,
 	}, nil
 }
 
 // CreateProfile creates a new profile.
 func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
-	dto, err := validateProfileCreateInput(req)
+	profile, err := validateProfileCreateInput(req)
 	if err != nil {
 		return nil, err
 	}
 
-	s.logger.Info("creating profile", "name", dto.Name, "currency", dto.DefaultCurrency)
-
-	p, err := s.profileRepo.CreateProfile(ctx, dto)
+	p, err := s.profileRepo.CreateProfile(ctx, profile)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create profile: %v", err)
 	}
 
-	s.logger.Info("profile created successfully", "profile_id", p.ID, "name", p.Name, "currency", p.DefaultCurrency)
+	s.logger.Info("profile created successfully", "profile_id", p.ID, "name", p.Name)
 
 	return &receiptspb.CreateProfileResponse{
-		Profile: utils.ToPBProfile(p),
+		Profile: utils.ToPBProfileFromEntity(p),
 	}, nil
 }
 
@@ -87,7 +94,7 @@ func (s *ProfileService) ListProfiles(ctx context.Context, _ *receiptspb.ListPro
 
 	out := make([]*receiptspb.Profile, 0, len(plist))
 	for _, p := range plist {
-		out = append(out, utils.ToPBProfile(p))
+		out = append(out, utils.ToPBProfileFromEntity(p))
 	}
 	return &receiptspb.ListProfilesResponse{Profiles: out}, nil
 }

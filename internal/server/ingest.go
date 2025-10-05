@@ -30,8 +30,8 @@ func NewIngestionService(ing ingest.Ingestor, p repository.ProfileRepository, lo
 	}
 }
 
-// Ingest implements v1.IngestionServiceServer
-func (s *IngestionService) Ingest(ctx context.Context, req *v1.IngestRequest) (*v1.IngestResponse, error) {
+// IngestFile implements v1.IngestionServiceServer
+func (s *IngestionService) IngestFile(ctx context.Context, req *v1.IngestFileRequest) (*v1.IngestResponse, error) {
 	pid := strings.TrimSpace(req.GetProfileId())
 	if pid == "" {
 		s.logger.Error("ingest request missing profile_id")
@@ -42,7 +42,7 @@ func (s *IngestionService) Ingest(ctx context.Context, req *v1.IngestRequest) (*
 		s.logger.Error("invalid profile_id format for ingest", "profile_id", pid, "error", err)
 		return nil, status.Error(codes.InvalidArgument, "profile_id must be a UUID")
 	}
-	
+
 	path := strings.TrimSpace(req.GetPath())
 	if path == "" {
 		s.logger.Error("ingest request missing path", "profile_id", profileID)
@@ -88,7 +88,7 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 		s.logger.Error("ingest directory request missing root_path", "profile_id", profileID)
 		return nil, status.Error(codes.InvalidArgument, "root_path is required")
 	}
-	
+
 	// default skipHidden := true when field not present (optional bool)
 	skipHidden := true
 	if req.SkipHidden != false {

@@ -55,8 +55,9 @@ func main() {
 	}
 	slog.Info("DB health check passed")
 
-	// typed query using ent client
-	cats, err := repo.ListCategories(ctx, entc)
+	// Create category repository and list categories
+	catRepo := repo.NewCategoryRepository(entc, logger)
+	cats, err := catRepo.ListCategories(ctx)
 	if err != nil {
 		slog.Error("failed to list categories", "error", err)
 		os.Exit(1)

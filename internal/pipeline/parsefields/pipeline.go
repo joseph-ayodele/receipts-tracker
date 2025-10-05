@@ -68,8 +68,8 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("load job: %w", err)
 	}
-	if job.Status != string(constants.JobStatusOCROk) && job.OCRText == "" {
-		return job.ID, fmt.Errorf("job not ready for parse: status=%s ocr_text_empty=%t", job.Status, job.OCRText == "")
+	if *job.Status != string(constants.JobStatusOCROK) && job.OcrText == nil {
+		return job.ID, fmt.Errorf("job not ready for parse: status=%s ocr_text_empty=%t", *job.Status, job.OcrText == nil)
 	}
 
 	// Load profile + allowed categories
@@ -105,7 +105,7 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 
 	p.Log.Info("parsefields.start",
 		"job_id", job.ID, "file_id", file.ID,
-		"ocr_bytes", len(job.OCRText), "allowed_categories", len(allowed),
+		"ocr_bytes", len(*job.OcrText), "allowed_categories", len(allowed),
 	)
 
 	fields, raw, err := p.Extractor.ExtractFields(ctx, req)
@@ -120,11 +120,13 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 	if fields.Category != "" {
 		c, err := p.CategoriesRepo.FindByName(ctx, fields.Category)
 		if err == nil && c != nil {
-			categoryID = &c.ID
+			catID := int(c.ID)
+			categoryID = &catID
 		} else {
 			// fallback to "Other" if exists
 			if other, err2 := p.CategoriesRepo.FindByName(ctx, "Other"); err2 == nil && other != nil {
-				categoryID = &other.ID
+				otherID := int(other.ID)
+				categoryID = &otherID
 			} else {
 				needsReview = true
 				p.Log.Warn("category not found", "label", fields.Category)
@@ -143,7 +145,13 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 	}
 
 	// Upsert receipt and link file
-	rec, err := p.ReceiptsRepo.UpsertFromFields(ctx, file, job.ID, fields, categoryID)
+	request := &repository.CreateReceiptRequest{
+		File:          file,
+		JobID:         job.ID,
+		ReceiptFields: fields,
+		CategoryID:    categoryID,
+	}
+	rec, err := p.ReceiptsRepo.UpsertFromFields(ctx, request)
 	if err != nil {
 		_ = p.JobsRepo.FinishParseFailure(ctx, job.ID, err.Error(), raw)
 		return job.ID, fmt.Errorf("upsert receipt: %w", err)

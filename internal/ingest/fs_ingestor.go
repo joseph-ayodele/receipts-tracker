@@ -73,7 +73,16 @@ func (i *FSIngestor) IngestPath(ctx context.Context, profileID uuid.UUID, path s
 	filename := filepath.Base(abs)
 	size := int(stat.Size())
 
-	row, dedup, err := i.FilesRepo.UpsertByHash(ctx, profileID, abs, filename, ext, size, sum, now)
+	request := &repository.CreateReceiptFileRequest{
+		ProfileID:   profileID,
+		SourcePath:  abs,
+		Filename:    filename,
+		FileExt:     ext,
+		FileSize:    size,
+		ContentHash: sum,
+		UploadedAt:  now,
+	}
+	row, dedup, err := i.FilesRepo.UpsertByHash(ctx, request)
 	if err != nil {
 		return out, err
 	}

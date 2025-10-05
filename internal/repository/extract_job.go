@@ -66,11 +66,10 @@ func (r *extractJobRepo) Start(ctx context.Context, fileID, profileID uuid.UUID,
 func (r *extractJobRepo) FinishOCR(ctx context.Context, jobID uuid.UUID, outcome OCROutcome) error {
 	u := r.ent.ExtractJob.UpdateOneID(jobID).SetFinishedAt(time.Now())
 	if outcome.ErrorMessage != "" {
-		_, err := u.
+		return u.
 			SetStatus(string(constants.JobStatusFailed)).
 			SetErrorMessage(outcome.ErrorMessage).
-			Save(ctx)
-		return err
+			Exec(ctx)
 	}
 
 	var params []byte
@@ -80,15 +79,14 @@ func (r *extractJobRepo) FinishOCR(ctx context.Context, jobID uuid.UUID, outcome
 		}
 	}
 
-	_, err := u.
+	return u.
 		SetStatus(string(constants.JobStatusOCROK)).
 		SetOcrText(outcome.OCRText).
 		SetModelName(outcome.Method).
 		SetModelParams(params).
 		SetExtractionConfidence(outcome.Confidence).
 		SetNeedsReview(outcome.NeedsReview).
-		Save(ctx)
-	return err
+		Exec(ctx)
 }
 
 func (r *extractJobRepo) GetWithFile(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, *ent.ReceiptFile, error) {
@@ -113,8 +111,8 @@ func (r *extractJobRepo) FinishParseSuccess(ctx context.Context, jobID uuid.UUID
 		SetExtractionConfidence(fields.ModelConfidence).
 		SetExtractedJSON(fb).
 		SetModelName("openai").
-		SetModelParams(json.RawMessage(mp)).
-		Save(ctx)
+		SetModelParams(mp).
+		Exec(ctx)
 }
 
 func (r *extractJobRepo) FinishParseFailure(ctx context.Context, jobID uuid.UUID, errMsg string, raw []byte) error {
@@ -123,5 +121,5 @@ func (r *extractJobRepo) FinishParseFailure(ctx context.Context, jobID uuid.UUID
 		SetStatus("PARSE_ERR").
 		SetErrorMessage(errMsg).
 		SetExtractedJSON(raw).
-		Save(ctx)
+		Exec(ctx)
 }

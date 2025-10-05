@@ -67,7 +67,7 @@ func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListR
 
 	out := make([]*receiptspb.Receipt, 0, len(recs))
 	for _, r := range recs {
-		out = append(out, utils.ToPBReceipt(r))
+		out = append(out, utils.ToPBReceiptFromEntity(r))
 	}
 	return &receiptspb.ListReceiptsResponse{Receipts: out}, nil
 }
