@@ -11,7 +11,7 @@ import (
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
-	openail "github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
+	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -124,7 +124,7 @@ func main() {
 		},
 	}
 
-	client := openail.NewClient(openail.Config{
+	client := openai.NewClient(openai.Config{
 		Model:        getenv("OPENAI_MODEL", "gpt-4o-mini"),
 		APIKey:       os.Getenv("OPENAI_API_KEY"),
 		Temperature:  0.0,

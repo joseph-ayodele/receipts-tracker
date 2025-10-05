@@ -30,7 +30,7 @@ type Pipeline struct {
 	Extractor      llm.FieldExtractor
 }
 
-func New(
+func NewPipeline(
 	logger *slog.Logger,
 	cfg Config,
 	jobs repository.ExtractJobRepository,

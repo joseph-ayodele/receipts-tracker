@@ -10,7 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
+	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
+	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
+	pipeline "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
+	"github.com/joseph-ayodele/receipts-tracker/internal/pipeline/parsefields"
+	"github.com/joseph-ayodele/receipts-tracker/internal/pipeline/textextract"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -76,15 +82,37 @@ func main() {
 
 	profilesRepo := repo.NewProfileRepository(entc, logger)
 	receiptsRepo := repo.NewReceiptRepository(entc, logger)
-	receiptsFileRepo := repo.NewReceiptFileRepository(entc, logger)
+	filesRepo := repo.NewReceiptFileRepository(entc, logger)
+	jobsRepo := repo.NewExtractJobRepository(entc, logger)
+	categoriesRepo := repo.NewCategoryRepository(entc, logger)
+
+	// OCR text pipeline (already present in your codebase)
+	extractor := ocr.NewExtractor(ocr.Config{}, logger)
+	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
+	ocrPipe := textextract.NewPipeline(filesRepo, jobsRepo, ocrAdapter, logger)
+
+	// LLM parse pipeline (uses your OpenAI client)
+	openaiClient := openai.NewClient(openai.Config{
+		Model:        getenv("OPENAI_MODEL", "gpt-4o-mini"),
+		APIKey:       os.Getenv("OPENAI_API_KEY"),
+		Temperature:  0.0,
+		Timeout:      45 * time.Second,
+		EnableVision: true,
+	}, logger)
+
+	parsePipe := parsefields.NewPipeline(logger, parsefields.Config{MinConfidence: 0.60},
+		jobsRepo, filesRepo, profilesRepo, categoriesRepo, receiptsRepo, openaiClient)
+
+	// Orchestrator
+	processor := pipeline.NewProcessor(logger, ocrPipe, parsePipe)
 
 	profilesService := svc.NewProfileService(profilesRepo, logger)
 	v1.RegisterProfilesServiceServer(grpcServer, profilesService)
 	receiptsService := svc.NewReceiptService(receiptsRepo, logger)
 	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
 
-	ingestor := ingest.NewFSIngestor(profilesRepo, receiptsFileRepo, logger)
-	ingestionService := svc.NewIngestionService(ingestor, profilesRepo, logger)
+	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)
+	ingestionService := svc.NewIngestionService(ingestor, processor, profilesRepo, logger)
 	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
 
 	// Register gRPC health service
@@ -103,4 +131,11 @@ func main() {
 
 	<-ctx.Done()
 	grpcServer.GracefulStop()
+}
+
+func getenv(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
 }

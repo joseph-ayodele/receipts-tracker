@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	v1 "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
+	processor "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,12 +20,14 @@ type IngestionService struct {
 	v1.UnimplementedIngestionServiceServer
 	ingestor    ingest.Ingestor
 	profileRepo repository.ProfileRepository
+	processor   *processor.Processor
 	logger      *slog.Logger
 }
 
-func NewIngestionService(ing ingest.Ingestor, p repository.ProfileRepository, logger *slog.Logger) *IngestionService {
+func NewIngestionService(ing ingest.Ingestor, proc *processor.Processor, p repository.ProfileRepository, logger *slog.Logger) *IngestionService {
 	return &IngestionService{
 		ingestor:    ing,
+		processor:   proc,
 		profileRepo: p,
 		logger:      logger,
 	}
@@ -61,7 +64,7 @@ func (s *IngestionService) IngestFile(ctx context.Context, req *v1.IngestFileReq
 	}
 	s.logger.Info("file ingest succeeded", "profile_id", profileID, "file_id", r.FileID, "deduplicated", r.Deduplicated)
 
-	return &v1.IngestResponse{
+	resp := &v1.IngestResponse{
 		FileId:         r.FileID,
 		Deduplicated:   r.Deduplicated,
 		ContentHashHex: r.HashHex,
@@ -69,7 +72,15 @@ func (s *IngestionService) IngestFile(ctx context.Context, req *v1.IngestFileReq
 		UploadedAt:     r.UploadedAt.UTC().Format(time.RFC3339),
 		SourcePath:     r.SourcePath,
 		Error:          "",
-	}, nil
+	}
+
+	fileUUID, _ := uuid.Parse(r.FileID)
+	s.logger.Info("starting file processing", "file_id", r.FileID)
+	if _, err := s.processor.ProcessFile(ctx, fileUUID); err != nil {
+		s.logger.Error("pipeline.failed", "file_id", r.FileID, "err", err)
+		resp.Error = err.Error()
+	}
+	return resp, nil
 }
 
 func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDirectoryRequest) (*v1.IngestDirectoryResponse, error) {
@@ -116,8 +127,10 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 		Failed:       stats.Failed,
 		Results:      make([]*v1.IngestResponse, 0, len(results)),
 	}
+
+	s.logger.Info("starting processing of ingested files", "profile_id", profileID, "file_count", len(results))
 	for _, r := range results {
-		out.Results = append(out.Results, &v1.IngestResponse{
+		item := &v1.IngestResponse{
 			FileId:         r.FileID,
 			Deduplicated:   r.Deduplicated,
 			ContentHashHex: r.HashHex,
@@ -125,7 +138,18 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 			UploadedAt:     r.UploadedAt.UTC().Format(time.RFC3339),
 			SourcePath:     r.SourcePath,
 			Error:          r.Err,
-		})
+		}
+
+		if r.Err == "" && r.FileID != "" {
+			if fileUUID, err := uuid.Parse(r.FileID); err == nil {
+				if _, pErr := s.processor.ProcessFile(ctx, fileUUID); pErr != nil {
+					s.logger.Error("pipeline.failed", "file_id", r.FileID, "err", pErr)
+					item.Error = pErr.Error()
+				}
+			}
+		}
+
+		out.Results = append(out.Results, item)
 	}
 	return out, nil
 }
