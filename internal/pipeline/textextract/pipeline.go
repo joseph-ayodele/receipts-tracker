@@ -16,14 +16,14 @@ type Pipeline struct {
 	FilesRepo     repository.ReceiptFileRepository
 	JobsRepo      repository.ExtractJobRepository
 	TextExtractor extract.TextExtractor
-	Log           *slog.Logger
+	Logger        *slog.Logger
 }
 
-func NewPipeline(files repository.ReceiptFileRepository, jobs repository.ExtractJobRepository, tx extract.TextExtractor, log *slog.Logger) *Pipeline {
-	if log == nil {
-		log = slog.Default()
+func NewPipeline(files repository.ReceiptFileRepository, jobs repository.ExtractJobRepository, tx extract.TextExtractor, logger *slog.Logger) *Pipeline {
+	if logger == nil {
+		logger = slog.Default()
 	}
-	return &Pipeline{FilesRepo: files, JobsRepo: jobs, TextExtractor: tx, Log: log}
+	return &Pipeline{FilesRepo: files, JobsRepo: jobs, TextExtractor: tx, Logger: logger}
 }
 
 // Run starts an extract_job, runs OCR, and persists the OCR text.
@@ -60,7 +60,7 @@ func (p *Pipeline) Run(ctx context.Context, fileID uuid.UUID) (uuid.UUID, extrac
 	if format == constants.IMAGE {
 		// for images, flag low-confidence OCR for review (or LLM fallback later)
 		if res.Confidence > 0 && res.Confidence < ocr.ImageConfidenceThreshold {
-			p.Log.Warn("Image ocr confidence low; needs review", "file_id", fileID, "job_id", job.ID, "conf", res.Confidence)
+			p.Logger.Warn("Image ocr confidence low; needs review", "file_id", fileID, "job_id", job.ID, "conf", res.Confidence)
 			needsReview = true
 		}
 	}

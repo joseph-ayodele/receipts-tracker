@@ -25,10 +25,10 @@ type Config struct {
 type Client struct {
 	cfg        Config
 	httpClient *http.Client
-	log        *slog.Logger
+	logger     *slog.Logger
 }
 
-func New(cfg Config, log *slog.Logger) *Client {
+func NewClient(cfg Config, logger *slog.Logger) *Client {
 	if cfg.APIKey == "" {
 		cfg.APIKey = os.Getenv("OPENAI_API_KEY")
 	}
@@ -44,8 +44,8 @@ func New(cfg Config, log *slog.Logger) *Client {
 	if cfg.LowConfThreshold <= 0 {
 		cfg.LowConfThreshold = 0.5
 	}
-	if log == nil {
-		log = slog.Default()
+	if logger == nil {
+		logger = slog.Default()
 	}
 	if !cfg.LenientOptional {
 		cfg.LenientOptional = true
@@ -53,6 +53,6 @@ func New(cfg Config, log *slog.Logger) *Client {
 	return &Client{
 		cfg:        cfg,
 		httpClient: &http.Client{Timeout: cfg.Timeout},
-		log:        log,
+		logger:     logger,
 	}
 }

@@ -28,7 +28,7 @@ func NewProfileService(profileRepo repository.ProfileRepository, logger *slog.Lo
 	}
 }
 
-func validateProfileCreateInput(req *receiptspb.CreateProfileRequest) (*entity.Profile, error) {
+func extractProfileInput(req *receiptspb.CreateProfileRequest) (*entity.Profile, error) {
 	name := strings.TrimSpace(req.GetName())
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
@@ -63,7 +63,7 @@ func validateProfileCreateInput(req *receiptspb.CreateProfileRequest) (*entity.P
 
 // CreateProfile creates a new profile.
 func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
-	profile, err := validateProfileCreateInput(req)
+	profile, err := extractProfileInput(req)
 	if err != nil {
 		return nil, err
 	}

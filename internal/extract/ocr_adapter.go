@@ -9,15 +9,19 @@ import (
 )
 
 type OCRAdapter struct {
-	e *ocr.Extractor
+	extractor *ocr.Extractor
+	logger    *slog.Logger
 }
 
-func NewOCRAdapter(cfg ocr.Config, logger *slog.Logger) *OCRAdapter {
-	return &OCRAdapter{e: ocr.NewExtractor(cfg, logger)}
+func NewOCRAdapter(e *ocr.Extractor, l *slog.Logger) *OCRAdapter {
+	return &OCRAdapter{
+		extractor: e,
+		logger:    l,
+	}
 }
 
 func (a *OCRAdapter) Extract(ctx context.Context, path string) (TextExtractionResult, error) {
-	r, err := a.e.Extract(ctx, path)
+	r, err := a.extractor.Extract(ctx, path)
 	if err != nil {
 		return TextExtractionResult{}, err
 	}

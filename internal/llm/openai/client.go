@@ -21,7 +21,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	rid := uuid.New().String()
 	start := time.Now()
 
-	c.log.Info("llm.extract.start",
+	c.logger.Info("llm.extract.start",
 		"req_id", rid,
 		"model", c.cfg.Model,
 		"temp", c.cfg.Temperature,
@@ -34,7 +34,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	)
 
 	if req.FilePath != "" && req.PrepConfidence > 0 && req.PrepConfidence < c.cfg.LowConfThreshold {
-		c.log.Warn("llm.extract.low_ocr_confidence",
+		c.logger.Warn("llm.extract.low_ocr_confidence",
 			"req_id", rid, "prep_confidence", req.PrepConfidence,
 			"hint", "vision path not implemented; proceeding with text-only")
 	}
@@ -57,7 +57,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	endpoint := strings.TrimRight(c.cfg.BaseURL, "/") + "/chat/completions"
 	raw, httpErr := c.post(ctx, endpoint, body)
 	if httpErr != nil {
-		c.log.Error("llm.extract.http_error",
+		c.logger.Error("llm.extract.http_error",
 			"req_id", rid, "error", httpErr,
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
@@ -72,14 +72,14 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(raw, &cc); err != nil {
-		c.log.Error("llm.extract.decode_error",
+		c.logger.Error("llm.extract.decode_error",
 			"req_id", rid, "error", err, "raw_bytes", len(raw),
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
 		return llm.ReceiptFields{}, raw, fmt.Errorf("decode openai response: %w", err)
 	}
 	if len(cc.Choices) == 0 {
-		c.log.Error("llm.extract.no_choices",
+		c.logger.Error("llm.extract.no_choices",
 			"req_id", rid, "raw", string(raw),
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
@@ -95,27 +95,27 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 			cleaned, dropped, sErr := llm.SanitizeOptionalFields(rawContent)
 			if sErr == nil {
 				if vErr := llm.ValidateJSONAgainstSchema(schema, cleaned); vErr == nil {
-					c.log.Warn("llm.extract.lenient_sanitize_applied",
+					c.logger.Warn("llm.extract.lenient_sanitize_applied",
 						"req_id", rid, "dropped", dropped,
 						"elapsed_ms", time.Since(start).Milliseconds(),
 					)
 					rawContent = cleaned
 				} else {
-					c.log.Error("llm.extract.schema_validation_failed",
+					c.logger.Error("llm.extract.schema_validation_failed",
 						"req_id", rid, "error", vErr, "content", string(rawContent),
 						"elapsed_ms", time.Since(start).Milliseconds(),
 					)
 					return llm.ReceiptFields{}, rawContent, fmt.Errorf("schema validation failed: %w", vErr)
 				}
 			} else {
-				c.log.Error("llm.extract.sanitize_failed",
+				c.logger.Error("llm.extract.sanitize_failed",
 					"req_id", rid, "error", sErr,
 					"elapsed_ms", time.Since(start).Milliseconds(),
 				)
 				return llm.ReceiptFields{}, rawContent, fmt.Errorf("sanitize failed: %w", sErr)
 			}
 		} else {
-			c.log.Error("llm.extract.schema_validation_failed",
+			c.logger.Error("llm.extract.schema_validation_failed",
 				"req_id", rid, "error", err, "content", string(rawContent),
 				"elapsed_ms", time.Since(start).Milliseconds(),
 			)
@@ -125,14 +125,14 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 
 	var out llm.ReceiptFields
 	if err := json.Unmarshal(rawContent, &out); err != nil {
-		c.log.Error("llm.extract.unmarshal_failed",
+		c.logger.Error("llm.extract.unmarshal_failed",
 			"req_id", rid, "error", err,
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
 		return llm.ReceiptFields{}, rawContent, fmt.Errorf("unmarshal fields: %w", err)
 	}
 
-	c.log.Info("llm.extract.ok",
+	c.logger.Info("llm.extract.ok",
 		"req_id", rid,
 		"merchant", out.MerchantName,
 		"date", out.TxDate,
@@ -163,7 +163,7 @@ func (c *Client) post(ctx context.Context, url string, body map[string]any) ([]b
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			c.log.Warn("openai response body close error", "error", err)
+			c.logger.Warn("openai response body close error", "error", err)
 		}
 	}(resp.Body)
 

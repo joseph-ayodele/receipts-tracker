@@ -124,7 +124,7 @@ func main() {
 		},
 	}
 
-	client := openail.New(openail.Config{
+	client := openail.NewClient(openail.Config{
 		Model:        getenv("OPENAI_MODEL", "gpt-4o-mini"),
 		APIKey:       os.Getenv("OPENAI_API_KEY"),
 		Temperature:  0.0,

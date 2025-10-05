@@ -69,12 +69,13 @@ func main() {
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 
 	// Build OCR extractor (Stage 1) and adapt it to TextExtractor.
-	textExtractor := extract.NewOCRAdapter(ocr.Config{
+	extractor := ocr.NewExtractor(ocr.Config{
 		TessdataDir:   os.Getenv("TESSDATA_DIR"),          // optional (helps on Windows)
 		HeicConverter: getenv("HEIC_CONVERTER", "magick"), // "magick" | "heif-convert" | "sips"
 	}, logger)
+	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
 
-	p := textextract.NewPipeline(filesRepo, jobsRepo, textExtractor, logger)
+	p := textextract.NewPipeline(filesRepo, jobsRepo, ocrAdapter, logger)
 
 	start := time.Now()
 	jobID, res, err := p.Run(ctx, fileID)

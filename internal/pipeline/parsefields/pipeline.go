@@ -20,7 +20,7 @@ type Config struct {
 }
 
 type Pipeline struct {
-	Log            *slog.Logger
+	Logger         *slog.Logger
 	Cfg            Config
 	JobsRepo       repository.ExtractJobRepository
 	FilesRepo      repository.ReceiptFileRepository
@@ -31,7 +31,7 @@ type Pipeline struct {
 }
 
 func New(
-	log *slog.Logger,
+	logger *slog.Logger,
 	cfg Config,
 	jobs repository.ExtractJobRepository,
 	files repository.ReceiptFileRepository,
@@ -40,14 +40,14 @@ func New(
 	recs repository.ReceiptRepository,
 	fe llm.FieldExtractor,
 ) *Pipeline {
-	if log == nil {
-		log = slog.Default()
+	if logger == nil {
+		logger = slog.Default()
 	}
 	if cfg.MinConfidence <= 0 {
 		cfg.MinConfidence = 0.60
 	}
 	return &Pipeline{
-		Log:            log,
+		Logger:         logger,
 		Cfg:            cfg,
 		JobsRepo:       jobs,
 		FilesRepo:      files,
@@ -103,7 +103,7 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 		},
 	}
 
-	p.Log.Info("parsefields.start",
+	p.Logger.Info("parsefields.start",
 		"job_id", job.ID, "file_id", file.ID,
 		"ocr_bytes", len(*job.OcrText), "allowed_categories", len(allowed),
 	)
@@ -129,7 +129,7 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 				categoryID = &otherID
 			} else {
 				needsReview = true
-				p.Log.Warn("category not found", "label", fields.Category)
+				p.Logger.Warn("category not found", "label", fields.Category)
 			}
 		}
 	} else {
@@ -170,7 +170,7 @@ func (p *Pipeline) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error) 
 		return job.ID, err
 	}
 
-	p.Log.Info("parsefields.ok",
+	p.Logger.Info("parsefields.ok",
 		"job_id", job.ID, "receipt_id", rec.ID,
 		"merchant", fields.MerchantName,
 		"date", fields.TxDate, "total", fields.Total,

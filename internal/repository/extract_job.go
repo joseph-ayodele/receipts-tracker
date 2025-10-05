@@ -32,12 +32,12 @@ type ExtractJobRepository interface {
 }
 
 type extractJobRepo struct {
-	ent *ent.Client
-	log *slog.Logger
+	ent    *ent.Client
+	logger *slog.Logger
 }
 
-func NewExtractJobRepository(entc *ent.Client, log *slog.Logger) ExtractJobRepository {
-	return &extractJobRepo{ent: entc, log: log}
+func NewExtractJobRepository(entc *ent.Client, logger *slog.Logger) ExtractJobRepository {
+	return &extractJobRepo{ent: entc, logger: logger}
 }
 
 func (r *extractJobRepo) GetByID(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, error) {
@@ -56,10 +56,10 @@ func (r *extractJobRepo) Start(ctx context.Context, fileID, profileID uuid.UUID,
 		SetStatus(status).
 		Save(ctx)
 	if err != nil {
-		r.log.Error("extract_job start failed", "file_id", fileID, "err", err)
+		r.logger.Error("extract_job start failed", "file_id", fileID, "err", err)
 		return nil, err
 	}
-	r.log.Info("extract_job started", "job_id", job.ID, "file_id", fileID, "format", format)
+	r.logger.Info("extract_job started", "job_id", job.ID, "file_id", fileID, "format", format)
 	return job, nil
 }
 
