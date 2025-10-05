@@ -9,23 +9,20 @@ import (
 
 // Config for the OpenAI client.
 type Config struct {
-	APIKey      string        // if empty, falls back to env OPENAI_API_KEY
-	BaseURL     string        // default https://api.openai.com/v1
-	Model       string        // e.g., "gpt-4o-mini"
-	Temperature float32       // 0..2
-	Timeout     time.Duration // http client timeout
-
-	// Future switches (not wired yet):
-	EnableVision     bool    // when true and low OCR confidence + FilePath set, use vision path
-	LowConfThreshold float32 // default 0.5 if zero; compare with req.PrepConfidence
-
-	LenientOptional bool
+	APIKey           string        // if empty, falls back to env OPENAI_API_KEY
+	BaseURL          string        // default https://api.openai.com/v1
+	Model            string        // e.g., "gpt-4o-mini"
+	Temperature      float32       // 0..2
+	Timeout          time.Duration // http client timeout
+	EnableVision     bool          // when true and low OCR confidence + FilePath set, use vision path
+	LowConfThreshold float32       // default 0.5 if zero; compare with req.PrepConfidence
+	LenientOptional  bool
 }
 
 type Client struct {
-	cfg        Config
-	httpClient *http.Client
-	logger     *slog.Logger
+	cfg    Config
+	http   *http.Client
+	logger *slog.Logger
 }
 
 func NewClient(cfg Config, logger *slog.Logger) *Client {
@@ -51,8 +48,8 @@ func NewClient(cfg Config, logger *slog.Logger) *Client {
 		cfg.LenientOptional = true
 	}
 	return &Client{
-		cfg:        cfg,
-		httpClient: &http.Client{Timeout: cfg.Timeout},
-		logger:     logger,
+		cfg:    cfg,
+		http:   &http.Client{Timeout: cfg.Timeout},
+		logger: logger,
 	}
 }
