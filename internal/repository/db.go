@@ -54,7 +54,7 @@ func Open(ctx context.Context, cfg Config, logger *slog.Logger) (*ent.Client, *p
 	drv := entsql.OpenDB(dialect.Postgres, db)
 	client := ent.NewClient(ent.Driver(drv))
 
-	logger.Info("successfully connected to database")
+	logger.Info("successfully initialized connection to database")
 	return client, pool, nil
 }
 

@@ -50,26 +50,17 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_USER } }
             - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_PASSWORD } }
             - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_DB
-      #          volumeMounts:
-      #            - name: receipts-db-storage
-      #              mountPath: /var/lib/postgresql/data
-      #              subPath: postgres
+              valueFrom: { secretKeyRef: { name: postgres-secret, key: POSTGRES_DB } }
+            - name: PGDATA
+              value: /var/lib/postgresql/pgdata
+          volumeMounts:
+            - name: receipts-db-storage
+              mountPath: /var/lib/postgresql/pgdata
       volumes:
         - name: receipts-db-storage
-          emptyDir: {}
-#          persistentVolumeClaim:
-#            claimName: receipts-db-volume
+          persistentVolumeClaim:
+            claimName: receipts-db-volume
