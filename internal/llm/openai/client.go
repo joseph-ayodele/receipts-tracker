@@ -21,7 +21,6 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	rid := uuid.New().String()
 	start := time.Now()
 
-	// pre-flight log
 	c.log.Info("llm.extract.start",
 		"req_id", rid,
 		"model", c.cfg.Model,
@@ -35,25 +34,20 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		"country_hint", req.CountryHint,
 	)
 
-	// For now: just log the low-confidence + file path situation.
 	if req.FilePath != "" && req.PrepConfidence > 0 && req.PrepConfidence < c.cfg.LowConfThreshold {
 		c.log.Warn("llm.extract.low_ocr_confidence",
-			"req_id", rid,
-			"prep_confidence", req.PrepConfidence,
+			"req_id", rid, "prep_confidence", req.PrepConfidence,
 			"hint", "vision path not implemented; proceeding with text-only")
 	}
 
-	// Build schema & prompts
 	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
 	sys := buildSystemPrompt(req.AllowedCategories, req.DefaultCurrency, req.Timezone, req.CountryHint)
 	user := buildUserPrompt(req.OCRText, req.FilenameHint, req.FolderHint)
 
 	body := map[string]any{
-		"model":       c.cfg.Model,
-		"temperature": c.cfg.Temperature,
-		"response_format": map[string]any{
-			"type": "json_object",
-		},
+		"model":           c.cfg.Model,
+		"temperature":     c.cfg.Temperature,
+		"response_format": map[string]any{"type": "json_object"},
 		"messages": []map[string]any{
 			{"role": "system", "content": sys},
 			{"role": "user", "content": user + "\n\nReturn ONLY JSON that matches the provided schema."},
@@ -65,14 +59,12 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	raw, httpErr := c.post(ctx, endpoint, body)
 	if httpErr != nil {
 		c.log.Error("llm.extract.http_error",
-			"req_id", rid,
-			"error", httpErr,
+			"req_id", rid, "error", httpErr,
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
 		return llm.ReceiptFields{}, nil, httpErr
 	}
 
-	// Parse choices[0].message.content
 	var cc struct {
 		Choices []struct {
 			Message struct {
@@ -82,47 +74,63 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	}
 	if err := json.Unmarshal(raw, &cc); err != nil {
 		c.log.Error("llm.extract.decode_error",
-			"req_id", rid,
-			"error", err,
-			"raw_bytes", len(raw),
+			"req_id", rid, "error", err, "raw_bytes", len(raw),
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
 		return llm.ReceiptFields{}, raw, fmt.Errorf("decode openai response: %w", err)
 	}
 	if len(cc.Choices) == 0 {
 		c.log.Error("llm.extract.no_choices",
-			"req_id", rid,
-			"raw", string(raw),
+			"req_id", rid, "raw", string(raw),
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
 		return llm.ReceiptFields{}, raw, fmt.Errorf("no choices in openai response")
 	}
 	content := strings.TrimSpace(cc.Choices[0].Message.Content)
-	c.log.Debug("llm.extract.content_received",
-		"req_id", rid,
-		"content_len", len(content),
-	)
+	rawContent := []byte(content)
 
-	// Validate content against schema
-	if err := llm.ValidateJSONAgainstSchema(schema, []byte(content)); err != nil {
-		c.log.Error("llm.extract.schema_validation_failed",
-			"req_id", rid,
-			"error", err,
-			"content", content,
-			"elapsed_ms", time.Since(start).Milliseconds(),
-		)
-		return llm.ReceiptFields{}, []byte(content), fmt.Errorf("schema validation failed: %w", err)
+	// Validate strictly first.
+	if err := llm.ValidateJSONAgainstSchema(schema, rawContent); err != nil {
+		if c.cfg.LenientOptional {
+			// Try a lenient sanitize: drop/normalize optional offenders and re-validate.
+			cleaned, dropped, sErr := llm.SanitizeOptionalFields(rawContent, req.AllowedCategories)
+			if sErr == nil {
+				if vErr := llm.ValidateJSONAgainstSchema(schema, cleaned); vErr == nil {
+					c.log.Warn("llm.extract.lenient_sanitize_applied",
+						"req_id", rid, "dropped", dropped,
+						"elapsed_ms", time.Since(start).Milliseconds(),
+					)
+					rawContent = cleaned
+				} else {
+					c.log.Error("llm.extract.schema_validation_failed",
+						"req_id", rid, "error", vErr, "content", string(rawContent),
+						"elapsed_ms", time.Since(start).Milliseconds(),
+					)
+					return llm.ReceiptFields{}, rawContent, fmt.Errorf("schema validation failed: %w", vErr)
+				}
+			} else {
+				c.log.Error("llm.extract.sanitize_failed",
+					"req_id", rid, "error", sErr,
+					"elapsed_ms", time.Since(start).Milliseconds(),
+				)
+				return llm.ReceiptFields{}, rawContent, fmt.Errorf("sanitize failed: %w", sErr)
+			}
+		} else {
+			c.log.Error("llm.extract.schema_validation_failed",
+				"req_id", rid, "error", err, "content", string(rawContent),
+				"elapsed_ms", time.Since(start).Milliseconds(),
+			)
+			return llm.ReceiptFields{}, rawContent, fmt.Errorf("schema validation failed: %w", err)
+		}
 	}
 
-	// Decode to struct
 	var out llm.ReceiptFields
-	if err := json.Unmarshal([]byte(content), &out); err != nil {
+	if err := json.Unmarshal(rawContent, &out); err != nil {
 		c.log.Error("llm.extract.unmarshal_failed",
-			"req_id", rid,
-			"error", err,
+			"req_id", rid, "error", err,
 			"elapsed_ms", time.Since(start).Milliseconds(),
 		)
-		return llm.ReceiptFields{}, []byte(content), fmt.Errorf("unmarshal fields: %w", err)
+		return llm.ReceiptFields{}, rawContent, fmt.Errorf("unmarshal fields: %w", err)
 	}
 
 	c.log.Info("llm.extract.ok",
@@ -134,7 +142,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		"category", out.Category,
 		"elapsed_ms", time.Since(start).Milliseconds(),
 	)
-	return out, []byte(content), nil
+	return out, rawContent, nil
 }
 
 func (c *Client) post(ctx context.Context, url string, body map[string]any) ([]byte, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 )
 
 type OCROutcome struct {
@@ -21,6 +22,7 @@ type OCROutcome struct {
 }
 
 type ExtractJobRepository interface {
+	GetByID(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, error)
 	Start(ctx context.Context, fileID, profileID uuid.UUID, format, status string) (*ent.ExtractJob, error)
 	FinishOCR(ctx context.Context, jobID uuid.UUID, outcome OCROutcome) error
 }
@@ -32,6 +34,13 @@ type extractJobRepo struct {
 
 func NewExtractJobRepository(entc *ent.Client, log *slog.Logger) ExtractJobRepository {
 	return &extractJobRepo{ent: entc, log: log}
+}
+
+func (r *extractJobRepo) GetByID(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, error) {
+	return r.ent.ExtractJob.
+		Query().
+		Where(extractjob.ID(jobID)).
+		Only(ctx)
 }
 
 func (r *extractJobRepo) Start(ctx context.Context, fileID, profileID uuid.UUID, format, status string) (*ent.ExtractJob, error) {

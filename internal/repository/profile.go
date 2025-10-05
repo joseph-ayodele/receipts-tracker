@@ -10,6 +10,7 @@ import (
 )
 
 type ProfileRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*ent.Profile, error)
 	CreateProfile(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error)
 	ListProfiles(ctx context.Context) ([]*ent.Profile, error)
 	Exists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -25,6 +26,13 @@ func NewProfileRepository(client *ent.Client, logger *slog.Logger) ProfileReposi
 		client: client,
 		logger: logger,
 	}
+}
+
+func (r *profileRepository) GetByID(ctx context.Context, id uuid.UUID) (*ent.Profile, error) {
+	return r.client.Profile.
+		Query().
+		Where(profile.ID(id)).
+		Only(ctx)
 }
 
 func (r *profileRepository) CreateProfile(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error) {

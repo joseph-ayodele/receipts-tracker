@@ -18,6 +18,8 @@ type Config struct {
 	// Future switches (not wired yet):
 	EnableVision     bool    // when true and low OCR confidence + FilePath set, use vision path
 	LowConfThreshold float32 // default 0.5 if zero; compare with req.PrepConfidence
+
+	LenientOptional bool
 }
 
 type Client struct {
@@ -44,6 +46,9 @@ func New(cfg Config, log *slog.Logger) *Client {
 	}
 	if log == nil {
 		log = slog.Default()
+	}
+	if !cfg.LenientOptional {
+		cfg.LenientOptional = true
 	}
 	return &Client{
 		cfg:        cfg,
