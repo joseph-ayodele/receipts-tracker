@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
@@ -150,16 +149,16 @@ func (_u *ReceiptUpdate) SetNillableCurrencyCode(v *string) *ReceiptUpdate {
 	return _u
 }
 
-// SetCategoryID sets the "category_id" field.
-func (_u *ReceiptUpdate) SetCategoryID(v int) *ReceiptUpdate {
-	_u.mutation.SetCategoryID(v)
+// SetCategoryName sets the "category_name" field.
+func (_u *ReceiptUpdate) SetCategoryName(v string) *ReceiptUpdate {
+	_u.mutation.SetCategoryName(v)
 	return _u
 }
 
-// SetNillableCategoryID sets the "category_id" field if the given value is not nil.
-func (_u *ReceiptUpdate) SetNillableCategoryID(v *int) *ReceiptUpdate {
+// SetNillableCategoryName sets the "category_name" field if the given value is not nil.
+func (_u *ReceiptUpdate) SetNillableCategoryName(v *string) *ReceiptUpdate {
 	if v != nil {
-		_u.SetCategoryID(*v)
+		_u.SetCategoryName(*v)
 	}
 	return _u
 }
@@ -243,11 +242,6 @@ func (_u *ReceiptUpdate) SetProfile(v *Profile) *ReceiptUpdate {
 	return _u.SetProfileID(v.ID)
 }
 
-// SetCategory sets the "category" edge to the Category entity.
-func (_u *ReceiptUpdate) SetCategory(v *Category) *ReceiptUpdate {
-	return _u.SetCategoryID(v.ID)
-}
-
 // AddFileIDs adds the "files" edge to the ReceiptFile entity by IDs.
 func (_u *ReceiptUpdate) AddFileIDs(ids ...uuid.UUID) *ReceiptUpdate {
 	_u.mutation.AddFileIDs(ids...)
@@ -286,12 +280,6 @@ func (_u *ReceiptUpdate) Mutation() *ReceiptMutation {
 // ClearProfile clears the "profile" edge to the Profile entity.
 func (_u *ReceiptUpdate) ClearProfile() *ReceiptUpdate {
 	_u.mutation.ClearProfile()
-	return _u
-}
-
-// ClearCategory clears the "category" edge to the Category entity.
-func (_u *ReceiptUpdate) ClearCategory() *ReceiptUpdate {
-	_u.mutation.ClearCategory()
 	return _u
 }
 
@@ -385,6 +373,11 @@ func (_u *ReceiptUpdate) check() error {
 			return &ValidationError{Name: "currency_code", err: fmt.Errorf(`ent: validator failed for field "Receipt.currency_code": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CategoryName(); ok {
+		if err := receipt.CategoryNameValidator(v); err != nil {
+			return &ValidationError{Name: "category_name", err: fmt.Errorf(`ent: validator failed for field "Receipt.category_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PaymentLast4(); ok {
 		if err := receipt.PaymentLast4Validator(v); err != nil {
 			return &ValidationError{Name: "payment_last4", err: fmt.Errorf(`ent: validator failed for field "Receipt.payment_last4": %w`, err)}
@@ -392,9 +385,6 @@ func (_u *ReceiptUpdate) check() error {
 	}
 	if _u.mutation.ProfileCleared() && len(_u.mutation.ProfileIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Receipt.profile"`)
-	}
-	if _u.mutation.CategoryCleared() && len(_u.mutation.CategoryIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "Receipt.category"`)
 	}
 	return nil
 }
@@ -441,6 +431,9 @@ func (_u *ReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.CurrencyCode(); ok {
 		_spec.SetField(receipt.FieldCurrencyCode, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.CategoryName(); ok {
+		_spec.SetField(receipt.FieldCategoryName, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.PaymentMethod(); ok {
 		_spec.SetField(receipt.FieldPaymentMethod, field.TypeString, value)
 	}
@@ -484,35 +477,6 @@ func (_u *ReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(profile.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.CategoryCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receipt.CategoryTable,
-			Columns: []string{receipt.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.CategoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receipt.CategoryTable,
-			Columns: []string{receipt.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -747,16 +711,16 @@ func (_u *ReceiptUpdateOne) SetNillableCurrencyCode(v *string) *ReceiptUpdateOne
 	return _u
 }
 
-// SetCategoryID sets the "category_id" field.
-func (_u *ReceiptUpdateOne) SetCategoryID(v int) *ReceiptUpdateOne {
-	_u.mutation.SetCategoryID(v)
+// SetCategoryName sets the "category_name" field.
+func (_u *ReceiptUpdateOne) SetCategoryName(v string) *ReceiptUpdateOne {
+	_u.mutation.SetCategoryName(v)
 	return _u
 }
 
-// SetNillableCategoryID sets the "category_id" field if the given value is not nil.
-func (_u *ReceiptUpdateOne) SetNillableCategoryID(v *int) *ReceiptUpdateOne {
+// SetNillableCategoryName sets the "category_name" field if the given value is not nil.
+func (_u *ReceiptUpdateOne) SetNillableCategoryName(v *string) *ReceiptUpdateOne {
 	if v != nil {
-		_u.SetCategoryID(*v)
+		_u.SetCategoryName(*v)
 	}
 	return _u
 }
@@ -840,11 +804,6 @@ func (_u *ReceiptUpdateOne) SetProfile(v *Profile) *ReceiptUpdateOne {
 	return _u.SetProfileID(v.ID)
 }
 
-// SetCategory sets the "category" edge to the Category entity.
-func (_u *ReceiptUpdateOne) SetCategory(v *Category) *ReceiptUpdateOne {
-	return _u.SetCategoryID(v.ID)
-}
-
 // AddFileIDs adds the "files" edge to the ReceiptFile entity by IDs.
 func (_u *ReceiptUpdateOne) AddFileIDs(ids ...uuid.UUID) *ReceiptUpdateOne {
 	_u.mutation.AddFileIDs(ids...)
@@ -883,12 +842,6 @@ func (_u *ReceiptUpdateOne) Mutation() *ReceiptMutation {
 // ClearProfile clears the "profile" edge to the Profile entity.
 func (_u *ReceiptUpdateOne) ClearProfile() *ReceiptUpdateOne {
 	_u.mutation.ClearProfile()
-	return _u
-}
-
-// ClearCategory clears the "category" edge to the Category entity.
-func (_u *ReceiptUpdateOne) ClearCategory() *ReceiptUpdateOne {
-	_u.mutation.ClearCategory()
 	return _u
 }
 
@@ -995,6 +948,11 @@ func (_u *ReceiptUpdateOne) check() error {
 			return &ValidationError{Name: "currency_code", err: fmt.Errorf(`ent: validator failed for field "Receipt.currency_code": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CategoryName(); ok {
+		if err := receipt.CategoryNameValidator(v); err != nil {
+			return &ValidationError{Name: "category_name", err: fmt.Errorf(`ent: validator failed for field "Receipt.category_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.PaymentLast4(); ok {
 		if err := receipt.PaymentLast4Validator(v); err != nil {
 			return &ValidationError{Name: "payment_last4", err: fmt.Errorf(`ent: validator failed for field "Receipt.payment_last4": %w`, err)}
@@ -1002,9 +960,6 @@ func (_u *ReceiptUpdateOne) check() error {
 	}
 	if _u.mutation.ProfileCleared() && len(_u.mutation.ProfileIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Receipt.profile"`)
-	}
-	if _u.mutation.CategoryCleared() && len(_u.mutation.CategoryIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "Receipt.category"`)
 	}
 	return nil
 }
@@ -1068,6 +1023,9 @@ func (_u *ReceiptUpdateOne) sqlSave(ctx context.Context) (_node *Receipt, err er
 	if value, ok := _u.mutation.CurrencyCode(); ok {
 		_spec.SetField(receipt.FieldCurrencyCode, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.CategoryName(); ok {
+		_spec.SetField(receipt.FieldCategoryName, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.PaymentMethod(); ok {
 		_spec.SetField(receipt.FieldPaymentMethod, field.TypeString, value)
 	}
@@ -1111,35 +1069,6 @@ func (_u *ReceiptUpdateOne) sqlSave(ctx context.Context) (_node *Receipt, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(profile.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.CategoryCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receipt.CategoryTable,
-			Columns: []string{receipt.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.CategoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receipt.CategoryTable,
-			Columns: []string{receipt.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

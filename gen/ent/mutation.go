@@ -13,7 +13,6 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
@@ -30,491 +29,11 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeCategory    = "Category"
 	TypeExtractJob  = "ExtractJob"
 	TypeProfile     = "Profile"
 	TypeReceipt     = "Receipt"
 	TypeReceiptFile = "ReceiptFile"
 )
-
-// CategoryMutation represents an operation that mutates the Category nodes in the graph.
-type CategoryMutation struct {
-	config
-	op              Op
-	typ             string
-	id              *int
-	name            *string
-	category_type   *category.CategoryType
-	clearedFields   map[string]struct{}
-	receipts        map[uuid.UUID]struct{}
-	removedreceipts map[uuid.UUID]struct{}
-	clearedreceipts bool
-	done            bool
-	oldValue        func(context.Context) (*Category, error)
-	predicates      []predicate.Category
-}
-
-var _ ent.Mutation = (*CategoryMutation)(nil)
-
-// categoryOption allows management of the mutation configuration using functional options.
-type categoryOption func(*CategoryMutation)
-
-// newCategoryMutation creates new mutation for the Category entity.
-func newCategoryMutation(c config, op Op, opts ...categoryOption) *CategoryMutation {
-	m := &CategoryMutation{
-		config:        c,
-		op:            op,
-		typ:           TypeCategory,
-		clearedFields: make(map[string]struct{}),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
-}
-
-// withCategoryID sets the ID field of the mutation.
-func withCategoryID(id int) categoryOption {
-	return func(m *CategoryMutation) {
-		var (
-			err   error
-			once  sync.Once
-			value *Category
-		)
-		m.oldValue = func(ctx context.Context) (*Category, error) {
-			once.Do(func() {
-				if m.done {
-					err = errors.New("querying old values post mutation is not allowed")
-				} else {
-					value, err = m.Client().Category.Get(ctx, id)
-				}
-			})
-			return value, err
-		}
-		m.id = &id
-	}
-}
-
-// withCategory sets the old Category of the mutation.
-func withCategory(node *Category) categoryOption {
-	return func(m *CategoryMutation) {
-		m.oldValue = func(context.Context) (*Category, error) {
-			return node, nil
-		}
-		m.id = &node.ID
-	}
-}
-
-// Client returns a new `ent.Client` from the mutation. If the mutation was
-// executed in a transaction (ent.Tx), a transactional client is returned.
-func (m CategoryMutation) Client() *Client {
-	client := &Client{config: m.config}
-	client.init()
-	return client
-}
-
-// Tx returns an `ent.Tx` for mutations that were executed in transactions;
-// it returns an error otherwise.
-func (m CategoryMutation) Tx() (*Tx, error) {
-	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("ent: mutation is not running in a transaction")
-	}
-	tx := &Tx{config: m.config}
-	tx.init()
-	return tx, nil
-}
-
-// SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of Category entities.
-func (m *CategoryMutation) SetID(id int) {
-	m.id = &id
-}
-
-// ID returns the ID value in the mutation. Note that the ID is only available
-// if it was provided to the builder or after it was returned from the database.
-func (m *CategoryMutation) ID() (id int, exists bool) {
-	if m.id == nil {
-		return
-	}
-	return *m.id, true
-}
-
-// IDs queries the database and returns the entity ids that match the mutation's predicate.
-// That means, if the mutation is applied within a transaction with an isolation level such
-// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
-// or updated by the mutation.
-func (m *CategoryMutation) IDs(ctx context.Context) ([]int, error) {
-	switch {
-	case m.op.Is(OpUpdateOne | OpDeleteOne):
-		id, exists := m.ID()
-		if exists {
-			return []int{id}, nil
-		}
-		fallthrough
-	case m.op.Is(OpUpdate | OpDelete):
-		return m.Client().Category.Query().Where(m.predicates...).IDs(ctx)
-	default:
-		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
-	}
-}
-
-// SetName sets the "name" field.
-func (m *CategoryMutation) SetName(s string) {
-	m.name = &s
-}
-
-// Name returns the value of the "name" field in the mutation.
-func (m *CategoryMutation) Name() (r string, exists bool) {
-	v := m.name
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldName returns the old "name" field's value of the Category entity.
-// If the Category object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *CategoryMutation) OldName(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldName is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldName requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldName: %w", err)
-	}
-	return oldValue.Name, nil
-}
-
-// ResetName resets all changes to the "name" field.
-func (m *CategoryMutation) ResetName() {
-	m.name = nil
-}
-
-// SetCategoryType sets the "category_type" field.
-func (m *CategoryMutation) SetCategoryType(ct category.CategoryType) {
-	m.category_type = &ct
-}
-
-// CategoryType returns the value of the "category_type" field in the mutation.
-func (m *CategoryMutation) CategoryType() (r category.CategoryType, exists bool) {
-	v := m.category_type
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCategoryType returns the old "category_type" field's value of the Category entity.
-// If the Category object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *CategoryMutation) OldCategoryType(ctx context.Context) (v category.CategoryType, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCategoryType is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCategoryType requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCategoryType: %w", err)
-	}
-	return oldValue.CategoryType, nil
-}
-
-// ResetCategoryType resets all changes to the "category_type" field.
-func (m *CategoryMutation) ResetCategoryType() {
-	m.category_type = nil
-}
-
-// AddReceiptIDs adds the "receipts" edge to the Receipt entity by ids.
-func (m *CategoryMutation) AddReceiptIDs(ids ...uuid.UUID) {
-	if m.receipts == nil {
-		m.receipts = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		m.receipts[ids[i]] = struct{}{}
-	}
-}
-
-// ClearReceipts clears the "receipts" edge to the Receipt entity.
-func (m *CategoryMutation) ClearReceipts() {
-	m.clearedreceipts = true
-}
-
-// ReceiptsCleared reports if the "receipts" edge to the Receipt entity was cleared.
-func (m *CategoryMutation) ReceiptsCleared() bool {
-	return m.clearedreceipts
-}
-
-// RemoveReceiptIDs removes the "receipts" edge to the Receipt entity by IDs.
-func (m *CategoryMutation) RemoveReceiptIDs(ids ...uuid.UUID) {
-	if m.removedreceipts == nil {
-		m.removedreceipts = make(map[uuid.UUID]struct{})
-	}
-	for i := range ids {
-		delete(m.receipts, ids[i])
-		m.removedreceipts[ids[i]] = struct{}{}
-	}
-}
-
-// RemovedReceipts returns the removed IDs of the "receipts" edge to the Receipt entity.
-func (m *CategoryMutation) RemovedReceiptsIDs() (ids []uuid.UUID) {
-	for id := range m.removedreceipts {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ReceiptsIDs returns the "receipts" edge IDs in the mutation.
-func (m *CategoryMutation) ReceiptsIDs() (ids []uuid.UUID) {
-	for id := range m.receipts {
-		ids = append(ids, id)
-	}
-	return
-}
-
-// ResetReceipts resets all changes to the "receipts" edge.
-func (m *CategoryMutation) ResetReceipts() {
-	m.receipts = nil
-	m.clearedreceipts = false
-	m.removedreceipts = nil
-}
-
-// Where appends a list predicates to the CategoryMutation builder.
-func (m *CategoryMutation) Where(ps ...predicate.Category) {
-	m.predicates = append(m.predicates, ps...)
-}
-
-// WhereP appends storage-level predicates to the CategoryMutation builder. Using this method,
-// users can use type-assertion to append predicates that do not depend on any generated package.
-func (m *CategoryMutation) WhereP(ps ...func(*sql.Selector)) {
-	p := make([]predicate.Category, len(ps))
-	for i := range ps {
-		p[i] = ps[i]
-	}
-	m.Where(p...)
-}
-
-// Op returns the operation name.
-func (m *CategoryMutation) Op() Op {
-	return m.op
-}
-
-// SetOp allows setting the mutation operation.
-func (m *CategoryMutation) SetOp(op Op) {
-	m.op = op
-}
-
-// Type returns the node type of this mutation (Category).
-func (m *CategoryMutation) Type() string {
-	return m.typ
-}
-
-// Fields returns all fields that were changed during this mutation. Note that in
-// order to get all numeric fields that were incremented/decremented, call
-// AddedFields().
-func (m *CategoryMutation) Fields() []string {
-	fields := make([]string, 0, 2)
-	if m.name != nil {
-		fields = append(fields, category.FieldName)
-	}
-	if m.category_type != nil {
-		fields = append(fields, category.FieldCategoryType)
-	}
-	return fields
-}
-
-// Field returns the value of a field with the given name. The second boolean
-// return value indicates that this field was not set, or was not defined in the
-// schema.
-func (m *CategoryMutation) Field(name string) (ent.Value, bool) {
-	switch name {
-	case category.FieldName:
-		return m.Name()
-	case category.FieldCategoryType:
-		return m.CategoryType()
-	}
-	return nil, false
-}
-
-// OldField returns the old value of the field from the database. An error is
-// returned if the mutation operation is not UpdateOne, or the query to the
-// database failed.
-func (m *CategoryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
-	switch name {
-	case category.FieldName:
-		return m.OldName(ctx)
-	case category.FieldCategoryType:
-		return m.OldCategoryType(ctx)
-	}
-	return nil, fmt.Errorf("unknown Category field %s", name)
-}
-
-// SetField sets the value of a field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *CategoryMutation) SetField(name string, value ent.Value) error {
-	switch name {
-	case category.FieldName:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetName(v)
-		return nil
-	case category.FieldCategoryType:
-		v, ok := value.(category.CategoryType)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCategoryType(v)
-		return nil
-	}
-	return fmt.Errorf("unknown Category field %s", name)
-}
-
-// AddedFields returns all numeric fields that were incremented/decremented during
-// this mutation.
-func (m *CategoryMutation) AddedFields() []string {
-	return nil
-}
-
-// AddedField returns the numeric value that was incremented/decremented on a field
-// with the given name. The second boolean return value indicates that this field
-// was not set, or was not defined in the schema.
-func (m *CategoryMutation) AddedField(name string) (ent.Value, bool) {
-	return nil, false
-}
-
-// AddField adds the value to the field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *CategoryMutation) AddField(name string, value ent.Value) error {
-	switch name {
-	}
-	return fmt.Errorf("unknown Category numeric field %s", name)
-}
-
-// ClearedFields returns all nullable fields that were cleared during this
-// mutation.
-func (m *CategoryMutation) ClearedFields() []string {
-	return nil
-}
-
-// FieldCleared returns a boolean indicating if a field with the given name was
-// cleared in this mutation.
-func (m *CategoryMutation) FieldCleared(name string) bool {
-	_, ok := m.clearedFields[name]
-	return ok
-}
-
-// ClearField clears the value of the field with the given name. It returns an
-// error if the field is not defined in the schema.
-func (m *CategoryMutation) ClearField(name string) error {
-	return fmt.Errorf("unknown Category nullable field %s", name)
-}
-
-// ResetField resets all changes in the mutation for the field with the given name.
-// It returns an error if the field is not defined in the schema.
-func (m *CategoryMutation) ResetField(name string) error {
-	switch name {
-	case category.FieldName:
-		m.ResetName()
-		return nil
-	case category.FieldCategoryType:
-		m.ResetCategoryType()
-		return nil
-	}
-	return fmt.Errorf("unknown Category field %s", name)
-}
-
-// AddedEdges returns all edge names that were set/added in this mutation.
-func (m *CategoryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.receipts != nil {
-		edges = append(edges, category.EdgeReceipts)
-	}
-	return edges
-}
-
-// AddedIDs returns all IDs (to other nodes) that were added for the given edge
-// name in this mutation.
-func (m *CategoryMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	case category.EdgeReceipts:
-		ids := make([]ent.Value, 0, len(m.receipts))
-		for id := range m.receipts {
-			ids = append(ids, id)
-		}
-		return ids
-	}
-	return nil
-}
-
-// RemovedEdges returns all edge names that were removed in this mutation.
-func (m *CategoryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.removedreceipts != nil {
-		edges = append(edges, category.EdgeReceipts)
-	}
-	return edges
-}
-
-// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
-// the given name in this mutation.
-func (m *CategoryMutation) RemovedIDs(name string) []ent.Value {
-	switch name {
-	case category.EdgeReceipts:
-		ids := make([]ent.Value, 0, len(m.removedreceipts))
-		for id := range m.removedreceipts {
-			ids = append(ids, id)
-		}
-		return ids
-	}
-	return nil
-}
-
-// ClearedEdges returns all edge names that were cleared in this mutation.
-func (m *CategoryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
-	if m.clearedreceipts {
-		edges = append(edges, category.EdgeReceipts)
-	}
-	return edges
-}
-
-// EdgeCleared returns a boolean which indicates if the edge with the given name
-// was cleared in this mutation.
-func (m *CategoryMutation) EdgeCleared(name string) bool {
-	switch name {
-	case category.EdgeReceipts:
-		return m.clearedreceipts
-	}
-	return false
-}
-
-// ClearEdge clears the value of the edge with the given name. It returns an error
-// if that edge is not defined in the schema.
-func (m *CategoryMutation) ClearEdge(name string) error {
-	switch name {
-	}
-	return fmt.Errorf("unknown Category unique edge %s", name)
-}
-
-// ResetEdge resets all changes to the edge with the given name in this mutation.
-// It returns an error if the edge is not defined in the schema.
-func (m *CategoryMutation) ResetEdge(name string) error {
-	switch name {
-	case category.EdgeReceipts:
-		m.ResetReceipts()
-		return nil
-	}
-	return fmt.Errorf("unknown Category edge %s", name)
-}
 
 // ExtractJobMutation represents an operation that mutates the ExtractJob nodes in the graph.
 type ExtractJobMutation struct {
@@ -2846,37 +2365,36 @@ func (m *ProfileMutation) ResetEdge(name string) error {
 // ReceiptMutation represents an operation that mutates the Receipt nodes in the graph.
 type ReceiptMutation struct {
 	config
-	op              Op
-	typ             string
-	id              *uuid.UUID
-	merchant_name   *string
-	tx_date         *time.Time
-	subtotal        *float64
-	addsubtotal     *float64
-	tax             *float64
-	addtax          *float64
-	total           *float64
-	addtotal        *float64
-	currency_code   *string
-	payment_method  *string
-	payment_last4   *string
-	description     *string
-	created_at      *time.Time
-	updated_at      *time.Time
-	clearedFields   map[string]struct{}
-	profile         *uuid.UUID
-	clearedprofile  bool
-	category        *int
-	clearedcategory bool
-	files           map[uuid.UUID]struct{}
-	removedfiles    map[uuid.UUID]struct{}
-	clearedfiles    bool
-	jobs            map[uuid.UUID]struct{}
-	removedjobs     map[uuid.UUID]struct{}
-	clearedjobs     bool
-	done            bool
-	oldValue        func(context.Context) (*Receipt, error)
-	predicates      []predicate.Receipt
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	merchant_name  *string
+	tx_date        *time.Time
+	subtotal       *float64
+	addsubtotal    *float64
+	tax            *float64
+	addtax         *float64
+	total          *float64
+	addtotal       *float64
+	currency_code  *string
+	category_name  *string
+	payment_method *string
+	payment_last4  *string
+	description    *string
+	created_at     *time.Time
+	updated_at     *time.Time
+	clearedFields  map[string]struct{}
+	profile        *uuid.UUID
+	clearedprofile bool
+	files          map[uuid.UUID]struct{}
+	removedfiles   map[uuid.UUID]struct{}
+	clearedfiles   bool
+	jobs           map[uuid.UUID]struct{}
+	removedjobs    map[uuid.UUID]struct{}
+	clearedjobs    bool
+	done           bool
+	oldValue       func(context.Context) (*Receipt, error)
+	predicates     []predicate.Receipt
 }
 
 var _ ent.Mutation = (*ReceiptMutation)(nil)
@@ -3323,40 +2841,40 @@ func (m *ReceiptMutation) ResetCurrencyCode() {
 	m.currency_code = nil
 }
 
-// SetCategoryID sets the "category_id" field.
-func (m *ReceiptMutation) SetCategoryID(i int) {
-	m.category = &i
+// SetCategoryName sets the "category_name" field.
+func (m *ReceiptMutation) SetCategoryName(s string) {
+	m.category_name = &s
 }
 
-// CategoryID returns the value of the "category_id" field in the mutation.
-func (m *ReceiptMutation) CategoryID() (r int, exists bool) {
-	v := m.category
+// CategoryName returns the value of the "category_name" field in the mutation.
+func (m *ReceiptMutation) CategoryName() (r string, exists bool) {
+	v := m.category_name
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldCategoryID returns the old "category_id" field's value of the Receipt entity.
+// OldCategoryName returns the old "category_name" field's value of the Receipt entity.
 // If the Receipt object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ReceiptMutation) OldCategoryID(ctx context.Context) (v int, err error) {
+func (m *ReceiptMutation) OldCategoryName(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCategoryID is only allowed on UpdateOne operations")
+		return v, errors.New("OldCategoryName is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCategoryID requires an ID field in the mutation")
+		return v, errors.New("OldCategoryName requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCategoryID: %w", err)
+		return v, fmt.Errorf("querying old value for OldCategoryName: %w", err)
 	}
-	return oldValue.CategoryID, nil
+	return oldValue.CategoryName, nil
 }
 
-// ResetCategoryID resets all changes to the "category_id" field.
-func (m *ReceiptMutation) ResetCategoryID() {
-	m.category = nil
+// ResetCategoryName resets all changes to the "category_name" field.
+func (m *ReceiptMutation) ResetCategoryName() {
+	m.category_name = nil
 }
 
 // SetPaymentMethod sets the "payment_method" field.
@@ -3592,33 +3110,6 @@ func (m *ReceiptMutation) ResetProfile() {
 	m.clearedprofile = false
 }
 
-// ClearCategory clears the "category" edge to the Category entity.
-func (m *ReceiptMutation) ClearCategory() {
-	m.clearedcategory = true
-	m.clearedFields[receipt.FieldCategoryID] = struct{}{}
-}
-
-// CategoryCleared reports if the "category" edge to the Category entity was cleared.
-func (m *ReceiptMutation) CategoryCleared() bool {
-	return m.clearedcategory
-}
-
-// CategoryIDs returns the "category" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// CategoryID instead. It exists only for internal usage by the builders.
-func (m *ReceiptMutation) CategoryIDs() (ids []int) {
-	if id := m.category; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetCategory resets all changes to the "category" edge.
-func (m *ReceiptMutation) ResetCategory() {
-	m.category = nil
-	m.clearedcategory = false
-}
-
 // AddFileIDs adds the "files" edge to the ReceiptFile entity by ids.
 func (m *ReceiptMutation) AddFileIDs(ids ...uuid.UUID) {
 	if m.files == nil {
@@ -3783,8 +3274,8 @@ func (m *ReceiptMutation) Fields() []string {
 	if m.currency_code != nil {
 		fields = append(fields, receipt.FieldCurrencyCode)
 	}
-	if m.category != nil {
-		fields = append(fields, receipt.FieldCategoryID)
+	if m.category_name != nil {
+		fields = append(fields, receipt.FieldCategoryName)
 	}
 	if m.payment_method != nil {
 		fields = append(fields, receipt.FieldPaymentMethod)
@@ -3823,8 +3314,8 @@ func (m *ReceiptMutation) Field(name string) (ent.Value, bool) {
 		return m.Total()
 	case receipt.FieldCurrencyCode:
 		return m.CurrencyCode()
-	case receipt.FieldCategoryID:
-		return m.CategoryID()
+	case receipt.FieldCategoryName:
+		return m.CategoryName()
 	case receipt.FieldPaymentMethod:
 		return m.PaymentMethod()
 	case receipt.FieldPaymentLast4:
@@ -3858,8 +3349,8 @@ func (m *ReceiptMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldTotal(ctx)
 	case receipt.FieldCurrencyCode:
 		return m.OldCurrencyCode(ctx)
-	case receipt.FieldCategoryID:
-		return m.OldCategoryID(ctx)
+	case receipt.FieldCategoryName:
+		return m.OldCategoryName(ctx)
 	case receipt.FieldPaymentMethod:
 		return m.OldPaymentMethod(ctx)
 	case receipt.FieldPaymentLast4:
@@ -3928,12 +3419,12 @@ func (m *ReceiptMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCurrencyCode(v)
 		return nil
-	case receipt.FieldCategoryID:
-		v, ok := value.(int)
+	case receipt.FieldCategoryName:
+		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetCategoryID(v)
+		m.SetCategoryName(v)
 		return nil
 	case receipt.FieldPaymentMethod:
 		v, ok := value.(string)
@@ -4106,8 +3597,8 @@ func (m *ReceiptMutation) ResetField(name string) error {
 	case receipt.FieldCurrencyCode:
 		m.ResetCurrencyCode()
 		return nil
-	case receipt.FieldCategoryID:
-		m.ResetCategoryID()
+	case receipt.FieldCategoryName:
+		m.ResetCategoryName()
 		return nil
 	case receipt.FieldPaymentMethod:
 		m.ResetPaymentMethod()
@@ -4130,12 +3621,9 @@ func (m *ReceiptMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ReceiptMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 3)
 	if m.profile != nil {
 		edges = append(edges, receipt.EdgeProfile)
-	}
-	if m.category != nil {
-		edges = append(edges, receipt.EdgeCategory)
 	}
 	if m.files != nil {
 		edges = append(edges, receipt.EdgeFiles)
@@ -4152,10 +3640,6 @@ func (m *ReceiptMutation) AddedIDs(name string) []ent.Value {
 	switch name {
 	case receipt.EdgeProfile:
 		if id := m.profile; id != nil {
-			return []ent.Value{*id}
-		}
-	case receipt.EdgeCategory:
-		if id := m.category; id != nil {
 			return []ent.Value{*id}
 		}
 	case receipt.EdgeFiles:
@@ -4176,7 +3660,7 @@ func (m *ReceiptMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ReceiptMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 3)
 	if m.removedfiles != nil {
 		edges = append(edges, receipt.EdgeFiles)
 	}
@@ -4208,12 +3692,9 @@ func (m *ReceiptMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ReceiptMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 3)
 	if m.clearedprofile {
 		edges = append(edges, receipt.EdgeProfile)
-	}
-	if m.clearedcategory {
-		edges = append(edges, receipt.EdgeCategory)
 	}
 	if m.clearedfiles {
 		edges = append(edges, receipt.EdgeFiles)
@@ -4230,8 +3711,6 @@ func (m *ReceiptMutation) EdgeCleared(name string) bool {
 	switch name {
 	case receipt.EdgeProfile:
 		return m.clearedprofile
-	case receipt.EdgeCategory:
-		return m.clearedcategory
 	case receipt.EdgeFiles:
 		return m.clearedfiles
 	case receipt.EdgeJobs:
@@ -4247,9 +3726,6 @@ func (m *ReceiptMutation) ClearEdge(name string) error {
 	case receipt.EdgeProfile:
 		m.ClearProfile()
 		return nil
-	case receipt.EdgeCategory:
-		m.ClearCategory()
-		return nil
 	}
 	return fmt.Errorf("unknown Receipt unique edge %s", name)
 }
@@ -4260,9 +3736,6 @@ func (m *ReceiptMutation) ResetEdge(name string) error {
 	switch name {
 	case receipt.EdgeProfile:
 		m.ResetProfile()
-		return nil
-	case receipt.EdgeCategory:
-		m.ResetCategory()
 		return nil
 	case receipt.EdgeFiles:
 		m.ResetFiles()

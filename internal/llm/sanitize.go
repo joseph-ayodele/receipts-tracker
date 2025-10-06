@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"slices"
 	"strings"
 )
 
@@ -127,7 +126,7 @@ func NormalizeAndSanitizeJSON(raw []byte, logger *slog.Logger) ([]byte, []string
 		return nil, dropped, fmt.Errorf("sanitize: encode: %w", err)
 	}
 	if len(dropped) > 0 {
-		logger.Warn("llm.extract.normalize_sanitize", "dropped", slices.Collect(dropped))
+		logger.Warn("llm.extract.normalize_sanitize", "dropped", dropped)
 	}
 	return out, dropped, nil
 }

@@ -91,9 +91,9 @@ func CurrencyCode(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldCurrencyCode, v))
 }
 
-// CategoryID applies equality check predicate on the "category_id" field. It's identical to CategoryIDEQ.
-func CategoryID(v int) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEQ(FieldCategoryID, v))
+// CategoryName applies equality check predicate on the "category_name" field. It's identical to CategoryNameEQ.
+func CategoryName(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldCategoryName, v))
 }
 
 // PaymentMethod applies equality check predicate on the "payment_method" field. It's identical to PaymentMethodEQ.
@@ -451,24 +451,69 @@ func CurrencyCodeContainsFold(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldContainsFold(FieldCurrencyCode, v))
 }
 
-// CategoryIDEQ applies the EQ predicate on the "category_id" field.
-func CategoryIDEQ(v int) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEQ(FieldCategoryID, v))
+// CategoryNameEQ applies the EQ predicate on the "category_name" field.
+func CategoryNameEQ(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldCategoryName, v))
 }
 
-// CategoryIDNEQ applies the NEQ predicate on the "category_id" field.
-func CategoryIDNEQ(v int) predicate.Receipt {
-	return predicate.Receipt(sql.FieldNEQ(FieldCategoryID, v))
+// CategoryNameNEQ applies the NEQ predicate on the "category_name" field.
+func CategoryNameNEQ(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNEQ(FieldCategoryName, v))
 }
 
-// CategoryIDIn applies the In predicate on the "category_id" field.
-func CategoryIDIn(vs ...int) predicate.Receipt {
-	return predicate.Receipt(sql.FieldIn(FieldCategoryID, vs...))
+// CategoryNameIn applies the In predicate on the "category_name" field.
+func CategoryNameIn(vs ...string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldIn(FieldCategoryName, vs...))
 }
 
-// CategoryIDNotIn applies the NotIn predicate on the "category_id" field.
-func CategoryIDNotIn(vs ...int) predicate.Receipt {
-	return predicate.Receipt(sql.FieldNotIn(FieldCategoryID, vs...))
+// CategoryNameNotIn applies the NotIn predicate on the "category_name" field.
+func CategoryNameNotIn(vs ...string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNotIn(FieldCategoryName, vs...))
+}
+
+// CategoryNameGT applies the GT predicate on the "category_name" field.
+func CategoryNameGT(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldGT(FieldCategoryName, v))
+}
+
+// CategoryNameGTE applies the GTE predicate on the "category_name" field.
+func CategoryNameGTE(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldGTE(FieldCategoryName, v))
+}
+
+// CategoryNameLT applies the LT predicate on the "category_name" field.
+func CategoryNameLT(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldLT(FieldCategoryName, v))
+}
+
+// CategoryNameLTE applies the LTE predicate on the "category_name" field.
+func CategoryNameLTE(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldLTE(FieldCategoryName, v))
+}
+
+// CategoryNameContains applies the Contains predicate on the "category_name" field.
+func CategoryNameContains(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldContains(FieldCategoryName, v))
+}
+
+// CategoryNameHasPrefix applies the HasPrefix predicate on the "category_name" field.
+func CategoryNameHasPrefix(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldHasPrefix(FieldCategoryName, v))
+}
+
+// CategoryNameHasSuffix applies the HasSuffix predicate on the "category_name" field.
+func CategoryNameHasSuffix(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldHasSuffix(FieldCategoryName, v))
+}
+
+// CategoryNameEqualFold applies the EqualFold predicate on the "category_name" field.
+func CategoryNameEqualFold(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEqualFold(FieldCategoryName, v))
+}
+
+// CategoryNameContainsFold applies the ContainsFold predicate on the "category_name" field.
+func CategoryNameContainsFold(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldContainsFold(FieldCategoryName, v))
 }
 
 // PaymentMethodEQ applies the EQ predicate on the "payment_method" field.
@@ -781,29 +826,6 @@ func HasProfile() predicate.Receipt {
 func HasProfileWith(preds ...predicate.Profile) predicate.Receipt {
 	return predicate.Receipt(func(s *sql.Selector) {
 		step := newProfileStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasCategory applies the HasEdge predicate on the "category" edge.
-func HasCategory() predicate.Receipt {
-	return predicate.Receipt(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, CategoryTable, CategoryColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasCategoryWith applies the HasEdge predicate on the "category" edge with a given conditions (other predicates).
-func HasCategoryWith(preds ...predicate.Category) predicate.Receipt {
-	return predicate.Receipt(func(s *sql.Selector) {
-		step := newCategoryStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

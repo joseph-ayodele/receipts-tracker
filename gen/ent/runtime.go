@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/db/ent/schema"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
@@ -18,12 +17,6 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	categoryFields := schema.Category{}.Fields()
-	_ = categoryFields
-	// categoryDescName is the schema descriptor for name field.
-	categoryDescName := categoryFields[1].Descriptor()
-	// category.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	category.NameValidator = categoryDescName.Validators[0].(func(string) error)
 	extractjobFields := schema.ExtractJob{}.Fields()
 	_ = extractjobFields
 	// extractjobDescFormat is the schema descriptor for format field.
@@ -106,6 +99,10 @@ func init() {
 			return nil
 		}
 	}()
+	// receiptDescCategoryName is the schema descriptor for category_name field.
+	receiptDescCategoryName := receiptFields[8].Descriptor()
+	// receipt.CategoryNameValidator is a validator for the "category_name" field. It is called by the builders before save.
+	receipt.CategoryNameValidator = receiptDescCategoryName.Validators[0].(func(string) error)
 	// receiptDescPaymentLast4 is the schema descriptor for payment_last4 field.
 	receiptDescPaymentLast4 := receiptFields[10].Descriptor()
 	// receipt.PaymentLast4Validator is a validator for the "payment_last4" field. It is called by the builders before save.

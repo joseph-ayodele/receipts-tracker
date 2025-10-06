@@ -29,8 +29,8 @@ const (
 	FieldTotal = "total"
 	// FieldCurrencyCode holds the string denoting the currency_code field in the database.
 	FieldCurrencyCode = "currency_code"
-	// FieldCategoryID holds the string denoting the category_id field in the database.
-	FieldCategoryID = "category_id"
+	// FieldCategoryName holds the string denoting the category_name field in the database.
+	FieldCategoryName = "category_name"
 	// FieldPaymentMethod holds the string denoting the payment_method field in the database.
 	FieldPaymentMethod = "payment_method"
 	// FieldPaymentLast4 holds the string denoting the payment_last4 field in the database.
@@ -43,8 +43,6 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// EdgeProfile holds the string denoting the profile edge name in mutations.
 	EdgeProfile = "profile"
-	// EdgeCategory holds the string denoting the category edge name in mutations.
-	EdgeCategory = "category"
 	// EdgeFiles holds the string denoting the files edge name in mutations.
 	EdgeFiles = "files"
 	// EdgeJobs holds the string denoting the jobs edge name in mutations.
@@ -58,13 +56,6 @@ const (
 	ProfileInverseTable = "profiles"
 	// ProfileColumn is the table column denoting the profile relation/edge.
 	ProfileColumn = "profile_id"
-	// CategoryTable is the table that holds the category relation/edge.
-	CategoryTable = "receipts"
-	// CategoryInverseTable is the table name for the Category entity.
-	// It exists in this package in order to avoid circular dependency with the "category" package.
-	CategoryInverseTable = "categories"
-	// CategoryColumn is the table column denoting the category relation/edge.
-	CategoryColumn = "category_id"
 	// FilesTable is the table that holds the files relation/edge.
 	FilesTable = "receipt_files"
 	// FilesInverseTable is the table name for the ReceiptFile entity.
@@ -91,7 +82,7 @@ var Columns = []string{
 	FieldTax,
 	FieldTotal,
 	FieldCurrencyCode,
-	FieldCategoryID,
+	FieldCategoryName,
 	FieldPaymentMethod,
 	FieldPaymentLast4,
 	FieldDescription,
@@ -114,6 +105,8 @@ var (
 	MerchantNameValidator func(string) error
 	// CurrencyCodeValidator is a validator for the "currency_code" field. It is called by the builders before save.
 	CurrencyCodeValidator func(string) error
+	// CategoryNameValidator is a validator for the "category_name" field. It is called by the builders before save.
+	CategoryNameValidator func(string) error
 	// PaymentLast4Validator is a validator for the "payment_last4" field. It is called by the builders before save.
 	PaymentLast4Validator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -169,9 +162,9 @@ func ByCurrencyCode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCurrencyCode, opts...).ToFunc()
 }
 
-// ByCategoryID orders the results by the category_id field.
-func ByCategoryID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCategoryID, opts...).ToFunc()
+// ByCategoryName orders the results by the category_name field.
+func ByCategoryName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCategoryName, opts...).ToFunc()
 }
 
 // ByPaymentMethod orders the results by the payment_method field.
@@ -203,13 +196,6 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 func ByProfileField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newProfileStep(), sql.OrderByField(field, opts...))
-	}
-}
-
-// ByCategoryField orders the results by category field.
-func ByCategoryField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newCategoryStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -245,13 +231,6 @@ func newProfileStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProfileInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, ProfileTable, ProfileColumn),
-	)
-}
-func newCategoryStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(CategoryInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, CategoryTable, CategoryColumn),
 	)
 }
 func newFilesStep() *sqlgraph.Step {

@@ -54,17 +54,4 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("DB health check passed")
-
-	// Create category repository and list categories
-	catRepo := repo.NewCategoryRepository(entc, logger)
-	cats, err := catRepo.ListCategories(ctx)
-	if err != nil {
-		slog.Error("failed to list categories", "error", err)
-		os.Exit(1)
-	}
-
-	slog.Info("categories listed", "count", len(cats))
-	for _, c := range cats {
-		slog.Info("category", "id", c.ID, "name", c.Name)
-	}
 }

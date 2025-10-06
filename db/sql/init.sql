@@ -19,15 +19,7 @@ CREATE TABLE IF NOT EXISTS profiles
     updated_at       timestamptz NOT NULL DEFAULT now()
 );
 
--- =========================
--- categories (global taxonomy)
--- =========================
-CREATE TABLE IF NOT EXISTS categories
-(
-    id   integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name          text NOT NULL UNIQUE,
-    category_type text CHECK (category_type IN ('DIRECT', 'INDIRECT'))
-);
+
 
 -- =========================
 -- receipts (normalized fact)
@@ -41,8 +33,8 @@ CREATE TABLE IF NOT EXISTS receipts
     subtotal       numeric(12, 2),
     tax            numeric(12, 2),
     total          numeric(12, 2) NOT NULL,
-    currency_code  char(3)        NOT NULL,
-    category_id    integer REFERENCES categories (id) ON DELETE RESTRICT,
+    currency_code  char(3) NOT NULL,
+    category_name  text    NOT NULL,
     payment_method text,
     payment_last4  char(4),
     description    text, -- short business-need description
@@ -53,7 +45,7 @@ CREATE TABLE IF NOT EXISTS receipts
 
 -- Helpful lookups
 CREATE INDEX IF NOT EXISTS idx_receipts_profile_date ON receipts (profile_id, tx_date);
-CREATE INDEX IF NOT EXISTS idx_receipts_category ON receipts (profile_id, category_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_category_name ON receipts (profile_id, category_name);
 CREATE INDEX IF NOT EXISTS idx_receipts_merchant ON receipts (merchant_name);
 
 -- ====================================
@@ -105,19 +97,5 @@ CREATE TABLE IF NOT EXISTS extract_job
 CREATE INDEX IF NOT EXISTS idx_job_profile_status_started ON extract_job (profile_id, status, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_job_file ON extract_job (file_id);
 CREATE INDEX IF NOT EXISTS idx_job_receipt ON extract_job (receipt_id);
-
-INSERT INTO categories (name, category_type)
-VALUES ('Cell phone service', 'INDIRECT'),
-       ('Home office', 'INDIRECT'),
-       ('Internet', 'INDIRECT'),
-       ('Meals', 'INDIRECT'),
-       ('Office Equipment', 'DIRECT'),
-       ('Office Supplies', 'DIRECT'),
-       ('Professional Development', 'DIRECT'),
-       ('Shipping Expenses', 'DIRECT'),
-       ('Software Subscription', 'DIRECT'),
-       ('Licenses & Dues', 'DIRECT'),
-       ('Travel Expenses', 'DIRECT'),
-       ('Other', 'DIRECT');
 
 COMMIT;

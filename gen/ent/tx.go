@@ -12,8 +12,6 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
-	// Category is the client for interacting with the Category builders.
-	Category *CategoryClient
 	// ExtractJob is the client for interacting with the ExtractJob builders.
 	ExtractJob *ExtractJobClient
 	// Profile is the client for interacting with the Profile builders.
@@ -153,7 +151,6 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
-	tx.Category = NewCategoryClient(tx.config)
 	tx.ExtractJob = NewExtractJobClient(tx.config)
 	tx.Profile = NewProfileClient(tx.config)
 	tx.Receipt = NewReceiptClient(tx.config)
@@ -167,7 +164,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Category.QueryXXX(), the query will be executed
+// applies a query, for example: ExtractJob.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

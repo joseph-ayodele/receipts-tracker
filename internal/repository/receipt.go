@@ -19,7 +19,7 @@ type CreateReceiptRequest struct {
 	File          *ent.ReceiptFile
 	JobID         uuid.UUID
 	ReceiptFields llm.ReceiptFields
-	CategoryID    *int
+	CategoryName  string
 }
 
 type ReceiptRepository interface {
@@ -87,13 +87,10 @@ func (r *receiptRepository) UpsertFromFields(ctx context.Context, request *Creat
 		SetMerchantName(f.MerchantName).
 		SetTxDate(txDate).
 		SetCurrencyCode(f.CurrencyCode).
+		SetCategoryName(request.CategoryName).
 		SetTotal(*dec(f.Total)).
 		SetNillableSubtotal(dec(f.Subtotal)).
 		SetNillableTax(dec(f.Tax))
-
-	if request.CategoryID != nil {
-		builder = builder.SetCategoryID(*request.CategoryID)
-	}
 	if f.PaymentMethod != "" {
 		builder = builder.SetPaymentMethod(f.PaymentMethod)
 	}

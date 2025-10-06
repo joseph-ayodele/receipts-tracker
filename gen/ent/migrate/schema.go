@@ -9,18 +9,6 @@ import (
 )
 
 var (
-	// CategoriesColumns holds the columns for the "categories" table.
-	CategoriesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "name", Type: field.TypeString, Unique: true, SchemaType: map[string]string{"postgres": "text"}},
-		{Name: "category_type", Type: field.TypeEnum, Enums: []string{"DIRECT", "INDIRECT"}, Default: "DIRECT"},
-	}
-	// CategoriesTable holds the schema information for the "categories" table.
-	CategoriesTable = &schema.Table{
-		Name:       "categories",
-		Columns:    CategoriesColumns,
-		PrimaryKey: []*schema.Column{CategoriesColumns[0]},
-	}
 	// ExtractJobColumns holds the columns for the "extract_job" table.
 	ExtractJobColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -107,12 +95,12 @@ var (
 		{Name: "tax", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
 		{Name: "total", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
 		{Name: "currency_code", Type: field.TypeString, Size: 3, SchemaType: map[string]string{"postgres": "char(3)"}},
+		{Name: "category_name", Type: field.TypeString},
 		{Name: "payment_method", Type: field.TypeString, Nullable: true},
 		{Name: "payment_last4", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "category_id", Type: field.TypeInt},
 		{Name: "profile_id", Type: field.TypeUUID},
 	}
 	// ReceiptsTable holds the schema information for the "receipts" table.
@@ -121,12 +109,6 @@ var (
 		Columns:    ReceiptsColumns,
 		PrimaryKey: []*schema.Column{ReceiptsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "receipts_categories_receipts",
-				Columns:    []*schema.Column{ReceiptsColumns[12]},
-				RefColumns: []*schema.Column{CategoriesColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
 			{
 				Symbol:     "receipts_profiles_receipts",
 				Columns:    []*schema.Column{ReceiptsColumns[13]},
@@ -181,7 +163,6 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		CategoriesTable,
 		ExtractJobTable,
 		ProfilesTable,
 		ReceiptsTable,
@@ -190,9 +171,6 @@ var (
 )
 
 func init() {
-	CategoriesTable.Annotation = &entsql.Annotation{
-		Table: "categories",
-	}
 	ExtractJobTable.ForeignKeys[0].RefTable = ProfilesTable
 	ExtractJobTable.ForeignKeys[1].RefTable = ReceiptsTable
 	ExtractJobTable.ForeignKeys[2].RefTable = ReceiptFilesTable
@@ -202,8 +180,7 @@ func init() {
 	ProfilesTable.Annotation = &entsql.Annotation{
 		Table: "profiles",
 	}
-	ReceiptsTable.ForeignKeys[0].RefTable = CategoriesTable
-	ReceiptsTable.ForeignKeys[1].RefTable = ProfilesTable
+	ReceiptsTable.ForeignKeys[0].RefTable = ProfilesTable
 	ReceiptsTable.Annotation = &entsql.Annotation{
 		Table: "receipts",
 	}

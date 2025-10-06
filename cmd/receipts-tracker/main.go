@@ -86,7 +86,6 @@ func main() {
 	receiptsRepo := repo.NewReceiptRepository(entc, logger)
 	filesRepo := repo.NewReceiptFileRepository(entc, logger)
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
-	categoriesRepo := repo.NewCategoryRepository(entc, logger)
 
 	// OCR text pipeline (already present in your codebase)
 	extractor := ocr.NewExtractor(ocr.Config{}, logger)
@@ -103,7 +102,7 @@ func main() {
 	}, logger)
 
 	parsePipe := pipeline.NewParseStage(logger, pipeline.Config{MinConfidence: 0.60},
-		jobsRepo, filesRepo, profilesRepo, categoriesRepo, receiptsRepo, openaiClient)
+		jobsRepo, filesRepo, profilesRepo, receiptsRepo, openaiClient)
 
 	// Orchestrator
 	processor := pipeline.NewProcessor(logger, ocrPipe, parsePipe)

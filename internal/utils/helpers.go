@@ -87,14 +87,6 @@ func ToProfile(e *ent.Profile) *entity.Profile {
 	}
 }
 
-func ToCategory(e *ent.Category) *entity.Category {
-	return &entity.Category{
-		ID:           int32(e.ID),
-		Name:         e.Name,
-		CategoryType: string(e.CategoryType),
-	}
-}
-
 func ToReceipt(e *ent.Receipt) *entity.Receipt {
 	return &entity.Receipt{
 		ID:            e.ID,
@@ -105,7 +97,7 @@ func ToReceipt(e *ent.Receipt) *entity.Receipt {
 		Tax:           e.Tax,
 		Total:         e.Total,
 		CurrencyCode:  e.CurrencyCode,
-		CategoryID:    int32(e.CategoryID),
+		CategoryName:  e.CategoryName,
 		PaymentMethod: e.PaymentMethod,
 		PaymentLast4:  e.PaymentLast4,
 		Description:   e.Description,

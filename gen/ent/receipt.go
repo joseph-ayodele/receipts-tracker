@@ -10,7 +10,6 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 )
@@ -34,8 +33,8 @@ type Receipt struct {
 	Total float64 `json:"total,omitempty"`
 	// CurrencyCode holds the value of the "currency_code" field.
 	CurrencyCode string `json:"currency_code,omitempty"`
-	// CategoryID holds the value of the "category_id" field.
-	CategoryID int `json:"category_id,omitempty"`
+	// CategoryName holds the value of the "category_name" field.
+	CategoryName string `json:"category_name,omitempty"`
 	// PaymentMethod holds the value of the "payment_method" field.
 	PaymentMethod *string `json:"payment_method,omitempty"`
 	// PaymentLast4 holds the value of the "payment_last4" field.
@@ -56,15 +55,13 @@ type Receipt struct {
 type ReceiptEdges struct {
 	// Profile holds the value of the profile edge.
 	Profile *Profile `json:"profile,omitempty"`
-	// Category holds the value of the category edge.
-	Category *Category `json:"category,omitempty"`
 	// Files holds the value of the files edge.
 	Files []*ReceiptFile `json:"files,omitempty"`
 	// Jobs holds the value of the jobs edge.
 	Jobs []*ExtractJob `json:"jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [3]bool
 }
 
 // ProfileOrErr returns the Profile value or an error if the edge
@@ -78,21 +75,10 @@ func (e ReceiptEdges) ProfileOrErr() (*Profile, error) {
 	return nil, &NotLoadedError{edge: "profile"}
 }
 
-// CategoryOrErr returns the Category value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e ReceiptEdges) CategoryOrErr() (*Category, error) {
-	if e.Category != nil {
-		return e.Category, nil
-	} else if e.loadedTypes[1] {
-		return nil, &NotFoundError{label: category.Label}
-	}
-	return nil, &NotLoadedError{edge: "category"}
-}
-
 // FilesOrErr returns the Files value or an error if the edge
 // was not loaded in eager-loading.
 func (e ReceiptEdges) FilesOrErr() ([]*ReceiptFile, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[1] {
 		return e.Files, nil
 	}
 	return nil, &NotLoadedError{edge: "files"}
@@ -101,7 +87,7 @@ func (e ReceiptEdges) FilesOrErr() ([]*ReceiptFile, error) {
 // JobsOrErr returns the Jobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e ReceiptEdges) JobsOrErr() ([]*ExtractJob, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[2] {
 		return e.Jobs, nil
 	}
 	return nil, &NotLoadedError{edge: "jobs"}
@@ -114,9 +100,7 @@ func (*Receipt) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case receipt.FieldSubtotal, receipt.FieldTax, receipt.FieldTotal:
 			values[i] = new(sql.NullFloat64)
-		case receipt.FieldCategoryID:
-			values[i] = new(sql.NullInt64)
-		case receipt.FieldMerchantName, receipt.FieldCurrencyCode, receipt.FieldPaymentMethod, receipt.FieldPaymentLast4, receipt.FieldDescription:
+		case receipt.FieldMerchantName, receipt.FieldCurrencyCode, receipt.FieldCategoryName, receipt.FieldPaymentMethod, receipt.FieldPaymentLast4, receipt.FieldDescription:
 			values[i] = new(sql.NullString)
 		case receipt.FieldTxDate, receipt.FieldCreatedAt, receipt.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -187,11 +171,11 @@ func (_m *Receipt) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CurrencyCode = value.String
 			}
-		case receipt.FieldCategoryID:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field category_id", values[i])
+		case receipt.FieldCategoryName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field category_name", values[i])
 			} else if value.Valid {
-				_m.CategoryID = int(value.Int64)
+				_m.CategoryName = value.String
 			}
 		case receipt.FieldPaymentMethod:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -241,11 +225,6 @@ func (_m *Receipt) Value(name string) (ent.Value, error) {
 // QueryProfile queries the "profile" edge of the Receipt entity.
 func (_m *Receipt) QueryProfile() *ProfileQuery {
 	return NewReceiptClient(_m.config).QueryProfile(_m)
-}
-
-// QueryCategory queries the "category" edge of the Receipt entity.
-func (_m *Receipt) QueryCategory() *CategoryQuery {
-	return NewReceiptClient(_m.config).QueryCategory(_m)
 }
 
 // QueryFiles queries the "files" edge of the Receipt entity.
@@ -306,8 +285,8 @@ func (_m *Receipt) String() string {
 	builder.WriteString("currency_code=")
 	builder.WriteString(_m.CurrencyCode)
 	builder.WriteString(", ")
-	builder.WriteString("category_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.CategoryID))
+	builder.WriteString("category_name=")
+	builder.WriteString(_m.CategoryName)
 	builder.WriteString(", ")
 	if v := _m.PaymentMethod; v != nil {
 		builder.WriteString("payment_method=")

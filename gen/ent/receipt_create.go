@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
@@ -83,9 +82,9 @@ func (_c *ReceiptCreate) SetCurrencyCode(v string) *ReceiptCreate {
 	return _c
 }
 
-// SetCategoryID sets the "category_id" field.
-func (_c *ReceiptCreate) SetCategoryID(v int) *ReceiptCreate {
-	_c.mutation.SetCategoryID(v)
+// SetCategoryName sets the "category_name" field.
+func (_c *ReceiptCreate) SetCategoryName(v string) *ReceiptCreate {
+	_c.mutation.SetCategoryName(v)
 	return _c
 }
 
@@ -168,11 +167,6 @@ func (_c *ReceiptCreate) SetNillableID(v *uuid.UUID) *ReceiptCreate {
 // SetProfile sets the "profile" edge to the Profile entity.
 func (_c *ReceiptCreate) SetProfile(v *Profile) *ReceiptCreate {
 	return _c.SetProfileID(v.ID)
-}
-
-// SetCategory sets the "category" edge to the Category entity.
-func (_c *ReceiptCreate) SetCategory(v *Category) *ReceiptCreate {
-	return _c.SetCategoryID(v.ID)
 }
 
 // AddFileIDs adds the "files" edge to the ReceiptFile entity by IDs.
@@ -281,8 +275,13 @@ func (_c *ReceiptCreate) check() error {
 			return &ValidationError{Name: "currency_code", err: fmt.Errorf(`ent: validator failed for field "Receipt.currency_code": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.CategoryID(); !ok {
-		return &ValidationError{Name: "category_id", err: errors.New(`ent: missing required field "Receipt.category_id"`)}
+	if _, ok := _c.mutation.CategoryName(); !ok {
+		return &ValidationError{Name: "category_name", err: errors.New(`ent: missing required field "Receipt.category_name"`)}
+	}
+	if v, ok := _c.mutation.CategoryName(); ok {
+		if err := receipt.CategoryNameValidator(v); err != nil {
+			return &ValidationError{Name: "category_name", err: fmt.Errorf(`ent: validator failed for field "Receipt.category_name": %w`, err)}
+		}
 	}
 	if v, ok := _c.mutation.PaymentLast4(); ok {
 		if err := receipt.PaymentLast4Validator(v); err != nil {
@@ -300,9 +299,6 @@ func (_c *ReceiptCreate) check() error {
 	}
 	if len(_c.mutation.ProfileIDs()) == 0 {
 		return &ValidationError{Name: "profile", err: errors.New(`ent: missing required edge "Receipt.profile"`)}
-	}
-	if len(_c.mutation.CategoryIDs()) == 0 {
-		return &ValidationError{Name: "category", err: errors.New(`ent: missing required edge "Receipt.category"`)}
 	}
 	return nil
 }
@@ -363,6 +359,10 @@ func (_c *ReceiptCreate) createSpec() (*Receipt, *sqlgraph.CreateSpec) {
 		_spec.SetField(receipt.FieldCurrencyCode, field.TypeString, value)
 		_node.CurrencyCode = value
 	}
+	if value, ok := _c.mutation.CategoryName(); ok {
+		_spec.SetField(receipt.FieldCategoryName, field.TypeString, value)
+		_node.CategoryName = value
+	}
 	if value, ok := _c.mutation.PaymentMethod(); ok {
 		_spec.SetField(receipt.FieldPaymentMethod, field.TypeString, value)
 		_node.PaymentMethod = &value
@@ -398,23 +398,6 @@ func (_c *ReceiptCreate) createSpec() (*Receipt, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ProfileID = nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.CategoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   receipt.CategoryTable,
-			Columns: []string{receipt.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.CategoryID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.FilesIDs(); len(nodes) > 0 {

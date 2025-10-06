@@ -16,7 +16,7 @@ type Receipt struct {
 	Tax           *float64  `json:"tax,omitempty"`
 	Total         float64   `json:"total"`
 	CurrencyCode  string    `json:"currency_code"`
-	CategoryID    int32     `json:"category_id"`
+	CategoryName  string    `json:"category_name"`
 	PaymentMethod *string   `json:"payment_method,omitempty"`
 	PaymentLast4  *string   `json:"payment_last4,omitempty"`
 	Description   string    `json:"description"`

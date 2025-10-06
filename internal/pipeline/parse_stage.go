@@ -19,14 +19,13 @@ type Config struct {
 }
 
 type ParseStage struct {
-	Logger         *slog.Logger
-	Cfg            Config
-	JobsRepo       repository.ExtractJobRepository
-	FilesRepo      repository.ReceiptFileRepository
-	ProfilesRepo   repository.ProfileRepository
-	CategoriesRepo repository.CategoryRepository
-	ReceiptsRepo   repository.ReceiptRepository
-	Extractor      llm.FieldExtractor
+	Logger       *slog.Logger
+	Cfg          Config
+	JobsRepo     repository.ExtractJobRepository
+	FilesRepo    repository.ReceiptFileRepository
+	ProfilesRepo repository.ProfileRepository
+	ReceiptsRepo repository.ReceiptRepository
+	Extractor    llm.FieldExtractor
 }
 
 func NewParseStage(
@@ -35,7 +34,6 @@ func NewParseStage(
 	jobs repository.ExtractJobRepository,
 	files repository.ReceiptFileRepository,
 	profiles repository.ProfileRepository,
-	cats repository.CategoryRepository,
 	recs repository.ReceiptRepository,
 	fe llm.FieldExtractor,
 ) *ParseStage {
@@ -46,14 +44,13 @@ func NewParseStage(
 		cfg.MinConfidence = 0.60
 	}
 	return &ParseStage{
-		Logger:         logger,
-		Cfg:            cfg,
-		JobsRepo:       jobs,
-		FilesRepo:      files,
-		ProfilesRepo:   profiles,
-		CategoriesRepo: cats,
-		ReceiptsRepo:   recs,
-		Extractor:      fe,
+		Logger:       logger,
+		Cfg:          cfg,
+		JobsRepo:     jobs,
+		FilesRepo:    files,
+		ProfilesRepo: profiles,
+		ReceiptsRepo: recs,
+		Extractor:    fe,
 	}
 }
 
@@ -76,14 +73,7 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 	if err != nil {
 		return job.ID, fmt.Errorf("load profile: %w", err)
 	}
-	cats, err := p.CategoriesRepo.ListCategories(ctx)
-	if err != nil {
-		return job.ID, fmt.Errorf("list categories: %w", err)
-	}
-	allowed := make([]string, 0, len(cats))
-	for _, c := range cats {
-		allowed = append(allowed, c.Name)
-	}
+	allowed := constants.AsStringSlice()
 
 	// Build LLM request
 	req := llm.ExtractRequest{
@@ -113,26 +103,13 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		return job.ID, fmt.Errorf("llm extract: %w", err)
 	}
 
-	// Resolve category_id (strict). If not found, try "Other" if present, else mark review.
-	var categoryID *int
+	// Resolve category using canonical mapping
 	needsReview := false
-	if fields.Category != "" {
-		c, err := p.CategoriesRepo.FindByName(ctx, fields.Category)
-		if err == nil && c != nil {
-			catID := int(c.ID)
-			categoryID = &catID
-		} else {
-			// fallback to "Other" if exists
-			if other, err2 := p.CategoriesRepo.FindByName(ctx, "Other"); err2 == nil && other != nil {
-				otherID := int(other.ID)
-				categoryID = &otherID
-			} else {
-				needsReview = true
-				p.Logger.Warn("category not found", "label", fields.Category)
-			}
-		}
-	} else {
+	canon, ok := constants.Canonicalize(fields.Category)
+	if !ok {
 		needsReview = true
+		p.Logger.Warn("category unknown", "label", fields.Category)
+		canon = constants.Other
 	}
 
 	// Heuristic needs_review
@@ -148,7 +125,7 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		File:          file,
 		JobID:         job.ID,
 		ReceiptFields: fields,
-		CategoryID:    categoryID,
+		CategoryName:  string(canon),
 	}
 	rec, err := p.ReceiptsRepo.UpsertFromFields(ctx, request)
 	if err != nil {
@@ -173,7 +150,7 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		"job_id", job.ID, "receipt_id", rec.ID,
 		"merchant", fields.MerchantName,
 		"date", fields.TxDate, "total", fields.Total,
-		"category", fields.Category, "needs_review", needsReview,
+		"category", string(canon), "needs_review", needsReview,
 		"confidence", fields.ModelConfidence,
 	)
 	return job.ID, nil

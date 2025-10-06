@@ -13,7 +13,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent/category"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/predicate"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
@@ -24,14 +23,13 @@ import (
 // ReceiptQuery is the builder for querying Receipt entities.
 type ReceiptQuery struct {
 	config
-	ctx          *QueryContext
-	order        []receipt.OrderOption
-	inters       []Interceptor
-	predicates   []predicate.Receipt
-	withProfile  *ProfileQuery
-	withCategory *CategoryQuery
-	withFiles    *ReceiptFileQuery
-	withJobs     *ExtractJobQuery
+	ctx         *QueryContext
+	order       []receipt.OrderOption
+	inters      []Interceptor
+	predicates  []predicate.Receipt
+	withProfile *ProfileQuery
+	withFiles   *ReceiptFileQuery
+	withJobs    *ExtractJobQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -83,28 +81,6 @@ func (_q *ReceiptQuery) QueryProfile() *ProfileQuery {
 			sqlgraph.From(receipt.Table, receipt.FieldID, selector),
 			sqlgraph.To(profile.Table, profile.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, receipt.ProfileTable, receipt.ProfileColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryCategory chains the current query on the "category" edge.
-func (_q *ReceiptQuery) QueryCategory() *CategoryQuery {
-	query := (&CategoryClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(receipt.Table, receipt.FieldID, selector),
-			sqlgraph.To(category.Table, category.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, receipt.CategoryTable, receipt.CategoryColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -343,15 +319,14 @@ func (_q *ReceiptQuery) Clone() *ReceiptQuery {
 		return nil
 	}
 	return &ReceiptQuery{
-		config:       _q.config,
-		ctx:          _q.ctx.Clone(),
-		order:        append([]receipt.OrderOption{}, _q.order...),
-		inters:       append([]Interceptor{}, _q.inters...),
-		predicates:   append([]predicate.Receipt{}, _q.predicates...),
-		withProfile:  _q.withProfile.Clone(),
-		withCategory: _q.withCategory.Clone(),
-		withFiles:    _q.withFiles.Clone(),
-		withJobs:     _q.withJobs.Clone(),
+		config:      _q.config,
+		ctx:         _q.ctx.Clone(),
+		order:       append([]receipt.OrderOption{}, _q.order...),
+		inters:      append([]Interceptor{}, _q.inters...),
+		predicates:  append([]predicate.Receipt{}, _q.predicates...),
+		withProfile: _q.withProfile.Clone(),
+		withFiles:   _q.withFiles.Clone(),
+		withJobs:    _q.withJobs.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -366,17 +341,6 @@ func (_q *ReceiptQuery) WithProfile(opts ...func(*ProfileQuery)) *ReceiptQuery {
 		opt(query)
 	}
 	_q.withProfile = query
-	return _q
-}
-
-// WithCategory tells the query-builder to eager-load the nodes that are connected to
-// the "category" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *ReceiptQuery) WithCategory(opts ...func(*CategoryQuery)) *ReceiptQuery {
-	query := (&CategoryClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withCategory = query
 	return _q
 }
 
@@ -480,9 +444,8 @@ func (_q *ReceiptQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Rece
 	var (
 		nodes       = []*Receipt{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [3]bool{
 			_q.withProfile != nil,
-			_q.withCategory != nil,
 			_q.withFiles != nil,
 			_q.withJobs != nil,
 		}
@@ -508,12 +471,6 @@ func (_q *ReceiptQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Rece
 	if query := _q.withProfile; query != nil {
 		if err := _q.loadProfile(ctx, query, nodes, nil,
 			func(n *Receipt, e *Profile) { n.Edges.Profile = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withCategory; query != nil {
-		if err := _q.loadCategory(ctx, query, nodes, nil,
-			func(n *Receipt, e *Category) { n.Edges.Category = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -556,35 +513,6 @@ func (_q *ReceiptQuery) loadProfile(ctx context.Context, query *ProfileQuery, no
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "profile_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-func (_q *ReceiptQuery) loadCategory(ctx context.Context, query *CategoryQuery, nodes []*Receipt, init func(*Receipt), assign func(*Receipt, *Category)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*Receipt)
-	for i := range nodes {
-		fk := nodes[i].CategoryID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(category.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "category_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -684,9 +612,6 @@ func (_q *ReceiptQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withProfile != nil {
 			_spec.Node.AddColumnOnce(receipt.FieldProfileID)
-		}
-		if _q.withCategory != nil {
-			_spec.Node.AddColumnOnce(receipt.FieldCategoryID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

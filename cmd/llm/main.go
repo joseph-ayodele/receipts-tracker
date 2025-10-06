@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/joseph-ayodele/receipts-tracker/constants"
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
@@ -61,7 +62,6 @@ func main() {
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 	filesRepo := repo.NewReceiptFileRepository(entc, logger)
 	profRepo := repo.NewProfileRepository(entc, logger)
-	catRepo := repo.NewCategoryRepository(entc, logger)
 
 	// load job
 	job, err := jobsRepo.GetByID(ctx, jobID)
@@ -97,15 +97,7 @@ func main() {
 	}
 
 	// categories
-	cats, err := catRepo.ListCategories(ctx)
-	if err != nil {
-		logger.Error("list categories", "error", err)
-		os.Exit(1)
-	}
-	allowed := make([]string, 0, len(cats))
-	for _, c := range cats {
-		allowed = append(allowed, c.Name)
-	}
+	allowed := constants.AsStringSlice()
 
 	// build request
 	req := llm.ExtractRequest{

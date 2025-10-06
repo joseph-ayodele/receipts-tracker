@@ -6,9 +6,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// Category is the predicate function for category builders.
-type Category func(*sql.Selector)
-
 // ExtractJob is the predicate function for extractjob builders.
 type ExtractJob func(*sql.Selector)
 

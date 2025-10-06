@@ -45,7 +45,7 @@ func (Receipt) Fields() []ent.Field {
 		field.String("currency_code").NotEmpty().MinLen(3).MaxLen(3).
 			SchemaType(map[string]string{dialect.Postgres: "char(3)"}),
 
-		field.Int("category_id"),
+		field.String("category_name").NotEmpty(),
 		field.String("payment_method").Optional().Nillable(),
 		field.String("payment_last4").Optional().Nillable().
 			Validate(func(s string) error {
@@ -68,12 +68,6 @@ func (Receipt) Edges() []ent.Edge {
 		edge.From("profile", Profile.Type).
 			Ref("receipts").
 			Field("profile_id").
-			Required().
-			Unique(),
-		// OPTIONAL: MANY receipts -> ONE category (FK: receipts.category_id)
-		edge.From("category", Category.Type).
-			Ref("receipts").
-			Field("category_id").
 			Required().
 			Unique(),
 		// ONE receipt -> MANY files
