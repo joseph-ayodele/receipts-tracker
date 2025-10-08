@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,7 +16,8 @@ import (
 
 // Config holds thresholds and behavior flags for the parse stage.
 type Config struct {
-	MinConfidence float32 // default 0.60
+	MinConfidence    float32 // default 0.60
+	ArtifactCacheDir string  // default "./cache" if empty
 }
 
 type ParseStage struct {
@@ -42,6 +44,9 @@ func NewParseStage(
 	}
 	if cfg.MinConfidence <= 0 {
 		cfg.MinConfidence = 0.60
+	}
+	if cfg.ArtifactCacheDir == "" {
+		cfg.ArtifactCacheDir = "./cache"
 	}
 	return &ParseStage{
 		Logger:       logger,
@@ -85,6 +90,8 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		Timezone:          "",                        // optional
 		PrepConfidence:    *job.ExtractionConfidence, // from OCR stage if set, else 0
 		FilePath:          file.SourcePath,           // enable file fallback when OCR is weak
+		ContentHashHex:    hex.EncodeToString(file.ContentHash),
+		ArtifactCacheDir:  p.Cfg.ArtifactCacheDir,
 		Profile: llm.ProfileContext{
 			ProfileName:    prof.Name,
 			JobTitle:       *prof.JobTitle,

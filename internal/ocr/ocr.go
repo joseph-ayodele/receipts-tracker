@@ -25,6 +25,8 @@ type Config struct {
 
 	PSM int // e.g., 6 is good for uniform block of text
 	OEM int // 1 = LSTM; leave 0 to use default
+
+	ArtifactCacheDir string
 }
 
 type ExtractionResult struct {
@@ -63,6 +65,9 @@ func NewExtractor(cfg Config, logger *slog.Logger) *Extractor {
 	if cfg.DPI <= 0 {
 		cfg.DPI = 300
 	}
+	if cfg.ArtifactCacheDir == "" {
+		cfg.ArtifactCacheDir = "./cache"
+	}
 	return &Extractor{cfg: cfg, runner: execRunner{}, logger: logger}
 }
 
@@ -80,7 +85,8 @@ func (e *Extractor) Extract(ctx context.Context, path string) (ExtractionResult,
 		var cleanup func()
 		var warns []string
 		if constants.IsHEICExt(ext) {
-			out, w, c, err := convertHEICtoPNG(ctx, e.runner, e.logger, e.cfg.HeicConverter, path)
+			hashHex, _ := contentHashFromCtx(ctx)
+			out, w, c, err := convertHEICtoPNG(ctx, e.runner, e.logger, e.cfg.HeicConverter, path, e.cfg.ArtifactCacheDir, hashHex)
 			warns = append(warns, w...)
 			if err != nil {
 				e.logger.Error("heic conversion failed", "path", path, "error", err)

@@ -15,6 +15,7 @@ type Config struct {
 	Temperature     float32       // 0..2
 	Timeout         time.Duration // http client timeout
 	LenientOptional bool
+	MaxVisionMB     int
 }
 
 type Client struct {
@@ -41,6 +42,9 @@ func NewClient(cfg Config, logger *slog.Logger) *Client {
 	}
 	if !cfg.LenientOptional {
 		cfg.LenientOptional = true
+	}
+	if cfg.MaxVisionMB <= 0 {
+		cfg.MaxVisionMB = 10
 	}
 	return &Client{
 		cfg:    cfg,

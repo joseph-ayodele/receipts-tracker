@@ -18,7 +18,30 @@ func ShouldAttachImage(req ExtractRequest) (attach bool, dataURL, mimeType strin
 	if !attach {
 		return false, "", ""
 	}
-	u, mt, err := readAsDataURL(req.FilePath)
+
+	// pick candidate path (prefer cached PNG for HEIC/HEIF)
+	candidate := req.FilePath
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(req.FilePath), "."))
+	if (ext == "heic" || ext == "heif" || ext == "heics" || ext == "heifs") &&
+		req.ArtifactCacheDir != "" && req.ContentHashHex != "" {
+		cached := filepath.Join(req.ArtifactCacheDir, req.ContentHashHex+".png")
+		if st, err := os.Stat(cached); err == nil && !st.IsDir() {
+			candidate = cached
+			ext = "png"
+		} else {
+			// still HEIC and no cached PNG → skip attach (OpenAI can't process HEIC)
+			return false, "", ""
+		}
+	}
+
+	// size gate
+	if st, err := os.Stat(candidate); err == nil {
+		if st.Size() > int64(constants.MaxVisionMBDefault)*1024*1024 {
+			return false, "", ""
+		}
+	}
+
+	u, mt, err := readAsDataURL(candidate)
 	if err != nil {
 		return false, "", ""
 	}
@@ -39,9 +62,6 @@ func readAsDataURL(path string) (string, string, error) {
 			mt = "image/jpeg"
 		case "png":
 			mt = "image/png"
-		case "heic", "heif", "heics", "heifs":
-			// If HEIC slipped through, still label something—OpenAI may not accept; we try image/heic
-			mt = "image/heic"
 		default:
 			mt = "application/octet-stream"
 		}

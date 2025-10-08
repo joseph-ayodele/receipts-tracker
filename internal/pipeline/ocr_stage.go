@@ -2,12 +2,14 @@ package processor
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -33,6 +35,8 @@ func (p *OCRStage) Run(ctx context.Context, fileID uuid.UUID) (uuid.UUID, extrac
 	if err != nil {
 		return uuid.Nil, extract.TextExtractionResult{}, fmt.Errorf("get file: %w", err)
 	}
+	hashHex := hex.EncodeToString(row.ContentHash)
+	ctx = ocr.WithContentHash(ctx, hashHex)
 
 	format := constants.MapExtToFormat(row.FileExt)
 	if format == "" {

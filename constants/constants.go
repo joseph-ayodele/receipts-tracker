@@ -4,3 +4,5 @@ package constants
 const DefaultCurrency = "USD"
 
 const ImageConfidenceThreshold = 0.5
+
+const MaxVisionMBDefault = 10

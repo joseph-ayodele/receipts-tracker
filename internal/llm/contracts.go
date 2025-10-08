@@ -41,6 +41,9 @@ type ExtractRequest struct {
 	PrepConfidence float32
 	FilePath       string
 
+	ContentHashHex   string `json:"-"`
+	ArtifactCacheDir string `json:"-"`
+
 	Profile ProfileContext
 }
 
