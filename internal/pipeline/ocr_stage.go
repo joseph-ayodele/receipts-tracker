@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
-	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -59,7 +58,7 @@ func (p *OCRStage) Run(ctx context.Context, fileID uuid.UUID) (uuid.UUID, extrac
 	needsReview := false
 	if format == constants.IMAGE {
 		// for images, flag low-confidence OCR for review (or LLM fallback later)
-		if res.Confidence > 0 && res.Confidence < ocr.ImageConfidenceThreshold {
+		if res.Confidence > 0 && res.Confidence < constants.ImageConfidenceThreshold {
 			p.Logger.Warn("Image ocr confidence low; needs review", "file_id", fileID, "job_id", job.ID, "conf", res.Confidence)
 			needsReview = true
 		}

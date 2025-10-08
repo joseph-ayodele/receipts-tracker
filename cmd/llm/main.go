@@ -117,11 +117,10 @@ func main() {
 	}
 
 	client := openai.NewClient(openai.Config{
-		Model:        getenv("OPENAI_MODEL", "gpt-4o-mini"),
-		APIKey:       os.Getenv("OPENAI_API_KEY"),
-		Temperature:  0.0,
-		Timeout:      45 * time.Second,
-		EnableVision: false, // future
+		Model:       getenv("OPENAI_MODEL", "gpt-4o-mini"),
+		APIKey:      os.Getenv("OPENAI_API_KEY"),
+		Temperature: 0.0,
+		Timeout:     45 * time.Second,
 	}, logger)
 
 	fields, raw, err := client.ExtractFields(ctx, req)

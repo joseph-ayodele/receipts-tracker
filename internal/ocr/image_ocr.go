@@ -9,8 +9,6 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 )
 
-const ImageConfidenceThreshold = 0.6
-
 func (e *Extractor) extractImage(ctx context.Context, path string) (ExtractionResult, error) {
 	e.logger.Debug("starting image ocr", "path", path)
 	txt, warn, err := e.tesseractOCR(ctx, path)

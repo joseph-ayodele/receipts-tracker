@@ -1,21 +1,13 @@
 package openai
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime"
-	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
 )
 
@@ -44,7 +36,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	user := llm.BuildUserPrompt(req)
 
 	// 2) decide whether to attach the image (low OCR confidence + image + vision enabled)
-	attach, dataURL, mimeType := c.shouldAttachImage(req)
+	attach, dataURL, mimeType := llm.ShouldAttachImage(req)
 
 	c.logger.Info("llm.build_payload",
 		"req_id", reqID,
@@ -173,83 +165,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	return out, rawContent, nil
 }
 
-func (c *Client) post(ctx context.Context, url string, body map[string]any) ([]byte, error) {
-	b, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("openai http error: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			c.logger.Warn("openai response body close error", "error", err)
-		}
-	}(resp.Body)
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		buf := new(bytes.Buffer)
-		_, _ = buf.ReadFrom(resp.Body)
-		return nil, fmt.Errorf("openai status %d: %s", resp.StatusCode, buf.String())
-	}
-
-	buf := new(bytes.Buffer)
-	_, _ = buf.ReadFrom(resp.Body)
-	return buf.Bytes(), nil
-}
-
 func mustJSON(v any) string {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	return string(b)
-}
-
-func (c *Client) shouldAttachImage(req llm.ExtractRequest) (attach bool, dataURL, mimeType string) {
-	attach = c.cfg.EnableVision &&
-		req.FilePath != "" &&
-		constants.MapExtToFormat(filepath.Ext(req.FilePath)) == constants.IMAGE &&
-		req.PrepConfidence < c.cfg.LowConfThreshold
-
-	if !attach {
-		return false, "", ""
-	}
-	u, mt, err := readAsDataURL(req.FilePath)
-	if err != nil {
-		c.logger.Warn("llm.attach_failed_fallback_text", "file", req.FilePath, "err", err)
-		return false, "", ""
-	}
-	return true, u, mt
-}
-
-func readAsDataURL(path string) (string, string, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return "", "", err
-	}
-	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
-	mt := mime.TypeByExtension("." + ext)
-	if mt == "" {
-		// fallbacks
-		switch ext {
-		case "jpg", "jpeg":
-			mt = "image/jpeg"
-		case "png":
-			mt = "image/png"
-		case "heic", "heif", "heics", "heifs":
-			// If HEIC slipped through, still label something—OpenAI may not accept; we try image/heic
-			mt = "image/heic"
-		default:
-			mt = "application/octet-stream"
-		}
-	}
-	data := base64.StdEncoding.EncodeToString(b)
-	return "data:" + mt + ";base64," + data, mt, nil
 }

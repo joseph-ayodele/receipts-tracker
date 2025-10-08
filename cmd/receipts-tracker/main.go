@@ -101,11 +101,10 @@ func main() {
 
 	// LLM parse pipeline (uses your OpenAI client)
 	openaiClient := openai.NewClient(openai.Config{
-		Model:        getenv("OPENAI_MODEL", "gpt-4o-mini"),
-		APIKey:       os.Getenv("OPENAI_API_KEY"),
-		Temperature:  0.0,
-		Timeout:      45 * time.Second,
-		EnableVision: true,
+		Model:       getenv("OPENAI_MODEL", "gpt-4o-mini"),
+		APIKey:      os.Getenv("OPENAI_API_KEY"),
+		Temperature: 0.0,
+		Timeout:     45 * time.Second,
 	}, logger)
 
 	parsePipe := pipeline.NewParseStage(logger, pipeline.Config{MinConfidence: 0.60},
