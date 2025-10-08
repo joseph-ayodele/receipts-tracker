@@ -7,16 +7,16 @@ import (
 type Category string
 
 const (
-	CellPhoneService        Category = "CellPhoneService"
-	HomeOffice              Category = "HomeOffice"
+	CellPhoneService        Category = "Cell Phone Service"
+	HomeOffice              Category = "Home Office"
 	Internet                Category = "Internet"
 	Meals                   Category = "Meals"
-	OfficeEquipment         Category = "OfficeEquipment"
-	OfficeSupplies          Category = "OfficeSupplies"
-	ProfessionalDevelopment Category = "ProfessionalDevelopment"
-	ShippingExpenses        Category = "ShippingExpenses"
-	SoftwareSubscription    Category = "SoftwareSubscription"
-	TravelExpenses          Category = "TravelExpenses"
+	OfficeEquipment         Category = "Office Equipment"
+	OfficeSupplies          Category = "Office Supplies"
+	ProfessionalDevelopment Category = "Professional Development"
+	ShippingExpenses        Category = "Shipping Expenses"
+	SoftwareSubscription    Category = "Software Subscription"
+	TravelExpenses          Category = "Travel Expenses"
 	Other                   Category = "Other"
 )
 

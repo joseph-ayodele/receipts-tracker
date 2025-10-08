@@ -49,6 +49,9 @@ func main() {
 		os.Exit(2)
 	}
 
+	heicConv := getenv("HEIC_CONVERTER", "magick")
+	tessdata := os.Getenv("TESSDATA_PREFIX")
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -88,7 +91,11 @@ func main() {
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 
 	// OCR text pipeline (already present in your codebase)
-	extractor := ocr.NewExtractor(ocr.Config{}, logger)
+	ocrCfg := ocr.Config{
+		HeicConverter: heicConv, // <— key bit
+		TessdataDir:   tessdata, // optional
+	}
+	extractor := ocr.NewExtractor(ocrCfg, logger)
 	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
 	ocrPipe := pipeline.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
 

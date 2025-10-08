@@ -72,7 +72,7 @@ func SendJSON(ctx context.Context, client *http.Client, url string, body any, he
 	)
 
 	if resp.StatusCode/100 != 2 {
-		return raw, resp.StatusCode, fmt.Errorf("non-2xx status: %d", resp.StatusCode)
+		return raw, resp.StatusCode, fmt.Errorf("non-2xx status: %d ---> %s", resp.StatusCode, string(raw))
 	}
 	return raw, resp.StatusCode, nil
 }
