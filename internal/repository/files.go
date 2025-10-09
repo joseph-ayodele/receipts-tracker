@@ -28,7 +28,6 @@ type ReceiptFileRepository interface {
 	GetByProfileAndHash(ctx context.Context, profileID uuid.UUID, hash []byte) (*entity.ReceiptFile, error)
 	Create(ctx context.Context, request *CreateReceiptFileRequest) (*entity.ReceiptFile, error)
 	UpsertByHash(ctx context.Context, request *CreateReceiptFileRequest) (*entity.ReceiptFile, bool, error)
-	SetReceiptID(ctx context.Context, fileID, receiptID uuid.UUID) error
 }
 
 type receiptFileRepo struct {
@@ -91,11 +90,4 @@ func (r *receiptFileRepo) UpsertByHash(ctx context.Context, request *CreateRecei
 		return nil, false, err
 	}
 	return row, false, nil
-}
-
-func (r *receiptFileRepo) SetReceiptID(ctx context.Context, fileID, receiptID uuid.UUID) error {
-	// TODO: Schema may need receipt_id field on receipt_files table to link files to receipts
-	// For now, this is a placeholder - the linking happens through the receipt creation process
-	r.logger.Warn("SetReceiptID called but not implemented - links handled via receipt creation", "file_id", fileID, "receipt_id", receiptID)
-	return nil
 }

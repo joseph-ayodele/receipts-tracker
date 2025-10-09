@@ -27,6 +27,7 @@ type ExtractJobRepository interface {
 	Start(ctx context.Context, fileID, profileID uuid.UUID, format, status string) (*ent.ExtractJob, error)
 	FinishOCR(ctx context.Context, jobID uuid.UUID, outcome OCROutcome) error
 	GetWithFile(ctx context.Context, jobID uuid.UUID) (*ent.ExtractJob, *ent.ReceiptFile, error)
+	SetReceiptID(ctx context.Context, jobID, receiptID uuid.UUID) error
 	FinishParseSuccess(ctx context.Context, jobID uuid.UUID, fields llm.ReceiptFields, needsReview bool, raw []byte, modelParams map[string]any) error
 	FinishParseFailure(ctx context.Context, jobID uuid.UUID, errMsg string, raw []byte) error
 }
@@ -101,7 +102,7 @@ func (r *extractJobRepo) GetWithFile(ctx context.Context, jobID uuid.UUID) (*ent
 	return job, file, nil
 }
 
-func (r *extractJobRepo) FinishParseSuccess(ctx context.Context, jobID uuid.UUID, fields llm.ReceiptFields, needsReview bool, raw []byte, modelParams map[string]any) error {
+func (r *extractJobRepo) FinishParseSuccess(ctx context.Context, jobID uuid.UUID, fields llm.ReceiptFields, needsReview bool, _ []byte, modelParams map[string]any) error {
 	mp, _ := json.Marshal(modelParams)
 	fb, _ := json.Marshal(fields)
 	return r.ent.ExtractJob.
@@ -122,4 +123,14 @@ func (r *extractJobRepo) FinishParseFailure(ctx context.Context, jobID uuid.UUID
 		SetErrorMessage(errMsg).
 		SetExtractedJSON(raw).
 		Exec(ctx)
+}
+
+func (r *extractJobRepo) SetReceiptID(ctx context.Context, jobID, receiptID uuid.UUID) error {
+	err := r.ent.ExtractJob.UpdateOneID(jobID).SetReceiptID(receiptID).Exec(ctx)
+	if err != nil {
+		r.logger.Error("failed to set receipt ID on job", "job_id", jobID, "receipt_id", receiptID, "error", err)
+		return err
+	}
+	r.logger.Info("receipt ID set successfully on job", "job_id", jobID, "receipt_id", receiptID)
+	return nil
 }

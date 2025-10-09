@@ -22,21 +22,21 @@ type Config struct {
 }
 
 type ParseStage struct {
-	Logger       *slog.Logger
-	Cfg          Config
-	JobsRepo     repository.ExtractJobRepository
-	FilesRepo    repository.ReceiptFileRepository
-	ProfilesRepo repository.ProfileRepository
-	ReceiptsRepo repository.ReceiptRepository
-	Extractor    llm.FieldExtractor
+	Logger         *slog.Logger
+	Cfg            Config
+	JobsRepo       repository.ExtractJobRepository
+	ProfilesRepo   repository.ProfileRepository
+	ReceiptsRepo   repository.ReceiptRepository
+	ExtractJobRepo repository.ExtractJobRepository
+	Extractor      llm.FieldExtractor
 }
 
 func NewParseStage(
 	logger *slog.Logger,
 	cfg Config,
 	jobs repository.ExtractJobRepository,
-	files repository.ReceiptFileRepository,
 	profiles repository.ProfileRepository,
+	extractJobRepo repository.ExtractJobRepository,
 	recs repository.ReceiptRepository,
 	fe llm.FieldExtractor,
 ) *ParseStage {
@@ -50,13 +50,13 @@ func NewParseStage(
 		cfg.ArtifactCacheDir = "./tmp"
 	}
 	return &ParseStage{
-		Logger:       logger,
-		Cfg:          cfg,
-		JobsRepo:     jobs,
-		FilesRepo:    files,
-		ProfilesRepo: profiles,
-		ReceiptsRepo: recs,
-		Extractor:    fe,
+		Logger:         logger,
+		Cfg:            cfg,
+		JobsRepo:       jobs,
+		ExtractJobRepo: extractJobRepo,
+		ProfilesRepo:   profiles,
+		ReceiptsRepo:   recs,
+		Extractor:      fe,
 	}
 }
 
@@ -140,9 +140,9 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		_ = p.JobsRepo.FinishParseFailure(ctx, job.ID, err.Error(), raw)
 		return job.ID, fmt.Errorf("upsert receipt: %w", err)
 	}
-	// Ensure file -> receipt link is set (idempotent)
-	if err := p.FilesRepo.SetReceiptID(ctx, file.ID, rec.ID); err != nil {
-		_ = p.JobsRepo.FinishParseFailure(ctx, job.ID, fmt.Sprintf("link file->receipt: %v", err), raw)
+	// Ensure job -> receipt link is set (idempotent)
+	if err := p.ExtractJobRepo.SetReceiptID(ctx, job.ID, rec.ID); err != nil {
+		_ = p.JobsRepo.FinishParseFailure(ctx, job.ID, fmt.Sprintf("link job->receipt: %v", err), raw)
 		return job.ID, err
 	}
 

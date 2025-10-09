@@ -106,11 +106,5 @@ func (r *receiptRepository) UpsertFromFields(ctx context.Context, request *Creat
 		return nil, err
 	}
 
-	// Update the file to link to this receipt (removed SetJobID - shouldn't be needed for receipts)
-	// TODO: Schema may need receipt_id field on receipt_files table
-	// if err := r.client.ReceiptFile.UpdateOneID(file.ID).SetReceiptID(rec.ID).Exec(ctx); err != nil {
-	// 	return nil, err
-	// }
-
 	return utils.ToReceipt(rec), nil
 }

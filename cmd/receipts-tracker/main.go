@@ -112,7 +112,7 @@ func main() {
 		MinConfidence:    0.60,
 		ArtifactCacheDir: "./tmp",
 	}
-	parsePipe := pipeline.NewParseStage(logger, parseCfg, jobsRepo, filesRepo, profilesRepo, receiptsRepo, openaiClient)
+	parsePipe := pipeline.NewParseStage(logger, parseCfg, jobsRepo, profilesRepo, jobsRepo, receiptsRepo, openaiClient)
 
 	// Orchestrator
 	processor := pipeline.NewProcessor(logger, ocrPipe, parsePipe)
