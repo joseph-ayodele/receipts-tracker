@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,7 +47,7 @@ func NewParseStage(
 		cfg.MinConfidence = 0.60
 	}
 	if cfg.ArtifactCacheDir == "" {
-		cfg.ArtifactCacheDir = "./cache"
+		cfg.ArtifactCacheDir = "./tmp"
 	}
 	return &ParseStage{
 		Logger:       logger,
@@ -83,8 +84,8 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 	// Build LLM request
 	req := llm.ExtractRequest{
 		OCRText:           *job.OcrText,
-		FilenameHint:      file.SourcePath, // filename signal
-		FolderHint:        "",              // optional
+		FilenameHint:      filepath.Base(file.SourcePath),
+		FolderHint:        filepath.Dir(file.SourcePath),
 		AllowedCategories: allowed,
 		DefaultCurrency:   prof.DefaultCurrency,
 		Timezone:          "",                        // optional

@@ -57,7 +57,7 @@ func BuildSystemPrompt(req ExtractRequest) string {
 }
 
 // BuildUserPrompt packages filename/folder hints and the OCR text (truncated to ~3k).
-func BuildUserPrompt(req ExtractRequest) string {
+func BuildUserPrompt(req ExtractRequest, imageAttached bool) string {
 	ocr := strings.TrimSpace(req.OCRText)
 	filename := strings.TrimSpace(req.FilenameHint)
 	folder := strings.TrimSpace(req.FolderHint)
@@ -74,13 +74,17 @@ func BuildUserPrompt(req ExtractRequest) string {
 		b.WriteString(folder)
 		b.WriteString("\n")
 	}
-	b.WriteString("\nOCR text (first ~3k chars):\n")
-	if len(ocr) > 3000 {
-		b.WriteString(ocr[:3000])
-		b.WriteString("\n…(truncated)")
-	} else {
-		b.WriteString(ocr)
+
+	if !imageAttached {
+		b.WriteString("\nOCR text (first ~3k chars):\n")
+		if len(ocr) > 3000 {
+			b.WriteString(ocr[:3000])
+			b.WriteString("\n…(truncated)")
+		} else {
+			b.WriteString(ocr)
+		}
 	}
+
 	return b.String()
 }
 

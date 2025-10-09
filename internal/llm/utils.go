@@ -5,7 +5,6 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 )
@@ -19,15 +18,12 @@ func ShouldAttachImage(req ExtractRequest) (attach bool, dataURL, mimeType strin
 		return false, "", ""
 	}
 
-	// pick candidate path (prefer cached PNG for HEIC/HEIF)
-	candidate := req.FilePath
-	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(req.FilePath), "."))
-	if (ext == "heic" || ext == "heif" || ext == "heics" || ext == "heifs") &&
-		req.ArtifactCacheDir != "" && req.ContentHashHex != "" {
+	// pick file path (prefer cached PNG for HEIC/HEIF)
+	file := req.FilePath
+	if constants.IsHEICExt(filepath.Ext(file)) && req.ArtifactCacheDir != "" && req.ContentHashHex != "" {
 		cached := filepath.Join(req.ArtifactCacheDir, req.ContentHashHex+".png")
 		if st, err := os.Stat(cached); err == nil && !st.IsDir() {
-			candidate = cached
-			ext = "png"
+			file = cached
 		} else {
 			// still HEIC and no cached PNG → skip attach (OpenAI can't process HEIC)
 			return false, "", ""
@@ -35,13 +31,13 @@ func ShouldAttachImage(req ExtractRequest) (attach bool, dataURL, mimeType strin
 	}
 
 	// size gate
-	if st, err := os.Stat(candidate); err == nil {
+	if st, err := os.Stat(file); err == nil {
 		if st.Size() > int64(constants.MaxVisionMBDefault)*1024*1024 {
 			return false, "", ""
 		}
 	}
 
-	u, mt, err := readAsDataURL(candidate)
+	u, mt, err := readAsDataURL(file)
 	if err != nil {
 		return false, "", ""
 	}
@@ -53,7 +49,7 @@ func readAsDataURL(path string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
+	ext := constants.NormalizeExt(filepath.Ext(path))
 	mt := mime.TypeByExtension("." + ext)
 	if mt == "" {
 		// fallbacks

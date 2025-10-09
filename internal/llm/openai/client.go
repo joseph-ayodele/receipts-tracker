@@ -31,12 +31,14 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	)
 
 	// 1) build schema + prompts
+
+	// decide whether to attach the image (low OCR confidence + image + vision enabled)
+	attach, dataURL, mimeType := llm.ShouldAttachImage(req)
+
+	// build schema + prompts
 	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
 	sys := llm.BuildSystemPrompt(req)
-	user := llm.BuildUserPrompt(req)
-
-	// 2) decide whether to attach the image (low OCR confidence + image + vision enabled)
-	attach, dataURL, mimeType := llm.ShouldAttachImage(req)
+	user := llm.BuildUserPrompt(req, attach)
 
 	c.logger.Info("llm.build_payload",
 		"req_id", reqID,
@@ -52,7 +54,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	if attach {
 		userContent = []map[string]any{
 			{"type": "text", "text": user},
-			{"type": "input_image", "image_url": map[string]any{"url": dataURL}},
+			{"type": "image_url", "image_url": map[string]any{"url": dataURL}},
 		}
 	} else {
 		userContent = user

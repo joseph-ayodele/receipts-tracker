@@ -92,8 +92,9 @@ func main() {
 
 	// OCR text pipeline (already present in your codebase)
 	ocrCfg := ocr.Config{
-		HeicConverter: heicConv, // <— key bit
-		TessdataDir:   tessdata, // optional
+		HeicConverter:    heicConv, // <— key bit
+		TessdataDir:      tessdata, // optional
+		ArtifactCacheDir: "./tmp",
 	}
 	extractor := ocr.NewExtractor(ocrCfg, logger)
 	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
@@ -107,8 +108,11 @@ func main() {
 		Timeout:     45 * time.Second,
 	}, logger)
 
-	parsePipe := pipeline.NewParseStage(logger, pipeline.Config{MinConfidence: 0.60},
-		jobsRepo, filesRepo, profilesRepo, receiptsRepo, openaiClient)
+	parseCfg := pipeline.Config{
+		MinConfidence:    0.60,
+		ArtifactCacheDir: "./tmp",
+	}
+	parsePipe := pipeline.NewParseStage(logger, parseCfg, jobsRepo, filesRepo, profilesRepo, receiptsRepo, openaiClient)
 
 	// Orchestrator
 	processor := pipeline.NewProcessor(logger, ocrPipe, parsePipe)

@@ -66,7 +66,7 @@ func NewExtractor(cfg Config, logger *slog.Logger) *Extractor {
 		cfg.DPI = 300
 	}
 	if cfg.ArtifactCacheDir == "" {
-		cfg.ArtifactCacheDir = "./cache"
+		cfg.ArtifactCacheDir = "./tmp"
 	}
 	return &Extractor{cfg: cfg, runner: execRunner{}, logger: logger}
 }
