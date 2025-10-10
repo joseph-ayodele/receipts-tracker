@@ -89,20 +89,21 @@ func ToProfile(e *ent.Profile) *entity.Profile {
 
 func ToReceipt(e *ent.Receipt) *entity.Receipt {
 	return &entity.Receipt{
-		ID:            e.ID,
-		ProfileID:     e.ProfileID,
-		MerchantName:  e.MerchantName,
-		TxDate:        e.TxDate,
-		Subtotal:      e.Subtotal,
-		Tax:           e.Tax,
-		Total:         e.Total,
-		CurrencyCode:  e.CurrencyCode,
-		CategoryName:  e.CategoryName,
-		PaymentMethod: e.PaymentMethod,
-		PaymentLast4:  e.PaymentLast4,
-		Description:   e.Description,
-		CreatedAt:     e.CreatedAt,
-		UpdatedAt:     e.UpdatedAt,
+		ID:           e.ID,
+		ProfileID:    e.ProfileID,
+		FileID:       e.FileID,
+		MerchantName: e.MerchantName,
+		TxDate:       e.TxDate,
+		Subtotal:     e.Subtotal,
+		Tax:          e.Tax,
+		Total:        e.Total,
+		CurrencyCode: e.CurrencyCode,
+		CategoryName: e.CategoryName,
+		Description:  e.Description,
+		FilePath:     e.FilePath,
+		IsCurrent:    e.IsCurrent,
+		CreatedAt:    e.CreatedAt,
+		UpdatedAt:    e.UpdatedAt,
 	}
 }
 

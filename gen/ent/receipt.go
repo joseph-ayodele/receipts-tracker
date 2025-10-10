@@ -21,6 +21,8 @@ type Receipt struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// ProfileID holds the value of the "profile_id" field.
 	ProfileID uuid.UUID `json:"profile_id,omitempty"`
+	// FileID holds the value of the "file_id" field.
+	FileID *uuid.UUID `json:"file_id,omitempty"`
 	// MerchantName holds the value of the "merchant_name" field.
 	MerchantName string `json:"merchant_name,omitempty"`
 	// TxDate holds the value of the "tx_date" field.
@@ -35,12 +37,12 @@ type Receipt struct {
 	CurrencyCode string `json:"currency_code,omitempty"`
 	// CategoryName holds the value of the "category_name" field.
 	CategoryName string `json:"category_name,omitempty"`
-	// PaymentMethod holds the value of the "payment_method" field.
-	PaymentMethod *string `json:"payment_method,omitempty"`
-	// PaymentLast4 holds the value of the "payment_last4" field.
-	PaymentLast4 *string `json:"payment_last4,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
+	// FilePath holds the value of the "file_path" field.
+	FilePath *string `json:"file_path,omitempty"`
+	// IsCurrent holds the value of the "is_current" field.
+	IsCurrent bool `json:"is_current,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -98,9 +100,13 @@ func (*Receipt) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case receipt.FieldFileID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case receipt.FieldIsCurrent:
+			values[i] = new(sql.NullBool)
 		case receipt.FieldSubtotal, receipt.FieldTax, receipt.FieldTotal:
 			values[i] = new(sql.NullFloat64)
-		case receipt.FieldMerchantName, receipt.FieldCurrencyCode, receipt.FieldCategoryName, receipt.FieldPaymentMethod, receipt.FieldPaymentLast4, receipt.FieldDescription:
+		case receipt.FieldMerchantName, receipt.FieldCurrencyCode, receipt.FieldCategoryName, receipt.FieldDescription, receipt.FieldFilePath:
 			values[i] = new(sql.NullString)
 		case receipt.FieldTxDate, receipt.FieldCreatedAt, receipt.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -132,6 +138,13 @@ func (_m *Receipt) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field profile_id", values[i])
 			} else if value != nil {
 				_m.ProfileID = *value
+			}
+		case receipt.FieldFileID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field file_id", values[i])
+			} else if value.Valid {
+				_m.FileID = new(uuid.UUID)
+				*_m.FileID = *value.S.(*uuid.UUID)
 			}
 		case receipt.FieldMerchantName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -177,25 +190,24 @@ func (_m *Receipt) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CategoryName = value.String
 			}
-		case receipt.FieldPaymentMethod:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field payment_method", values[i])
-			} else if value.Valid {
-				_m.PaymentMethod = new(string)
-				*_m.PaymentMethod = value.String
-			}
-		case receipt.FieldPaymentLast4:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field payment_last4", values[i])
-			} else if value.Valid {
-				_m.PaymentLast4 = new(string)
-				*_m.PaymentLast4 = value.String
-			}
 		case receipt.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field description", values[i])
 			} else if value.Valid {
 				_m.Description = value.String
+			}
+		case receipt.FieldFilePath:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field file_path", values[i])
+			} else if value.Valid {
+				_m.FilePath = new(string)
+				*_m.FilePath = value.String
+			}
+		case receipt.FieldIsCurrent:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_current", values[i])
+			} else if value.Valid {
+				_m.IsCurrent = value.Bool
 			}
 		case receipt.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -263,6 +275,11 @@ func (_m *Receipt) String() string {
 	builder.WriteString("profile_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProfileID))
 	builder.WriteString(", ")
+	if v := _m.FileID; v != nil {
+		builder.WriteString("file_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("merchant_name=")
 	builder.WriteString(_m.MerchantName)
 	builder.WriteString(", ")
@@ -288,18 +305,16 @@ func (_m *Receipt) String() string {
 	builder.WriteString("category_name=")
 	builder.WriteString(_m.CategoryName)
 	builder.WriteString(", ")
-	if v := _m.PaymentMethod; v != nil {
-		builder.WriteString("payment_method=")
-		builder.WriteString(*v)
-	}
-	builder.WriteString(", ")
-	if v := _m.PaymentLast4; v != nil {
-		builder.WriteString("payment_last4=")
-		builder.WriteString(*v)
-	}
-	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(_m.Description)
+	builder.WriteString(", ")
+	if v := _m.FilePath; v != nil {
+		builder.WriteString("file_path=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("is_current=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsCurrent))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-	"regexp"
 	"time"
 
 	"entgo.io/ent"
@@ -11,11 +9,10 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 
 	"github.com/google/uuid"
 )
-
-var reLast4 = regexp.MustCompile(`^[0-9]{4}$`)
 
 type Receipt struct{ ent.Schema }
 
@@ -29,6 +26,7 @@ func (Receipt) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New).Immutable(),
 		field.UUID("profile_id", uuid.UUID{}),
+		field.UUID("file_id", uuid.UUID{}).Optional().Nillable(),
 
 		field.String("merchant_name").NotEmpty(),
 		field.Time("tx_date").
@@ -46,21 +44,13 @@ func (Receipt) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "char(3)"}),
 
 		field.String("category_name").NotEmpty(),
-		field.String("payment_method").Optional().Nillable(),
-		field.String("payment_last4").Optional().Nillable().
-			Validate(func(s string) error {
-				if s == "" || reLast4.MatchString(s) {
-					return nil
-				}
-				return reLast4Err
-			}),
 		field.String("description"),
+		field.String("file_path").Optional().Nillable(),
+		field.Bool("is_current").Default(true),
 		field.Time("created_at").Default(time.Now),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}
 }
-
-var reLast4Err = errors.New("invalid last 4 digits")
 
 func (Receipt) Edges() []ent.Edge {
 	return []ent.Edge{
@@ -74,5 +64,14 @@ func (Receipt) Edges() []ent.Edge {
 		edge.To("files", ReceiptFile.Type),
 		// ONE receipt -> MANY jobs
 		edge.To("jobs", ExtractJob.Type),
+	}
+}
+
+func (Receipt) Indexes() []ent.Index {
+	return []ent.Index{
+		// Performance indexes (unique constraints must be added via SQL migration)
+		index.Fields("profile_id", "tx_date"),
+		index.Fields("profile_id", "category_name"),
+		index.Fields("profile_id", "merchant_name"),
 	}
 }

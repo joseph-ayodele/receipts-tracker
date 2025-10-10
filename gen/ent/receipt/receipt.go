@@ -17,6 +17,8 @@ const (
 	FieldID = "id"
 	// FieldProfileID holds the string denoting the profile_id field in the database.
 	FieldProfileID = "profile_id"
+	// FieldFileID holds the string denoting the file_id field in the database.
+	FieldFileID = "file_id"
 	// FieldMerchantName holds the string denoting the merchant_name field in the database.
 	FieldMerchantName = "merchant_name"
 	// FieldTxDate holds the string denoting the tx_date field in the database.
@@ -31,12 +33,12 @@ const (
 	FieldCurrencyCode = "currency_code"
 	// FieldCategoryName holds the string denoting the category_name field in the database.
 	FieldCategoryName = "category_name"
-	// FieldPaymentMethod holds the string denoting the payment_method field in the database.
-	FieldPaymentMethod = "payment_method"
-	// FieldPaymentLast4 holds the string denoting the payment_last4 field in the database.
-	FieldPaymentLast4 = "payment_last4"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
+	// FieldFilePath holds the string denoting the file_path field in the database.
+	FieldFilePath = "file_path"
+	// FieldIsCurrent holds the string denoting the is_current field in the database.
+	FieldIsCurrent = "is_current"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -76,6 +78,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldProfileID,
+	FieldFileID,
 	FieldMerchantName,
 	FieldTxDate,
 	FieldSubtotal,
@@ -83,9 +86,9 @@ var Columns = []string{
 	FieldTotal,
 	FieldCurrencyCode,
 	FieldCategoryName,
-	FieldPaymentMethod,
-	FieldPaymentLast4,
 	FieldDescription,
+	FieldFilePath,
+	FieldIsCurrent,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -107,8 +110,8 @@ var (
 	CurrencyCodeValidator func(string) error
 	// CategoryNameValidator is a validator for the "category_name" field. It is called by the builders before save.
 	CategoryNameValidator func(string) error
-	// PaymentLast4Validator is a validator for the "payment_last4" field. It is called by the builders before save.
-	PaymentLast4Validator func(string) error
+	// DefaultIsCurrent holds the default value on creation for the "is_current" field.
+	DefaultIsCurrent bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -130,6 +133,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByProfileID orders the results by the profile_id field.
 func ByProfileID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProfileID, opts...).ToFunc()
+}
+
+// ByFileID orders the results by the file_id field.
+func ByFileID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFileID, opts...).ToFunc()
 }
 
 // ByMerchantName orders the results by the merchant_name field.
@@ -167,19 +175,19 @@ func ByCategoryName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCategoryName, opts...).ToFunc()
 }
 
-// ByPaymentMethod orders the results by the payment_method field.
-func ByPaymentMethod(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPaymentMethod, opts...).ToFunc()
-}
-
-// ByPaymentLast4 orders the results by the payment_last4 field.
-func ByPaymentLast4(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPaymentLast4, opts...).ToFunc()
-}
-
 // ByDescription orders the results by the description field.
 func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByFilePath orders the results by the file_path field.
+func ByFilePath(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFilePath, opts...).ToFunc()
+}
+
+// ByIsCurrent orders the results by the is_current field.
+func ByIsCurrent(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsCurrent, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

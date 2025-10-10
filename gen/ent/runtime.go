@@ -77,11 +77,11 @@ func init() {
 	receiptFields := schema.Receipt{}.Fields()
 	_ = receiptFields
 	// receiptDescMerchantName is the schema descriptor for merchant_name field.
-	receiptDescMerchantName := receiptFields[2].Descriptor()
+	receiptDescMerchantName := receiptFields[3].Descriptor()
 	// receipt.MerchantNameValidator is a validator for the "merchant_name" field. It is called by the builders before save.
 	receipt.MerchantNameValidator = receiptDescMerchantName.Validators[0].(func(string) error)
 	// receiptDescCurrencyCode is the schema descriptor for currency_code field.
-	receiptDescCurrencyCode := receiptFields[7].Descriptor()
+	receiptDescCurrencyCode := receiptFields[8].Descriptor()
 	// receipt.CurrencyCodeValidator is a validator for the "currency_code" field. It is called by the builders before save.
 	receipt.CurrencyCodeValidator = func() func(string) error {
 		validators := receiptDescCurrencyCode.Validators
@@ -100,19 +100,19 @@ func init() {
 		}
 	}()
 	// receiptDescCategoryName is the schema descriptor for category_name field.
-	receiptDescCategoryName := receiptFields[8].Descriptor()
+	receiptDescCategoryName := receiptFields[9].Descriptor()
 	// receipt.CategoryNameValidator is a validator for the "category_name" field. It is called by the builders before save.
 	receipt.CategoryNameValidator = receiptDescCategoryName.Validators[0].(func(string) error)
-	// receiptDescPaymentLast4 is the schema descriptor for payment_last4 field.
-	receiptDescPaymentLast4 := receiptFields[10].Descriptor()
-	// receipt.PaymentLast4Validator is a validator for the "payment_last4" field. It is called by the builders before save.
-	receipt.PaymentLast4Validator = receiptDescPaymentLast4.Validators[0].(func(string) error)
+	// receiptDescIsCurrent is the schema descriptor for is_current field.
+	receiptDescIsCurrent := receiptFields[12].Descriptor()
+	// receipt.DefaultIsCurrent holds the default value on creation for the is_current field.
+	receipt.DefaultIsCurrent = receiptDescIsCurrent.Default.(bool)
 	// receiptDescCreatedAt is the schema descriptor for created_at field.
-	receiptDescCreatedAt := receiptFields[12].Descriptor()
+	receiptDescCreatedAt := receiptFields[13].Descriptor()
 	// receipt.DefaultCreatedAt holds the default value on creation for the created_at field.
 	receipt.DefaultCreatedAt = receiptDescCreatedAt.Default.(func() time.Time)
 	// receiptDescUpdatedAt is the schema descriptor for updated_at field.
-	receiptDescUpdatedAt := receiptFields[13].Descriptor()
+	receiptDescUpdatedAt := receiptFields[14].Descriptor()
 	// receipt.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	receipt.DefaultUpdatedAt = receiptDescUpdatedAt.Default.(func() time.Time)
 	// receipt.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

@@ -46,6 +46,26 @@ func (_u *ReceiptUpdate) SetNillableProfileID(v *uuid.UUID) *ReceiptUpdate {
 	return _u
 }
 
+// SetFileID sets the "file_id" field.
+func (_u *ReceiptUpdate) SetFileID(v uuid.UUID) *ReceiptUpdate {
+	_u.mutation.SetFileID(v)
+	return _u
+}
+
+// SetNillableFileID sets the "file_id" field if the given value is not nil.
+func (_u *ReceiptUpdate) SetNillableFileID(v *uuid.UUID) *ReceiptUpdate {
+	if v != nil {
+		_u.SetFileID(*v)
+	}
+	return _u
+}
+
+// ClearFileID clears the value of the "file_id" field.
+func (_u *ReceiptUpdate) ClearFileID() *ReceiptUpdate {
+	_u.mutation.ClearFileID()
+	return _u
+}
+
 // SetMerchantName sets the "merchant_name" field.
 func (_u *ReceiptUpdate) SetMerchantName(v string) *ReceiptUpdate {
 	_u.mutation.SetMerchantName(v)
@@ -163,46 +183,6 @@ func (_u *ReceiptUpdate) SetNillableCategoryName(v *string) *ReceiptUpdate {
 	return _u
 }
 
-// SetPaymentMethod sets the "payment_method" field.
-func (_u *ReceiptUpdate) SetPaymentMethod(v string) *ReceiptUpdate {
-	_u.mutation.SetPaymentMethod(v)
-	return _u
-}
-
-// SetNillablePaymentMethod sets the "payment_method" field if the given value is not nil.
-func (_u *ReceiptUpdate) SetNillablePaymentMethod(v *string) *ReceiptUpdate {
-	if v != nil {
-		_u.SetPaymentMethod(*v)
-	}
-	return _u
-}
-
-// ClearPaymentMethod clears the value of the "payment_method" field.
-func (_u *ReceiptUpdate) ClearPaymentMethod() *ReceiptUpdate {
-	_u.mutation.ClearPaymentMethod()
-	return _u
-}
-
-// SetPaymentLast4 sets the "payment_last4" field.
-func (_u *ReceiptUpdate) SetPaymentLast4(v string) *ReceiptUpdate {
-	_u.mutation.SetPaymentLast4(v)
-	return _u
-}
-
-// SetNillablePaymentLast4 sets the "payment_last4" field if the given value is not nil.
-func (_u *ReceiptUpdate) SetNillablePaymentLast4(v *string) *ReceiptUpdate {
-	if v != nil {
-		_u.SetPaymentLast4(*v)
-	}
-	return _u
-}
-
-// ClearPaymentLast4 clears the value of the "payment_last4" field.
-func (_u *ReceiptUpdate) ClearPaymentLast4() *ReceiptUpdate {
-	_u.mutation.ClearPaymentLast4()
-	return _u
-}
-
 // SetDescription sets the "description" field.
 func (_u *ReceiptUpdate) SetDescription(v string) *ReceiptUpdate {
 	_u.mutation.SetDescription(v)
@@ -213,6 +193,40 @@ func (_u *ReceiptUpdate) SetDescription(v string) *ReceiptUpdate {
 func (_u *ReceiptUpdate) SetNillableDescription(v *string) *ReceiptUpdate {
 	if v != nil {
 		_u.SetDescription(*v)
+	}
+	return _u
+}
+
+// SetFilePath sets the "file_path" field.
+func (_u *ReceiptUpdate) SetFilePath(v string) *ReceiptUpdate {
+	_u.mutation.SetFilePath(v)
+	return _u
+}
+
+// SetNillableFilePath sets the "file_path" field if the given value is not nil.
+func (_u *ReceiptUpdate) SetNillableFilePath(v *string) *ReceiptUpdate {
+	if v != nil {
+		_u.SetFilePath(*v)
+	}
+	return _u
+}
+
+// ClearFilePath clears the value of the "file_path" field.
+func (_u *ReceiptUpdate) ClearFilePath() *ReceiptUpdate {
+	_u.mutation.ClearFilePath()
+	return _u
+}
+
+// SetIsCurrent sets the "is_current" field.
+func (_u *ReceiptUpdate) SetIsCurrent(v bool) *ReceiptUpdate {
+	_u.mutation.SetIsCurrent(v)
+	return _u
+}
+
+// SetNillableIsCurrent sets the "is_current" field if the given value is not nil.
+func (_u *ReceiptUpdate) SetNillableIsCurrent(v *bool) *ReceiptUpdate {
+	if v != nil {
+		_u.SetIsCurrent(*v)
 	}
 	return _u
 }
@@ -378,11 +392,6 @@ func (_u *ReceiptUpdate) check() error {
 			return &ValidationError{Name: "category_name", err: fmt.Errorf(`ent: validator failed for field "Receipt.category_name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.PaymentLast4(); ok {
-		if err := receipt.PaymentLast4Validator(v); err != nil {
-			return &ValidationError{Name: "payment_last4", err: fmt.Errorf(`ent: validator failed for field "Receipt.payment_last4": %w`, err)}
-		}
-	}
 	if _u.mutation.ProfileCleared() && len(_u.mutation.ProfileIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Receipt.profile"`)
 	}
@@ -400,6 +409,12 @@ func (_u *ReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.FileID(); ok {
+		_spec.SetField(receipt.FieldFileID, field.TypeUUID, value)
+	}
+	if _u.mutation.FileIDCleared() {
+		_spec.ClearField(receipt.FieldFileID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.MerchantName(); ok {
 		_spec.SetField(receipt.FieldMerchantName, field.TypeString, value)
@@ -434,20 +449,17 @@ func (_u *ReceiptUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.CategoryName(); ok {
 		_spec.SetField(receipt.FieldCategoryName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.PaymentMethod(); ok {
-		_spec.SetField(receipt.FieldPaymentMethod, field.TypeString, value)
-	}
-	if _u.mutation.PaymentMethodCleared() {
-		_spec.ClearField(receipt.FieldPaymentMethod, field.TypeString)
-	}
-	if value, ok := _u.mutation.PaymentLast4(); ok {
-		_spec.SetField(receipt.FieldPaymentLast4, field.TypeString, value)
-	}
-	if _u.mutation.PaymentLast4Cleared() {
-		_spec.ClearField(receipt.FieldPaymentLast4, field.TypeString)
-	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(receipt.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FilePath(); ok {
+		_spec.SetField(receipt.FieldFilePath, field.TypeString, value)
+	}
+	if _u.mutation.FilePathCleared() {
+		_spec.ClearField(receipt.FieldFilePath, field.TypeString)
+	}
+	if value, ok := _u.mutation.IsCurrent(); ok {
+		_spec.SetField(receipt.FieldIsCurrent, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(receipt.FieldCreatedAt, field.TypeTime, value)
@@ -608,6 +620,26 @@ func (_u *ReceiptUpdateOne) SetNillableProfileID(v *uuid.UUID) *ReceiptUpdateOne
 	return _u
 }
 
+// SetFileID sets the "file_id" field.
+func (_u *ReceiptUpdateOne) SetFileID(v uuid.UUID) *ReceiptUpdateOne {
+	_u.mutation.SetFileID(v)
+	return _u
+}
+
+// SetNillableFileID sets the "file_id" field if the given value is not nil.
+func (_u *ReceiptUpdateOne) SetNillableFileID(v *uuid.UUID) *ReceiptUpdateOne {
+	if v != nil {
+		_u.SetFileID(*v)
+	}
+	return _u
+}
+
+// ClearFileID clears the value of the "file_id" field.
+func (_u *ReceiptUpdateOne) ClearFileID() *ReceiptUpdateOne {
+	_u.mutation.ClearFileID()
+	return _u
+}
+
 // SetMerchantName sets the "merchant_name" field.
 func (_u *ReceiptUpdateOne) SetMerchantName(v string) *ReceiptUpdateOne {
 	_u.mutation.SetMerchantName(v)
@@ -725,46 +757,6 @@ func (_u *ReceiptUpdateOne) SetNillableCategoryName(v *string) *ReceiptUpdateOne
 	return _u
 }
 
-// SetPaymentMethod sets the "payment_method" field.
-func (_u *ReceiptUpdateOne) SetPaymentMethod(v string) *ReceiptUpdateOne {
-	_u.mutation.SetPaymentMethod(v)
-	return _u
-}
-
-// SetNillablePaymentMethod sets the "payment_method" field if the given value is not nil.
-func (_u *ReceiptUpdateOne) SetNillablePaymentMethod(v *string) *ReceiptUpdateOne {
-	if v != nil {
-		_u.SetPaymentMethod(*v)
-	}
-	return _u
-}
-
-// ClearPaymentMethod clears the value of the "payment_method" field.
-func (_u *ReceiptUpdateOne) ClearPaymentMethod() *ReceiptUpdateOne {
-	_u.mutation.ClearPaymentMethod()
-	return _u
-}
-
-// SetPaymentLast4 sets the "payment_last4" field.
-func (_u *ReceiptUpdateOne) SetPaymentLast4(v string) *ReceiptUpdateOne {
-	_u.mutation.SetPaymentLast4(v)
-	return _u
-}
-
-// SetNillablePaymentLast4 sets the "payment_last4" field if the given value is not nil.
-func (_u *ReceiptUpdateOne) SetNillablePaymentLast4(v *string) *ReceiptUpdateOne {
-	if v != nil {
-		_u.SetPaymentLast4(*v)
-	}
-	return _u
-}
-
-// ClearPaymentLast4 clears the value of the "payment_last4" field.
-func (_u *ReceiptUpdateOne) ClearPaymentLast4() *ReceiptUpdateOne {
-	_u.mutation.ClearPaymentLast4()
-	return _u
-}
-
 // SetDescription sets the "description" field.
 func (_u *ReceiptUpdateOne) SetDescription(v string) *ReceiptUpdateOne {
 	_u.mutation.SetDescription(v)
@@ -775,6 +767,40 @@ func (_u *ReceiptUpdateOne) SetDescription(v string) *ReceiptUpdateOne {
 func (_u *ReceiptUpdateOne) SetNillableDescription(v *string) *ReceiptUpdateOne {
 	if v != nil {
 		_u.SetDescription(*v)
+	}
+	return _u
+}
+
+// SetFilePath sets the "file_path" field.
+func (_u *ReceiptUpdateOne) SetFilePath(v string) *ReceiptUpdateOne {
+	_u.mutation.SetFilePath(v)
+	return _u
+}
+
+// SetNillableFilePath sets the "file_path" field if the given value is not nil.
+func (_u *ReceiptUpdateOne) SetNillableFilePath(v *string) *ReceiptUpdateOne {
+	if v != nil {
+		_u.SetFilePath(*v)
+	}
+	return _u
+}
+
+// ClearFilePath clears the value of the "file_path" field.
+func (_u *ReceiptUpdateOne) ClearFilePath() *ReceiptUpdateOne {
+	_u.mutation.ClearFilePath()
+	return _u
+}
+
+// SetIsCurrent sets the "is_current" field.
+func (_u *ReceiptUpdateOne) SetIsCurrent(v bool) *ReceiptUpdateOne {
+	_u.mutation.SetIsCurrent(v)
+	return _u
+}
+
+// SetNillableIsCurrent sets the "is_current" field if the given value is not nil.
+func (_u *ReceiptUpdateOne) SetNillableIsCurrent(v *bool) *ReceiptUpdateOne {
+	if v != nil {
+		_u.SetIsCurrent(*v)
 	}
 	return _u
 }
@@ -953,11 +979,6 @@ func (_u *ReceiptUpdateOne) check() error {
 			return &ValidationError{Name: "category_name", err: fmt.Errorf(`ent: validator failed for field "Receipt.category_name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.PaymentLast4(); ok {
-		if err := receipt.PaymentLast4Validator(v); err != nil {
-			return &ValidationError{Name: "payment_last4", err: fmt.Errorf(`ent: validator failed for field "Receipt.payment_last4": %w`, err)}
-		}
-	}
 	if _u.mutation.ProfileCleared() && len(_u.mutation.ProfileIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Receipt.profile"`)
 	}
@@ -993,6 +1014,12 @@ func (_u *ReceiptUpdateOne) sqlSave(ctx context.Context) (_node *Receipt, err er
 			}
 		}
 	}
+	if value, ok := _u.mutation.FileID(); ok {
+		_spec.SetField(receipt.FieldFileID, field.TypeUUID, value)
+	}
+	if _u.mutation.FileIDCleared() {
+		_spec.ClearField(receipt.FieldFileID, field.TypeUUID)
+	}
 	if value, ok := _u.mutation.MerchantName(); ok {
 		_spec.SetField(receipt.FieldMerchantName, field.TypeString, value)
 	}
@@ -1026,20 +1053,17 @@ func (_u *ReceiptUpdateOne) sqlSave(ctx context.Context) (_node *Receipt, err er
 	if value, ok := _u.mutation.CategoryName(); ok {
 		_spec.SetField(receipt.FieldCategoryName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.PaymentMethod(); ok {
-		_spec.SetField(receipt.FieldPaymentMethod, field.TypeString, value)
-	}
-	if _u.mutation.PaymentMethodCleared() {
-		_spec.ClearField(receipt.FieldPaymentMethod, field.TypeString)
-	}
-	if value, ok := _u.mutation.PaymentLast4(); ok {
-		_spec.SetField(receipt.FieldPaymentLast4, field.TypeString, value)
-	}
-	if _u.mutation.PaymentLast4Cleared() {
-		_spec.ClearField(receipt.FieldPaymentLast4, field.TypeString)
-	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(receipt.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FilePath(); ok {
+		_spec.SetField(receipt.FieldFilePath, field.TypeString, value)
+	}
+	if _u.mutation.FilePathCleared() {
+		_spec.ClearField(receipt.FieldFilePath, field.TypeString)
+	}
+	if value, ok := _u.mutation.IsCurrent(); ok {
+		_spec.SetField(receipt.FieldIsCurrent, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(receipt.FieldCreatedAt, field.TypeTime, value)

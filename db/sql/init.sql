@@ -19,6 +19,21 @@ CREATE TABLE IF NOT EXISTS profiles
     updated_at       timestamptz NOT NULL DEFAULT now()
 );
 
+-- ==================================== -- receipt_files (ingested file artifact) -- ====================================
+CREATE TABLE IF NOT EXISTS receipt_files
+(
+    id           uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
+    filename     text        NOT NULL, -- original filename (basename of source_path)
+    file_ext     text        NOT NULL, -- 'pdf','jpg','png',...
+    file_size    integer     NOT NULL,
+    source_path  text        NOT NULL, -- original absolute/virtual path as seen by the app
+    profile_id   uuid        NOT NULL REFERENCES profiles (id) ON DELETE RESTRICT,
+    content_hash bytea       NOT NULL, -- sha256(file bytes)
+    uploaded_at  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (profile_id, content_hash)  -- dedupe per profile
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON receipt_files (profile_id, uploaded_at DESC);
 
 -- =========================
 -- receipts (normalized fact)
@@ -46,24 +61,6 @@ CREATE TABLE IF NOT EXISTS receipts
 CREATE INDEX IF NOT EXISTS idx_receipts_profile_date ON receipts (profile_id, tx_date);
 CREATE INDEX IF NOT EXISTS idx_receipts_category_name ON receipts (profile_id, category_name);
 CREATE INDEX IF NOT EXISTS idx_receipts_merchant ON receipts (merchant_name);
-
--- ====================================
--- receipt_files (ingested file artifact)
--- ====================================
-CREATE TABLE IF NOT EXISTS receipt_files
-(
-    id           uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
-    filename     text        NOT NULL, -- original filename (basename of source_path)
-    file_ext     text        NOT NULL, -- 'pdf','jpg','png',...
-    file_size    integer     NOT NULL,
-    source_path  text        NOT NULL, -- original absolute/virtual path as seen by the app
-    profile_id   uuid        NOT NULL REFERENCES profiles (id) ON DELETE RESTRICT,
-    content_hash bytea       NOT NULL, -- sha256(file bytes)
-    uploaded_at  timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (profile_id, content_hash)  -- dedupe per profile
-);
-
-CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON receipt_files (profile_id, uploaded_at DESC);
 
 -- ==============================
 -- extract_job (processing runs)

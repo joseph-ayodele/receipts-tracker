@@ -30,6 +30,20 @@ func (_c *ReceiptCreate) SetProfileID(v uuid.UUID) *ReceiptCreate {
 	return _c
 }
 
+// SetFileID sets the "file_id" field.
+func (_c *ReceiptCreate) SetFileID(v uuid.UUID) *ReceiptCreate {
+	_c.mutation.SetFileID(v)
+	return _c
+}
+
+// SetNillableFileID sets the "file_id" field if the given value is not nil.
+func (_c *ReceiptCreate) SetNillableFileID(v *uuid.UUID) *ReceiptCreate {
+	if v != nil {
+		_c.SetFileID(*v)
+	}
+	return _c
+}
+
 // SetMerchantName sets the "merchant_name" field.
 func (_c *ReceiptCreate) SetMerchantName(v string) *ReceiptCreate {
 	_c.mutation.SetMerchantName(v)
@@ -88,37 +102,37 @@ func (_c *ReceiptCreate) SetCategoryName(v string) *ReceiptCreate {
 	return _c
 }
 
-// SetPaymentMethod sets the "payment_method" field.
-func (_c *ReceiptCreate) SetPaymentMethod(v string) *ReceiptCreate {
-	_c.mutation.SetPaymentMethod(v)
-	return _c
-}
-
-// SetNillablePaymentMethod sets the "payment_method" field if the given value is not nil.
-func (_c *ReceiptCreate) SetNillablePaymentMethod(v *string) *ReceiptCreate {
-	if v != nil {
-		_c.SetPaymentMethod(*v)
-	}
-	return _c
-}
-
-// SetPaymentLast4 sets the "payment_last4" field.
-func (_c *ReceiptCreate) SetPaymentLast4(v string) *ReceiptCreate {
-	_c.mutation.SetPaymentLast4(v)
-	return _c
-}
-
-// SetNillablePaymentLast4 sets the "payment_last4" field if the given value is not nil.
-func (_c *ReceiptCreate) SetNillablePaymentLast4(v *string) *ReceiptCreate {
-	if v != nil {
-		_c.SetPaymentLast4(*v)
-	}
-	return _c
-}
-
 // SetDescription sets the "description" field.
 func (_c *ReceiptCreate) SetDescription(v string) *ReceiptCreate {
 	_c.mutation.SetDescription(v)
+	return _c
+}
+
+// SetFilePath sets the "file_path" field.
+func (_c *ReceiptCreate) SetFilePath(v string) *ReceiptCreate {
+	_c.mutation.SetFilePath(v)
+	return _c
+}
+
+// SetNillableFilePath sets the "file_path" field if the given value is not nil.
+func (_c *ReceiptCreate) SetNillableFilePath(v *string) *ReceiptCreate {
+	if v != nil {
+		_c.SetFilePath(*v)
+	}
+	return _c
+}
+
+// SetIsCurrent sets the "is_current" field.
+func (_c *ReceiptCreate) SetIsCurrent(v bool) *ReceiptCreate {
+	_c.mutation.SetIsCurrent(v)
+	return _c
+}
+
+// SetNillableIsCurrent sets the "is_current" field if the given value is not nil.
+func (_c *ReceiptCreate) SetNillableIsCurrent(v *bool) *ReceiptCreate {
+	if v != nil {
+		_c.SetIsCurrent(*v)
+	}
 	return _c
 }
 
@@ -234,6 +248,10 @@ func (_c *ReceiptCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *ReceiptCreate) defaults() {
+	if _, ok := _c.mutation.IsCurrent(); !ok {
+		v := receipt.DefaultIsCurrent
+		_c.mutation.SetIsCurrent(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := receipt.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -283,13 +301,11 @@ func (_c *ReceiptCreate) check() error {
 			return &ValidationError{Name: "category_name", err: fmt.Errorf(`ent: validator failed for field "Receipt.category_name": %w`, err)}
 		}
 	}
-	if v, ok := _c.mutation.PaymentLast4(); ok {
-		if err := receipt.PaymentLast4Validator(v); err != nil {
-			return &ValidationError{Name: "payment_last4", err: fmt.Errorf(`ent: validator failed for field "Receipt.payment_last4": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.Description(); !ok {
 		return &ValidationError{Name: "description", err: errors.New(`ent: missing required field "Receipt.description"`)}
+	}
+	if _, ok := _c.mutation.IsCurrent(); !ok {
+		return &ValidationError{Name: "is_current", err: errors.New(`ent: missing required field "Receipt.is_current"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Receipt.created_at"`)}
@@ -335,6 +351,10 @@ func (_c *ReceiptCreate) createSpec() (*Receipt, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = &id
 	}
+	if value, ok := _c.mutation.FileID(); ok {
+		_spec.SetField(receipt.FieldFileID, field.TypeUUID, value)
+		_node.FileID = &value
+	}
 	if value, ok := _c.mutation.MerchantName(); ok {
 		_spec.SetField(receipt.FieldMerchantName, field.TypeString, value)
 		_node.MerchantName = value
@@ -363,17 +383,17 @@ func (_c *ReceiptCreate) createSpec() (*Receipt, *sqlgraph.CreateSpec) {
 		_spec.SetField(receipt.FieldCategoryName, field.TypeString, value)
 		_node.CategoryName = value
 	}
-	if value, ok := _c.mutation.PaymentMethod(); ok {
-		_spec.SetField(receipt.FieldPaymentMethod, field.TypeString, value)
-		_node.PaymentMethod = &value
-	}
-	if value, ok := _c.mutation.PaymentLast4(); ok {
-		_spec.SetField(receipt.FieldPaymentLast4, field.TypeString, value)
-		_node.PaymentLast4 = &value
-	}
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(receipt.FieldDescription, field.TypeString, value)
 		_node.Description = value
+	}
+	if value, ok := _c.mutation.FilePath(); ok {
+		_spec.SetField(receipt.FieldFilePath, field.TypeString, value)
+		_node.FilePath = &value
+	}
+	if value, ok := _c.mutation.IsCurrent(); ok {
+		_spec.SetField(receipt.FieldIsCurrent, field.TypeBool, value)
+		_node.IsCurrent = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(receipt.FieldCreatedAt, field.TypeTime, value)

@@ -61,6 +61,11 @@ func ProfileID(v uuid.UUID) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldProfileID, v))
 }
 
+// FileID applies equality check predicate on the "file_id" field. It's identical to FileIDEQ.
+func FileID(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldFileID, v))
+}
+
 // MerchantName applies equality check predicate on the "merchant_name" field. It's identical to MerchantNameEQ.
 func MerchantName(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldMerchantName, v))
@@ -96,19 +101,19 @@ func CategoryName(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldCategoryName, v))
 }
 
-// PaymentMethod applies equality check predicate on the "payment_method" field. It's identical to PaymentMethodEQ.
-func PaymentMethod(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEQ(FieldPaymentMethod, v))
-}
-
-// PaymentLast4 applies equality check predicate on the "payment_last4" field. It's identical to PaymentLast4EQ.
-func PaymentLast4(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEQ(FieldPaymentLast4, v))
-}
-
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
 func Description(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldDescription, v))
+}
+
+// FilePath applies equality check predicate on the "file_path" field. It's identical to FilePathEQ.
+func FilePath(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldFilePath, v))
+}
+
+// IsCurrent applies equality check predicate on the "is_current" field. It's identical to IsCurrentEQ.
+func IsCurrent(v bool) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldIsCurrent, v))
 }
 
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
@@ -139,6 +144,56 @@ func ProfileIDIn(vs ...uuid.UUID) predicate.Receipt {
 // ProfileIDNotIn applies the NotIn predicate on the "profile_id" field.
 func ProfileIDNotIn(vs ...uuid.UUID) predicate.Receipt {
 	return predicate.Receipt(sql.FieldNotIn(FieldProfileID, vs...))
+}
+
+// FileIDEQ applies the EQ predicate on the "file_id" field.
+func FileIDEQ(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldFileID, v))
+}
+
+// FileIDNEQ applies the NEQ predicate on the "file_id" field.
+func FileIDNEQ(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNEQ(FieldFileID, v))
+}
+
+// FileIDIn applies the In predicate on the "file_id" field.
+func FileIDIn(vs ...uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldIn(FieldFileID, vs...))
+}
+
+// FileIDNotIn applies the NotIn predicate on the "file_id" field.
+func FileIDNotIn(vs ...uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNotIn(FieldFileID, vs...))
+}
+
+// FileIDGT applies the GT predicate on the "file_id" field.
+func FileIDGT(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldGT(FieldFileID, v))
+}
+
+// FileIDGTE applies the GTE predicate on the "file_id" field.
+func FileIDGTE(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldGTE(FieldFileID, v))
+}
+
+// FileIDLT applies the LT predicate on the "file_id" field.
+func FileIDLT(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldLT(FieldFileID, v))
+}
+
+// FileIDLTE applies the LTE predicate on the "file_id" field.
+func FileIDLTE(v uuid.UUID) predicate.Receipt {
+	return predicate.Receipt(sql.FieldLTE(FieldFileID, v))
+}
+
+// FileIDIsNil applies the IsNil predicate on the "file_id" field.
+func FileIDIsNil() predicate.Receipt {
+	return predicate.Receipt(sql.FieldIsNull(FieldFileID))
+}
+
+// FileIDNotNil applies the NotNil predicate on the "file_id" field.
+func FileIDNotNil() predicate.Receipt {
+	return predicate.Receipt(sql.FieldNotNull(FieldFileID))
 }
 
 // MerchantNameEQ applies the EQ predicate on the "merchant_name" field.
@@ -516,156 +571,6 @@ func CategoryNameContainsFold(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldContainsFold(FieldCategoryName, v))
 }
 
-// PaymentMethodEQ applies the EQ predicate on the "payment_method" field.
-func PaymentMethodEQ(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEQ(FieldPaymentMethod, v))
-}
-
-// PaymentMethodNEQ applies the NEQ predicate on the "payment_method" field.
-func PaymentMethodNEQ(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldNEQ(FieldPaymentMethod, v))
-}
-
-// PaymentMethodIn applies the In predicate on the "payment_method" field.
-func PaymentMethodIn(vs ...string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldIn(FieldPaymentMethod, vs...))
-}
-
-// PaymentMethodNotIn applies the NotIn predicate on the "payment_method" field.
-func PaymentMethodNotIn(vs ...string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldNotIn(FieldPaymentMethod, vs...))
-}
-
-// PaymentMethodGT applies the GT predicate on the "payment_method" field.
-func PaymentMethodGT(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldGT(FieldPaymentMethod, v))
-}
-
-// PaymentMethodGTE applies the GTE predicate on the "payment_method" field.
-func PaymentMethodGTE(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldGTE(FieldPaymentMethod, v))
-}
-
-// PaymentMethodLT applies the LT predicate on the "payment_method" field.
-func PaymentMethodLT(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldLT(FieldPaymentMethod, v))
-}
-
-// PaymentMethodLTE applies the LTE predicate on the "payment_method" field.
-func PaymentMethodLTE(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldLTE(FieldPaymentMethod, v))
-}
-
-// PaymentMethodContains applies the Contains predicate on the "payment_method" field.
-func PaymentMethodContains(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldContains(FieldPaymentMethod, v))
-}
-
-// PaymentMethodHasPrefix applies the HasPrefix predicate on the "payment_method" field.
-func PaymentMethodHasPrefix(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldHasPrefix(FieldPaymentMethod, v))
-}
-
-// PaymentMethodHasSuffix applies the HasSuffix predicate on the "payment_method" field.
-func PaymentMethodHasSuffix(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldHasSuffix(FieldPaymentMethod, v))
-}
-
-// PaymentMethodIsNil applies the IsNil predicate on the "payment_method" field.
-func PaymentMethodIsNil() predicate.Receipt {
-	return predicate.Receipt(sql.FieldIsNull(FieldPaymentMethod))
-}
-
-// PaymentMethodNotNil applies the NotNil predicate on the "payment_method" field.
-func PaymentMethodNotNil() predicate.Receipt {
-	return predicate.Receipt(sql.FieldNotNull(FieldPaymentMethod))
-}
-
-// PaymentMethodEqualFold applies the EqualFold predicate on the "payment_method" field.
-func PaymentMethodEqualFold(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEqualFold(FieldPaymentMethod, v))
-}
-
-// PaymentMethodContainsFold applies the ContainsFold predicate on the "payment_method" field.
-func PaymentMethodContainsFold(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldContainsFold(FieldPaymentMethod, v))
-}
-
-// PaymentLast4EQ applies the EQ predicate on the "payment_last4" field.
-func PaymentLast4EQ(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEQ(FieldPaymentLast4, v))
-}
-
-// PaymentLast4NEQ applies the NEQ predicate on the "payment_last4" field.
-func PaymentLast4NEQ(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldNEQ(FieldPaymentLast4, v))
-}
-
-// PaymentLast4In applies the In predicate on the "payment_last4" field.
-func PaymentLast4In(vs ...string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldIn(FieldPaymentLast4, vs...))
-}
-
-// PaymentLast4NotIn applies the NotIn predicate on the "payment_last4" field.
-func PaymentLast4NotIn(vs ...string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldNotIn(FieldPaymentLast4, vs...))
-}
-
-// PaymentLast4GT applies the GT predicate on the "payment_last4" field.
-func PaymentLast4GT(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldGT(FieldPaymentLast4, v))
-}
-
-// PaymentLast4GTE applies the GTE predicate on the "payment_last4" field.
-func PaymentLast4GTE(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldGTE(FieldPaymentLast4, v))
-}
-
-// PaymentLast4LT applies the LT predicate on the "payment_last4" field.
-func PaymentLast4LT(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldLT(FieldPaymentLast4, v))
-}
-
-// PaymentLast4LTE applies the LTE predicate on the "payment_last4" field.
-func PaymentLast4LTE(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldLTE(FieldPaymentLast4, v))
-}
-
-// PaymentLast4Contains applies the Contains predicate on the "payment_last4" field.
-func PaymentLast4Contains(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldContains(FieldPaymentLast4, v))
-}
-
-// PaymentLast4HasPrefix applies the HasPrefix predicate on the "payment_last4" field.
-func PaymentLast4HasPrefix(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldHasPrefix(FieldPaymentLast4, v))
-}
-
-// PaymentLast4HasSuffix applies the HasSuffix predicate on the "payment_last4" field.
-func PaymentLast4HasSuffix(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldHasSuffix(FieldPaymentLast4, v))
-}
-
-// PaymentLast4IsNil applies the IsNil predicate on the "payment_last4" field.
-func PaymentLast4IsNil() predicate.Receipt {
-	return predicate.Receipt(sql.FieldIsNull(FieldPaymentLast4))
-}
-
-// PaymentLast4NotNil applies the NotNil predicate on the "payment_last4" field.
-func PaymentLast4NotNil() predicate.Receipt {
-	return predicate.Receipt(sql.FieldNotNull(FieldPaymentLast4))
-}
-
-// PaymentLast4EqualFold applies the EqualFold predicate on the "payment_last4" field.
-func PaymentLast4EqualFold(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldEqualFold(FieldPaymentLast4, v))
-}
-
-// PaymentLast4ContainsFold applies the ContainsFold predicate on the "payment_last4" field.
-func PaymentLast4ContainsFold(v string) predicate.Receipt {
-	return predicate.Receipt(sql.FieldContainsFold(FieldPaymentLast4, v))
-}
-
 // DescriptionEQ applies the EQ predicate on the "description" field.
 func DescriptionEQ(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldEQ(FieldDescription, v))
@@ -729,6 +634,91 @@ func DescriptionEqualFold(v string) predicate.Receipt {
 // DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
 func DescriptionContainsFold(v string) predicate.Receipt {
 	return predicate.Receipt(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// FilePathEQ applies the EQ predicate on the "file_path" field.
+func FilePathEQ(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldFilePath, v))
+}
+
+// FilePathNEQ applies the NEQ predicate on the "file_path" field.
+func FilePathNEQ(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNEQ(FieldFilePath, v))
+}
+
+// FilePathIn applies the In predicate on the "file_path" field.
+func FilePathIn(vs ...string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldIn(FieldFilePath, vs...))
+}
+
+// FilePathNotIn applies the NotIn predicate on the "file_path" field.
+func FilePathNotIn(vs ...string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNotIn(FieldFilePath, vs...))
+}
+
+// FilePathGT applies the GT predicate on the "file_path" field.
+func FilePathGT(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldGT(FieldFilePath, v))
+}
+
+// FilePathGTE applies the GTE predicate on the "file_path" field.
+func FilePathGTE(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldGTE(FieldFilePath, v))
+}
+
+// FilePathLT applies the LT predicate on the "file_path" field.
+func FilePathLT(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldLT(FieldFilePath, v))
+}
+
+// FilePathLTE applies the LTE predicate on the "file_path" field.
+func FilePathLTE(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldLTE(FieldFilePath, v))
+}
+
+// FilePathContains applies the Contains predicate on the "file_path" field.
+func FilePathContains(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldContains(FieldFilePath, v))
+}
+
+// FilePathHasPrefix applies the HasPrefix predicate on the "file_path" field.
+func FilePathHasPrefix(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldHasPrefix(FieldFilePath, v))
+}
+
+// FilePathHasSuffix applies the HasSuffix predicate on the "file_path" field.
+func FilePathHasSuffix(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldHasSuffix(FieldFilePath, v))
+}
+
+// FilePathIsNil applies the IsNil predicate on the "file_path" field.
+func FilePathIsNil() predicate.Receipt {
+	return predicate.Receipt(sql.FieldIsNull(FieldFilePath))
+}
+
+// FilePathNotNil applies the NotNil predicate on the "file_path" field.
+func FilePathNotNil() predicate.Receipt {
+	return predicate.Receipt(sql.FieldNotNull(FieldFilePath))
+}
+
+// FilePathEqualFold applies the EqualFold predicate on the "file_path" field.
+func FilePathEqualFold(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEqualFold(FieldFilePath, v))
+}
+
+// FilePathContainsFold applies the ContainsFold predicate on the "file_path" field.
+func FilePathContainsFold(v string) predicate.Receipt {
+	return predicate.Receipt(sql.FieldContainsFold(FieldFilePath, v))
+}
+
+// IsCurrentEQ applies the EQ predicate on the "is_current" field.
+func IsCurrentEQ(v bool) predicate.Receipt {
+	return predicate.Receipt(sql.FieldEQ(FieldIsCurrent, v))
+}
+
+// IsCurrentNEQ applies the NEQ predicate on the "is_current" field.
+func IsCurrentNEQ(v bool) predicate.Receipt {
+	return predicate.Receipt(sql.FieldNEQ(FieldIsCurrent, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

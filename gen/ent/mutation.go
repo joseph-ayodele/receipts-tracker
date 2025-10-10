@@ -2368,6 +2368,7 @@ type ReceiptMutation struct {
 	op             Op
 	typ            string
 	id             *uuid.UUID
+	file_id        *uuid.UUID
 	merchant_name  *string
 	tx_date        *time.Time
 	subtotal       *float64
@@ -2378,9 +2379,9 @@ type ReceiptMutation struct {
 	addtotal       *float64
 	currency_code  *string
 	category_name  *string
-	payment_method *string
-	payment_last4  *string
 	description    *string
+	file_path      *string
+	is_current     *bool
 	created_at     *time.Time
 	updated_at     *time.Time
 	clearedFields  map[string]struct{}
@@ -2535,6 +2536,55 @@ func (m *ReceiptMutation) OldProfileID(ctx context.Context) (v uuid.UUID, err er
 // ResetProfileID resets all changes to the "profile_id" field.
 func (m *ReceiptMutation) ResetProfileID() {
 	m.profile = nil
+}
+
+// SetFileID sets the "file_id" field.
+func (m *ReceiptMutation) SetFileID(u uuid.UUID) {
+	m.file_id = &u
+}
+
+// FileID returns the value of the "file_id" field in the mutation.
+func (m *ReceiptMutation) FileID() (r uuid.UUID, exists bool) {
+	v := m.file_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileID returns the old "file_id" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldFileID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileID: %w", err)
+	}
+	return oldValue.FileID, nil
+}
+
+// ClearFileID clears the value of the "file_id" field.
+func (m *ReceiptMutation) ClearFileID() {
+	m.file_id = nil
+	m.clearedFields[receipt.FieldFileID] = struct{}{}
+}
+
+// FileIDCleared returns if the "file_id" field was cleared in this mutation.
+func (m *ReceiptMutation) FileIDCleared() bool {
+	_, ok := m.clearedFields[receipt.FieldFileID]
+	return ok
+}
+
+// ResetFileID resets all changes to the "file_id" field.
+func (m *ReceiptMutation) ResetFileID() {
+	m.file_id = nil
+	delete(m.clearedFields, receipt.FieldFileID)
 }
 
 // SetMerchantName sets the "merchant_name" field.
@@ -2877,104 +2927,6 @@ func (m *ReceiptMutation) ResetCategoryName() {
 	m.category_name = nil
 }
 
-// SetPaymentMethod sets the "payment_method" field.
-func (m *ReceiptMutation) SetPaymentMethod(s string) {
-	m.payment_method = &s
-}
-
-// PaymentMethod returns the value of the "payment_method" field in the mutation.
-func (m *ReceiptMutation) PaymentMethod() (r string, exists bool) {
-	v := m.payment_method
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldPaymentMethod returns the old "payment_method" field's value of the Receipt entity.
-// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ReceiptMutation) OldPaymentMethod(ctx context.Context) (v *string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldPaymentMethod is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldPaymentMethod requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldPaymentMethod: %w", err)
-	}
-	return oldValue.PaymentMethod, nil
-}
-
-// ClearPaymentMethod clears the value of the "payment_method" field.
-func (m *ReceiptMutation) ClearPaymentMethod() {
-	m.payment_method = nil
-	m.clearedFields[receipt.FieldPaymentMethod] = struct{}{}
-}
-
-// PaymentMethodCleared returns if the "payment_method" field was cleared in this mutation.
-func (m *ReceiptMutation) PaymentMethodCleared() bool {
-	_, ok := m.clearedFields[receipt.FieldPaymentMethod]
-	return ok
-}
-
-// ResetPaymentMethod resets all changes to the "payment_method" field.
-func (m *ReceiptMutation) ResetPaymentMethod() {
-	m.payment_method = nil
-	delete(m.clearedFields, receipt.FieldPaymentMethod)
-}
-
-// SetPaymentLast4 sets the "payment_last4" field.
-func (m *ReceiptMutation) SetPaymentLast4(s string) {
-	m.payment_last4 = &s
-}
-
-// PaymentLast4 returns the value of the "payment_last4" field in the mutation.
-func (m *ReceiptMutation) PaymentLast4() (r string, exists bool) {
-	v := m.payment_last4
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldPaymentLast4 returns the old "payment_last4" field's value of the Receipt entity.
-// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ReceiptMutation) OldPaymentLast4(ctx context.Context) (v *string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldPaymentLast4 is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldPaymentLast4 requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldPaymentLast4: %w", err)
-	}
-	return oldValue.PaymentLast4, nil
-}
-
-// ClearPaymentLast4 clears the value of the "payment_last4" field.
-func (m *ReceiptMutation) ClearPaymentLast4() {
-	m.payment_last4 = nil
-	m.clearedFields[receipt.FieldPaymentLast4] = struct{}{}
-}
-
-// PaymentLast4Cleared returns if the "payment_last4" field was cleared in this mutation.
-func (m *ReceiptMutation) PaymentLast4Cleared() bool {
-	_, ok := m.clearedFields[receipt.FieldPaymentLast4]
-	return ok
-}
-
-// ResetPaymentLast4 resets all changes to the "payment_last4" field.
-func (m *ReceiptMutation) ResetPaymentLast4() {
-	m.payment_last4 = nil
-	delete(m.clearedFields, receipt.FieldPaymentLast4)
-}
-
 // SetDescription sets the "description" field.
 func (m *ReceiptMutation) SetDescription(s string) {
 	m.description = &s
@@ -3009,6 +2961,91 @@ func (m *ReceiptMutation) OldDescription(ctx context.Context) (v string, err err
 // ResetDescription resets all changes to the "description" field.
 func (m *ReceiptMutation) ResetDescription() {
 	m.description = nil
+}
+
+// SetFilePath sets the "file_path" field.
+func (m *ReceiptMutation) SetFilePath(s string) {
+	m.file_path = &s
+}
+
+// FilePath returns the value of the "file_path" field in the mutation.
+func (m *ReceiptMutation) FilePath() (r string, exists bool) {
+	v := m.file_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFilePath returns the old "file_path" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldFilePath(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFilePath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFilePath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFilePath: %w", err)
+	}
+	return oldValue.FilePath, nil
+}
+
+// ClearFilePath clears the value of the "file_path" field.
+func (m *ReceiptMutation) ClearFilePath() {
+	m.file_path = nil
+	m.clearedFields[receipt.FieldFilePath] = struct{}{}
+}
+
+// FilePathCleared returns if the "file_path" field was cleared in this mutation.
+func (m *ReceiptMutation) FilePathCleared() bool {
+	_, ok := m.clearedFields[receipt.FieldFilePath]
+	return ok
+}
+
+// ResetFilePath resets all changes to the "file_path" field.
+func (m *ReceiptMutation) ResetFilePath() {
+	m.file_path = nil
+	delete(m.clearedFields, receipt.FieldFilePath)
+}
+
+// SetIsCurrent sets the "is_current" field.
+func (m *ReceiptMutation) SetIsCurrent(b bool) {
+	m.is_current = &b
+}
+
+// IsCurrent returns the value of the "is_current" field in the mutation.
+func (m *ReceiptMutation) IsCurrent() (r bool, exists bool) {
+	v := m.is_current
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsCurrent returns the old "is_current" field's value of the Receipt entity.
+// If the Receipt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReceiptMutation) OldIsCurrent(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsCurrent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsCurrent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsCurrent: %w", err)
+	}
+	return oldValue.IsCurrent, nil
+}
+
+// ResetIsCurrent resets all changes to the "is_current" field.
+func (m *ReceiptMutation) ResetIsCurrent() {
+	m.is_current = nil
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -3252,9 +3289,12 @@ func (m *ReceiptMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ReceiptMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.profile != nil {
 		fields = append(fields, receipt.FieldProfileID)
+	}
+	if m.file_id != nil {
+		fields = append(fields, receipt.FieldFileID)
 	}
 	if m.merchant_name != nil {
 		fields = append(fields, receipt.FieldMerchantName)
@@ -3277,14 +3317,14 @@ func (m *ReceiptMutation) Fields() []string {
 	if m.category_name != nil {
 		fields = append(fields, receipt.FieldCategoryName)
 	}
-	if m.payment_method != nil {
-		fields = append(fields, receipt.FieldPaymentMethod)
-	}
-	if m.payment_last4 != nil {
-		fields = append(fields, receipt.FieldPaymentLast4)
-	}
 	if m.description != nil {
 		fields = append(fields, receipt.FieldDescription)
+	}
+	if m.file_path != nil {
+		fields = append(fields, receipt.FieldFilePath)
+	}
+	if m.is_current != nil {
+		fields = append(fields, receipt.FieldIsCurrent)
 	}
 	if m.created_at != nil {
 		fields = append(fields, receipt.FieldCreatedAt)
@@ -3302,6 +3342,8 @@ func (m *ReceiptMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case receipt.FieldProfileID:
 		return m.ProfileID()
+	case receipt.FieldFileID:
+		return m.FileID()
 	case receipt.FieldMerchantName:
 		return m.MerchantName()
 	case receipt.FieldTxDate:
@@ -3316,12 +3358,12 @@ func (m *ReceiptMutation) Field(name string) (ent.Value, bool) {
 		return m.CurrencyCode()
 	case receipt.FieldCategoryName:
 		return m.CategoryName()
-	case receipt.FieldPaymentMethod:
-		return m.PaymentMethod()
-	case receipt.FieldPaymentLast4:
-		return m.PaymentLast4()
 	case receipt.FieldDescription:
 		return m.Description()
+	case receipt.FieldFilePath:
+		return m.FilePath()
+	case receipt.FieldIsCurrent:
+		return m.IsCurrent()
 	case receipt.FieldCreatedAt:
 		return m.CreatedAt()
 	case receipt.FieldUpdatedAt:
@@ -3337,6 +3379,8 @@ func (m *ReceiptMutation) OldField(ctx context.Context, name string) (ent.Value,
 	switch name {
 	case receipt.FieldProfileID:
 		return m.OldProfileID(ctx)
+	case receipt.FieldFileID:
+		return m.OldFileID(ctx)
 	case receipt.FieldMerchantName:
 		return m.OldMerchantName(ctx)
 	case receipt.FieldTxDate:
@@ -3351,12 +3395,12 @@ func (m *ReceiptMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCurrencyCode(ctx)
 	case receipt.FieldCategoryName:
 		return m.OldCategoryName(ctx)
-	case receipt.FieldPaymentMethod:
-		return m.OldPaymentMethod(ctx)
-	case receipt.FieldPaymentLast4:
-		return m.OldPaymentLast4(ctx)
 	case receipt.FieldDescription:
 		return m.OldDescription(ctx)
+	case receipt.FieldFilePath:
+		return m.OldFilePath(ctx)
+	case receipt.FieldIsCurrent:
+		return m.OldIsCurrent(ctx)
 	case receipt.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case receipt.FieldUpdatedAt:
@@ -3376,6 +3420,13 @@ func (m *ReceiptMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProfileID(v)
+		return nil
+	case receipt.FieldFileID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileID(v)
 		return nil
 	case receipt.FieldMerchantName:
 		v, ok := value.(string)
@@ -3426,26 +3477,26 @@ func (m *ReceiptMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCategoryName(v)
 		return nil
-	case receipt.FieldPaymentMethod:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetPaymentMethod(v)
-		return nil
-	case receipt.FieldPaymentLast4:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetPaymentLast4(v)
-		return nil
 	case receipt.FieldDescription:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDescription(v)
+		return nil
+	case receipt.FieldFilePath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFilePath(v)
+		return nil
+	case receipt.FieldIsCurrent:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsCurrent(v)
 		return nil
 	case receipt.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -3530,17 +3581,17 @@ func (m *ReceiptMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *ReceiptMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(receipt.FieldFileID) {
+		fields = append(fields, receipt.FieldFileID)
+	}
 	if m.FieldCleared(receipt.FieldSubtotal) {
 		fields = append(fields, receipt.FieldSubtotal)
 	}
 	if m.FieldCleared(receipt.FieldTax) {
 		fields = append(fields, receipt.FieldTax)
 	}
-	if m.FieldCleared(receipt.FieldPaymentMethod) {
-		fields = append(fields, receipt.FieldPaymentMethod)
-	}
-	if m.FieldCleared(receipt.FieldPaymentLast4) {
-		fields = append(fields, receipt.FieldPaymentLast4)
+	if m.FieldCleared(receipt.FieldFilePath) {
+		fields = append(fields, receipt.FieldFilePath)
 	}
 	return fields
 }
@@ -3556,17 +3607,17 @@ func (m *ReceiptMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *ReceiptMutation) ClearField(name string) error {
 	switch name {
+	case receipt.FieldFileID:
+		m.ClearFileID()
+		return nil
 	case receipt.FieldSubtotal:
 		m.ClearSubtotal()
 		return nil
 	case receipt.FieldTax:
 		m.ClearTax()
 		return nil
-	case receipt.FieldPaymentMethod:
-		m.ClearPaymentMethod()
-		return nil
-	case receipt.FieldPaymentLast4:
-		m.ClearPaymentLast4()
+	case receipt.FieldFilePath:
+		m.ClearFilePath()
 		return nil
 	}
 	return fmt.Errorf("unknown Receipt nullable field %s", name)
@@ -3578,6 +3629,9 @@ func (m *ReceiptMutation) ResetField(name string) error {
 	switch name {
 	case receipt.FieldProfileID:
 		m.ResetProfileID()
+		return nil
+	case receipt.FieldFileID:
+		m.ResetFileID()
 		return nil
 	case receipt.FieldMerchantName:
 		m.ResetMerchantName()
@@ -3600,14 +3654,14 @@ func (m *ReceiptMutation) ResetField(name string) error {
 	case receipt.FieldCategoryName:
 		m.ResetCategoryName()
 		return nil
-	case receipt.FieldPaymentMethod:
-		m.ResetPaymentMethod()
-		return nil
-	case receipt.FieldPaymentLast4:
-		m.ResetPaymentLast4()
-		return nil
 	case receipt.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case receipt.FieldFilePath:
+		m.ResetFilePath()
+		return nil
+	case receipt.FieldIsCurrent:
+		m.ResetIsCurrent()
 		return nil
 	case receipt.FieldCreatedAt:
 		m.ResetCreatedAt()

@@ -89,6 +89,7 @@ var (
 	// ReceiptsColumns holds the columns for the "receipts" table.
 	ReceiptsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
+		{Name: "file_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "merchant_name", Type: field.TypeString},
 		{Name: "tx_date", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "date"}},
 		{Name: "subtotal", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
@@ -96,9 +97,9 @@ var (
 		{Name: "total", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(12,2)"}},
 		{Name: "currency_code", Type: field.TypeString, Size: 3, SchemaType: map[string]string{"postgres": "char(3)"}},
 		{Name: "category_name", Type: field.TypeString},
-		{Name: "payment_method", Type: field.TypeString, Nullable: true},
-		{Name: "payment_last4", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString},
+		{Name: "file_path", Type: field.TypeString, Nullable: true},
+		{Name: "is_current", Type: field.TypeBool, Default: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "profile_id", Type: field.TypeUUID},
@@ -111,9 +112,26 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "receipts_profiles_receipts",
-				Columns:    []*schema.Column{ReceiptsColumns[13]},
+				Columns:    []*schema.Column{ReceiptsColumns[14]},
 				RefColumns: []*schema.Column{ProfilesColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "receipt_profile_id_tx_date",
+				Unique:  false,
+				Columns: []*schema.Column{ReceiptsColumns[14], ReceiptsColumns[3]},
+			},
+			{
+				Name:    "receipt_profile_id_category_name",
+				Unique:  false,
+				Columns: []*schema.Column{ReceiptsColumns[14], ReceiptsColumns[8]},
+			},
+			{
+				Name:    "receipt_profile_id_merchant_name",
+				Unique:  false,
+				Columns: []*schema.Column{ReceiptsColumns[14], ReceiptsColumns[2]},
 			},
 		},
 	}
