@@ -10,7 +10,9 @@ func BuildSystemPrompt(req ExtractRequest) string {
 	// Categories line
 	var catLine string
 	if len(req.AllowedCategories) > 0 {
-		catLine = "Allowed categories (enum): " + strings.Join(req.AllowedCategories, ", ") + ". "
+		catLine = "Choose exactly one 'category' from this enum that best matches the items in the receipt" +
+			" and ALWAYS include the 'category' field; " +
+			"if uncertain, use 'ChangeMe'. Allowed categories (enum): " + strings.Join(req.AllowedCategories, ", ") + ". "
 	} else {
 		catLine = "Category must be a short, sensible label if present. "
 	}
@@ -40,7 +42,8 @@ func BuildSystemPrompt(req ExtractRequest) string {
 		catLine,
 		"Business context: " + strings.Join(ctxBits, " "),
 		// Description guidance (concise, tax-appropriate)
-		"For 'description', write a concise, tax-appropriate business need (about 8–16 words). Avoid personal names, addresses, or timestamps.",
+		"For 'description', list the items in the receipt and then" +
+			" write a concise, tax-appropriate business need (about 8–16 words). Avoid personal names, addresses, or timestamps.",
 		// Money fields behavior:
 		"If a tip appears, include it under 'tip'.",
 		"If taxes appear, put them in 'tax' (never include taxes in 'other_fees').",

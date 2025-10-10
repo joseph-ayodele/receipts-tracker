@@ -13,6 +13,7 @@ import (
 
 type ProfileRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Profile, error)
+	GetOrCreate(ctx context.Context, profile *entity.Profile) (*entity.Profile, error)
 	CreateProfile(ctx context.Context, profile *entity.Profile) (*entity.Profile, error)
 	ListProfiles(ctx context.Context) ([]*entity.Profile, error)
 	Exists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -39,6 +40,32 @@ func (r *profileRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.
 		return nil, err
 	}
 	return utils.ToProfile(p), nil
+}
+
+func (r *profileRepository) GetOrCreate(ctx context.Context, p *entity.Profile) (*entity.Profile, error) {
+	existing, err := r.client.Profile.Query().Where(profile.Name(p.Name)).Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			builder := r.client.Profile.Create().
+				SetName(p.Name).
+				SetDefaultCurrency(p.DefaultCurrency)
+			if p.JobTitle != nil {
+				builder = builder.SetJobTitle(*p.JobTitle)
+			}
+			if p.JobDescription != nil {
+				builder = builder.SetJobDescription(*p.JobDescription)
+			}
+			created, err := builder.Save(ctx)
+			if err != nil {
+				r.logger.Error("failed to create profile in GetOrCreate", "name", p.Name, "error", err)
+				return nil, err
+			}
+			return utils.ToProfile(created), nil
+		} else {
+			return nil, err
+		}
+	}
+	return utils.ToProfile(existing), nil
 }
 
 func (r *profileRepository) CreateProfile(ctx context.Context, profile *entity.Profile) (*entity.Profile, error) {

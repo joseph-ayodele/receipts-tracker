@@ -64,13 +64,13 @@ func extractProfileInput(req *receiptspb.CreateProfileRequest) (*entity.Profile,
 // CreateProfile creates a new profile.
 func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
 	profile, err := extractProfileInput(req)
-	if err != nil {
+	if err != nil || profile == nil {
 		return nil, err
 	}
 
-	p, err := s.profileRepo.CreateProfile(ctx, profile)
+	p, err := s.profileRepo.GetOrCreate(ctx, profile)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "create profile: %v", err)
+		return nil, status.Errorf(codes.Internal, "get or create profile: %v", err)
 	}
 
 	s.logger.Info("profile created successfully", "profile_id", p.ID, "name", p.Name)

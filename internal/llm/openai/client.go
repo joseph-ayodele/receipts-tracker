@@ -30,8 +30,6 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		"timezone", req.Timezone,
 	)
 
-	// 1) build schema + prompts
-
 	// decide whether to attach the image (low OCR confidence + image + vision enabled)
 	attach, dataURL, mimeType := llm.ShouldAttachImage(req)
 

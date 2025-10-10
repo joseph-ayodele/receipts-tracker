@@ -5,14 +5,15 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/constants"
 
-	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
-	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
+	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
+	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
+	pipeline "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -20,14 +21,20 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	if len(os.Args) != 2 {
-		logger.Error("usage: runllm <extract_job_id>")
+	if len(os.Args) < 2 {
+		logger.Error("usage: runllm <file_id> [times]")
 		os.Exit(2)
 	}
-	jobID, err := uuid.Parse(os.Args[1])
+	fileID, err := uuid.Parse(os.Args[1])
 	if err != nil {
-		logger.Error("invalid extract_job_id", "arg", os.Args[1], "error", err)
+		logger.Error("invalid file_id", "arg", os.Args[1], "error", err)
 		os.Exit(2)
+	}
+	times := 10
+	if len(os.Args) >= 3 {
+		if n, err := strconv.Atoi(os.Args[2]); err == nil && n > 0 {
+			times = n
+		}
 	}
 
 	dbURL := os.Getenv("DB_URL")
@@ -40,13 +47,14 @@ func main() {
 		os.Exit(2)
 	}
 
-	// DB open
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	// --- DB/open
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
+
 	entc, pool, err := repo.Open(ctx, repo.Config{
 		DSN:             dbURL,
-		MaxConns:        10,
-		MinConns:        1,
+		MaxConns:        15,
+		MinConns:        2,
 		MaxConnLifetime: 30 * time.Minute,
 		MaxConnIdleTime: 5 * time.Minute,
 		DialTimeout:     3 * time.Second,
@@ -55,92 +63,72 @@ func main() {
 		logger.Error("open db", "error", err)
 		os.Exit(1)
 	}
-	defer func(entc *ent.Client) { _ = entc.Close() }(entc)
-	defer pool.Close()
+	defer repo.Close(entc, pool, logger)
 
 	// repos
-	jobsRepo := repo.NewExtractJobRepository(entc, logger)
+	profilesRepo := repo.NewProfileRepository(entc, logger)
+	receiptsRepo := repo.NewReceiptRepository(entc, logger)
 	filesRepo := repo.NewReceiptFileRepository(entc, logger)
-	profRepo := repo.NewProfileRepository(entc, logger)
+	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 
-	// load job
-	job, err := jobsRepo.GetByID(ctx, jobID)
+	// pull the file row for logging/context (pipeline will refetch as needed)
+	fileRow, err := filesRepo.GetByID(ctx, fileID)
 	if err != nil {
-		logger.Error("load extract_job", "job_id", jobID, "error", err)
-		os.Exit(1)
-	}
-	if *job.OcrText == "" {
-		logger.Error("extract_job has empty ocr_text; run OCR first", "job_id", jobID)
+		logger.Error("load receipt_file", "file_id", fileID, "error", err)
 		os.Exit(1)
 	}
 
-	// load file (for path hints)
-	fileRow, err := filesRepo.GetByID(ctx, job.FileID)
-	if err != nil {
-		logger.Error("load receipt_file", "file_id", job.FileID, "error", err)
-		os.Exit(1)
-	}
+	// --- Wire OCR + LLM same as server
+	cacheDir := getenv("ARTIFACT_CACHE_DIR", "./tmp")
+	heicConv := getenv("HEIC_CONVERTER", "magick")
+	tessdata := os.Getenv("TESSDATA_PREFIX")
 
-	// load profile (for default currency)
-	profileRow, err := profRepo.GetByID(ctx, job.ProfileID)
-	if err != nil {
-		logger.Error("load profile", "profile_id", job.ProfileID, "error", err)
-		os.Exit(1)
+	ocrCfg := ocr.Config{
+		HeicConverter:    heicConv,
+		TessdataDir:      tessdata,
+		ArtifactCacheDir: cacheDir,
 	}
-	jobTitle := ""
-	if profileRow.JobTitle != nil {
-		jobTitle = *profileRow.JobTitle
-	}
-	jobDesc := ""
-	if profileRow.JobDescription != nil {
-		jobDesc = *profileRow.JobDescription
-	}
+	ocrExtractor := ocr.NewExtractor(ocrCfg, logger)
+	textAdapter := extract.NewOCRAdapter(ocrExtractor, logger)
+	ocrStage := pipeline.NewOCRStage(filesRepo, jobsRepo, textAdapter, logger)
 
-	// categories
-	allowed := constants.AsStringSlice()
-
-	// build request
-	req := llm.ExtractRequest{
-		OCRText:           *job.OcrText,
-		FilenameHint:      filepath.Base(fileRow.SourcePath),
-		FolderHint:        filepath.Dir(fileRow.SourcePath),
-		AllowedCategories: allowed,
-		DefaultCurrency:   profileRow.DefaultCurrency,
-		Timezone:          "",
-		PrepConfidence:    *job.ExtractionConfidence,
-		FilePath:          fileRow.SourcePath,
-		Profile: llm.ProfileContext{
-			ProfileName:    profileRow.Name,
-			JobTitle:       jobTitle,
-			JobDescription: jobDesc,
-		},
-	}
-
-	client := openai.NewClient(openai.Config{
-		Model:       getenv("OPENAI_MODEL", "gpt-4o-mini"),
-		APIKey:      os.Getenv("OPENAI_API_KEY"),
-		Temperature: 0.0,
-		Timeout:     45 * time.Second,
+	openaiClient := openai.NewClient(openai.Config{
+		Model:           getenv("OPENAI_MODEL", "gpt-4o-mini"),
+		APIKey:          os.Getenv("OPENAI_API_KEY"),
+		Temperature:     0.0,
+		Timeout:         45 * time.Second,
+		LenientOptional: true,
+		MaxVisionMB:     10,
 	}, logger)
 
-	fields, raw, err := client.ExtractFields(ctx, req)
-	if err != nil {
-		logger.Error("llm extract failed", "job_id", jobID, "error", err, "raw", string(raw))
-		os.Exit(1)
+	parseCfg := pipeline.Config{
+		MinConfidence:    0.60,
+		ArtifactCacheDir: cacheDir,
+	}
+	parseStage := pipeline.NewParseStage(logger, parseCfg, jobsRepo, profilesRepo, jobsRepo, receiptsRepo, openaiClient)
+
+	processor := pipeline.NewProcessor(logger, ocrStage, parseStage)
+
+	// --- Loop N times on the SAME file_id
+	base := filepath.Base(fileRow.SourcePath)
+	for i := 1; i <= times; i++ {
+		runCtx, cancelRun := context.WithTimeout(context.Background(), 2*time.Minute)
+		start := time.Now()
+		logger.Info("pipeline.run.start", "iter", i, "file_id", fileID, "basename", base)
+
+		_, err := processor.ProcessFile(runCtx, fileID) // your pipeline method
+		cancelRun()
+
+		if err != nil {
+			logger.Error("pipeline.run.error", "iter", i, "err", err)
+		} else {
+			logger.Info("pipeline.run.ok", "iter", i, "elapsed_ms", time.Since(start).Milliseconds())
+		}
+
+		time.Sleep(750 * time.Millisecond)
 	}
 
-	logger.Info("llm extract ok",
-		"job_id", jobID,
-		"merchant", fields.MerchantName,
-		"date", fields.TxDate,
-		"total", fields.Total,
-		"currency", fields.CurrencyCode,
-		"category", fields.Category,
-	)
-
-	// Print raw JSON to stdout (so you can redirect to a file if you want)
-	os.Stdout.Write(raw)
-	os.Stdout.Write([]byte("\n"))
+	logger.Info("done", "file_id", fileID.String(), "times", times)
 }
 
 func getenv(k, def string) string {
