@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS profiles
 (
     id               uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
     name             text        NOT NULL UNIQUE,
-    job_title text,
+    job_title       text,
     job_description text,
     default_currency char(3)     NOT NULL DEFAULT 'USD',
     created_at       timestamptz NOT NULL DEFAULT now(),
@@ -20,27 +20,26 @@ CREATE TABLE IF NOT EXISTS profiles
 );
 
 
-
 -- =========================
 -- receipts (normalized fact)
 -- =========================
 CREATE TABLE IF NOT EXISTS receipts
 (
-    id             uuid PRIMARY KEY        DEFAULT gen_random_uuid(),
-    profile_id     uuid           NOT NULL REFERENCES profiles (id) ON DELETE RESTRICT,
-    merchant_name  text           NOT NULL,
-    tx_date        date           NOT NULL,
-    subtotal       numeric(12, 2),
-    tax            numeric(12, 2),
-    total          numeric(12, 2) NOT NULL,
-    currency_code  char(3) NOT NULL,
-    category_name  text    NOT NULL,
-    payment_method text,
-    payment_last4  char(4),
-    description    text, -- short business-need description
-    created_at     timestamptz    NOT NULL DEFAULT now(),
-    updated_at     timestamptz    NOT NULL DEFAULT now(),
-    CONSTRAINT payment_last4_digits_chk CHECK (payment_last4 IS NULL OR payment_last4 ~ '^[0-9]{4}$')
+    merchant_name text           NOT NULL,
+    tx_date       date           NOT NULL,
+    total         numeric(12, 2) NOT NULL,
+    subtotal      numeric(12, 2),
+    tax           numeric(12, 2),
+    category_name text           NOT NULL,
+    description   text,
+    file_path     text,
+    id            uuid PRIMARY KEY        DEFAULT gen_random_uuid(),
+    profile_id    uuid           NOT NULL REFERENCES profiles (id) ON DELETE RESTRICT,
+    file_id       uuid REFERENCES receipt_files (id) ON DELETE RESTRICT,
+    currency_code char(3)        NOT NULL,
+    created_at    timestamptz    NOT NULL DEFAULT now(),
+    updated_at    timestamptz    NOT NULL DEFAULT now(),
+    is_current    boolean        NOT NULL DEFAULT true
 );
 
 -- Helpful lookups
