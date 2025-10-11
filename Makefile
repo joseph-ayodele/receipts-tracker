@@ -21,8 +21,8 @@ ENT_VERSION                  ?= latest         # ent is used via `go run` below;
 # Helpers
 # -----------------------------
 define check_prereq
-	@echo -n "  -> Checking $(1)... "
-	if command -v $(1) >/dev/null 2>&1; then \
+	@echo "  -> Checking $(1)... "
+	@if command -v $(1) >/dev/null 2>&1 || which $(1) >/dev/null 2>&1 || where $(1) >/dev/null 2>&1; then \
 		echo "Found."; \
 	else \
 		echo "NOT FOUND!"; \
@@ -56,9 +56,6 @@ deps/protoc: ## Install pinned codegen tools (protoc plugins)
 	@echo "Installing code generation tools..."
 #	go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 #	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION)
-	@echo "Tools installed:"
-	@echo "  protoc-gen-go        @ $(PROTOC_GEN_GO_VERSION)"
-	@echo "  protoc-gen-go-grpc   @ $(PROTOC_GEN_GO_GRPC_VERSION)"
 
 .PHONY: deps/ocr-tools
 deps/ocr-tools: ## Checks for external binaries required for OCR processing.
