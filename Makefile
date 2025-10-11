@@ -6,8 +6,6 @@
 # -----------------------------
 DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(POSTGRES_DB)
 GRPC_ADDR ?= :8080
-# TODO: Update this path to your Tesseract data files location.
-TESSDATA_PREFIX := C:/Users/joseph/scoop/apps/tesseract-languages/current
 
 # -----------------------------
 # Tooling dependency matrix
@@ -101,7 +99,7 @@ define install_imagemagick
 endef
 
 # ==============================================================================
-# DEPENDENCY CHECKS (Platform-Agnostic)
+# DEPENDENCY CHECKS
 # ==============================================================================
 .PHONY: deps/go
 deps/go: ## Verify that the Go compiler is installed
@@ -123,18 +121,14 @@ deps/protoc: ## Install pinned codegen tools (protoc plugins)
 	@echo "Checking for code generation tools..."
 	$(call check_prereq, protoc, $(install_protoc))
 
-.PHONY: deps/ocr-tools
-deps/ocr-tools: ## Checks for external binaries required for OCR processing.
-	@echo "Checking for external binary dependencies..."
+.PHONY: deps/ocr
+deps/ocr: ## Checks for external binaries required for OCR processing.
+	@echo "Checking for external binary dependencies for ocr..."
 	$(call check_prereq, tesseract, $(install_tesseract))
 	$(call check_prereq, pdftotext, $(install_poppler_utils))
 	$(call check_prereq, pdftoppm, $(install_poppler_utils))
 	$(call check_prereq, magick, $(install_imagemagick))
-	@echo "All external binaries found."
-
-.PHONY: deps/ocr
-deps/ocr: deps/ocr-tools
-	@echo "Using TESSDATA_PREFIX=$(TESSDATA_PREFIX)"
+	@echo "All ocr binaries found."
 
 .PHONY: deps
 deps: deps/go deps/kubectl deps/tilt deps/protoc deps/ocr
