@@ -180,29 +180,3 @@ ifneq ($(strip $(TESSDATA_PREFIX)),)
 	export TESSDATA_PREFIX=$(TESSDATA_PREFIX)
 endif
 	go run ./cmd/receiptsd
-
-.PHONY: srv/run-ocr
-srv/run-ocr: deps ## Run the gRPC server (uses DB_URL and GRPC_ADDR)
-	export DB_URL=$(DB_URL)
-	export GRPC_ADDR=$(GRPC_ADDR)
-	# If you configure TESSDATA_PREFIX here, it will override system env.
-ifneq ($(strip $(TESSDATA_PREFIX)),)
-	export TESSDATA_PREFIX=$(TESSDATA_PREFIX)
-endif
-	go run ./cmd/runocr
-
-# -----------------------------
-# Misc
-# -----------------------------
-.PHONY: help
-help: ## Show this help
-	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets:\n"} /^[a-zA-Z0-9_\/-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "Current config:"
-	@echo "  DB_URL          = $(DB_URL)"
-	@echo "  GRPC_ADDR       = $(GRPC_ADDR)"
-	@echo "  TESSDATA_PREFIX = $(TESSDATA_PREFIX)"
-	@echo "Tool versions:"
-	@echo "  protoc-gen-go        = $(PROTOC_GEN_GO_VERSION)"
-	@echo "  protoc-gen-go-grpc   = $(PROTOC_GEN_GO_GRPC_VERSION)"
-	@echo "  ent (go run)         = $(ENT_VERSION)"
