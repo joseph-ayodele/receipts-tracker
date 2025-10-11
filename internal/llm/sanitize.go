@@ -71,32 +71,10 @@ func NormalizeAndSanitizeJSON(raw []byte, logger *slog.Logger) ([]byte, []string
 		coerceMoney(k)
 	}
 
-	// 3) normalize payment fields lightly
-	if v, ok := m["payment_method"].(string); ok {
-		pm := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(v), " ", "_"))
-		if pm != "" {
-			m["payment_method"] = pm
-		} else {
-			delete(m, "payment_method")
-			dropped = append(dropped, "payment_method(empty)")
-		}
-	}
-	if v, ok := m["payment_last4"].(string); ok {
-		s := strings.TrimSpace(v)
-		// keep only last 4 digits if longer/shorter noise
-		if len(s) >= 4 {
-			m["payment_last4"] = s[len(s)-4:]
-		} else {
-			// too short → drop
-			delete(m, "payment_last4")
-			dropped = append(dropped, "payment_last4(short)")
-		}
-	}
-
 	// 4) remove unknown keys (everything not in the schema set below)
 	allowed := map[string]struct{}{
 		"merchant_name": {}, "tx_date": {}, "subtotal": {}, "tax": {}, "total": {},
-		"currency_code": {}, "category": {}, "payment_method": {}, "payment_last4": {},
+		"currency_code": {}, "category": {},
 		"description": {}, "tip": {}, "other_fees": {}, "discount": {},
 		"confidence": {}, // harmless if model added it; your validator can ignore or allow
 	}
