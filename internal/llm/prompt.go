@@ -106,8 +106,8 @@ func BuildReceiptJSONSchema(allowedCategories []string) map[string]any {
 		"merchant_name": map[string]any{"type": "string", "minLength": 1},
 		"tx_date":       map[string]any{"type": "string", "pattern": `^\d{4}-\d{2}-\d{2}$`},
 		"subtotal":      decimalProp(),
-		"discount":      decimalProp(), // optional
-		"other_fees":    decimalProp(), // optional
+		"discount":      decimalProp(),
+		"other_fees":    decimalProp(),
 		"tip":           decimalProp(),
 		"tax":           decimalProp(),
 		"total":         decimalProp(),
@@ -126,7 +126,7 @@ func BuildReceiptJSONSchema(allowedCategories []string) map[string]any {
 	}
 
 	// Make category REQUIRED so the model can't omit it.
-	required := []string{"merchant_name", "tx_date", "total", "currency_code", "category"}
+	required := []string{"merchant_name", "description", "tx_date", "total", "currency_code", "category"}
 
 	return map[string]any{
 		"type":                 "object",

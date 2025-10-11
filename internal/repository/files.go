@@ -57,7 +57,7 @@ func (r *receiptFileRepo) GetByProfileAndHash(ctx context.Context, profileID uui
 			entfile.ContentHash(hash),
 		).Only(ctx)
 	if err != nil {
-		r.logger.Warn("receipt not found", "profile_id", profileID, "error", err)
+		r.logger.Debug("receipt not found", "profile_id", profileID, "error", err)
 		return nil, err
 	}
 	return utils.ToReceiptFile(row), nil

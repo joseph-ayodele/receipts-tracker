@@ -20,7 +20,7 @@ func (execRunner) Run(ctx context.Context, name string, logger *slog.Logger, arg
 	start := time.Now()
 
 	cmdLine := strings.Join(append([]string{name}, args...), " ")
-	logger.Info("running command", "cmd_line", cmdLine)
+	logger.Debug("running command", "cmd_line", cmdLine)
 
 	cmd := exec.CommandContext(ctx, name, args...)
 	var out, errb bytes.Buffer

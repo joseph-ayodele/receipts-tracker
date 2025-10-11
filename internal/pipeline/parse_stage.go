@@ -154,7 +154,7 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		return job.ID, err
 	}
 
-	p.Logger.Info("parsefields.ok",
+	p.Logger.Info("parsed fields successfully",
 		"job_id", job.ID, "receipt_id", rec.ID,
 		"merchant", fields.MerchantName,
 		"date", fields.TxDate, "total", fields.Total,

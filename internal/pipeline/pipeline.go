@@ -31,7 +31,7 @@ func (p *Processor) ProcessFile(ctx context.Context, fileID uuid.UUID) (uuid.UUI
 		p.logger.Error("processor.ocr.failed", "file_id", fileID, "err", err)
 		return jobID, err
 	}
-	p.logger.Info("processor.ocr.ok",
+	p.logger.Debug("processor extract stage success",
 		"file_id", fileID,
 		"job_id", jobID,
 		"method", ocrRes.Method,
@@ -44,6 +44,6 @@ func (p *Processor) ProcessFile(ctx context.Context, fileID uuid.UUID) (uuid.UUI
 		p.logger.Error("processor.parse.failed", "job_id", jobID, "err", err)
 		return jobID, err
 	}
-	p.logger.Info("processor.parse.ok", "job_id", jobID)
+	p.logger.Debug("processor parse stage success", "job_id", jobID)
 	return jobID, nil
 }

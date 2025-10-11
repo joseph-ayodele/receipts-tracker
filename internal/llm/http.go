@@ -28,13 +28,13 @@ func SendJSON(ctx context.Context, client *http.Client, url string, body any, he
 
 	bs, err := json.Marshal(body)
 	if err != nil {
-		logger.Error("llm.http.encode_error", "req_id", reqID, "error", err)
+		logger.Error("llm http encode_error", "req_id", reqID, "error", err)
 		return nil, 0, fmt.Errorf("encode json: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bs))
 	if err != nil {
-		logger.Error("llm.http.build_request_error", "req_id", reqID, "error", err)
+		logger.Error("llm http build_request_error", "req_id", reqID, "error", err)
 		return nil, 0, fmt.Errorf("build request: %w", err)
 	}
 
@@ -44,7 +44,7 @@ func SendJSON(ctx context.Context, client *http.Client, url string, body any, he
 		req.Header.Set(k, v)
 	}
 
-	logger.Info("llm.http.request",
+	logger.Debug("llm http request",
 		"req_id", reqID,
 		"url", url,
 		"content_length", len(bs),
@@ -52,19 +52,19 @@ func SendJSON(ctx context.Context, client *http.Client, url string, body any, he
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Error("llm.http.send_error", "req_id", reqID, "error", err, "elapsed_ms", time.Since(start).Milliseconds())
+		logger.Error("llm http send_error", "req_id", reqID, "error", err, "elapsed_ms", time.Since(start).Milliseconds())
 		return nil, 0, err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			logger.Warn("llm.http.response_body_close_error", "req_id", reqID, "error", err)
+			logger.Warn("llm http response_body_close_error", "req_id", reqID, "error", err)
 		}
 	}(resp.Body)
 
 	raw, _ := io.ReadAll(resp.Body)
 
-	logger.Info("llm.http.response",
+	logger.Debug("llm http response",
 		"req_id", reqID,
 		"status", resp.StatusCode,
 		"bytes", len(raw),
