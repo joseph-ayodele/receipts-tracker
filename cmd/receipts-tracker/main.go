@@ -25,10 +25,17 @@ import (
 )
 
 func main() {
-	// Setup structured logger
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	// Setup structured logger that outputs messages with variables but no time/level
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 		//AddSource: true,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			// Remove time and level attributes, keep message and other variables
+			if a.Key == slog.TimeKey || a.Key == slog.LevelKey {
+				return slog.Attr{}
+			}
+			return a
+		},
 	}))
 	slog.SetDefault(logger)
 

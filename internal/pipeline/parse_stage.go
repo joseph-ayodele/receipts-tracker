@@ -100,7 +100,7 @@ func (p *ParseStage) Run(ctx context.Context, jobID uuid.UUID) (uuid.UUID, error
 		},
 	}
 
-	p.Logger.Info("parse fields start",
+	p.Logger.Debug("parse fields start",
 		"job_id", job.ID, "file_id", file.ID,
 		"ocr_bytes", len(*job.OcrText), "allowed_categories", len(allowed),
 	)
