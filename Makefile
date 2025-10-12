@@ -151,8 +151,8 @@ ent/generate: ## Generate ent code (to gen/ent)
 .PHONY: proto/generate
 proto/generate: deps/protoc ## Generate protobuf + gRPC stubs into ./gen
 	protoc -I . \
-	  --go_out=Mapi/receipts/v1/common.proto=proto/receipts/v1,Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
-	  --go-grpc_out=Mapi/receipts/v1/common.proto=proto/receipts/v1,Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
+	  --go_out=Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
+	  --go-grpc_out=Mapi/receipts/v1/profiles.proto=proto/receipts/v1,Mapi/receipts/v1/receipts.proto=proto/receipts/v1,Mapi/receipts/v1/ingest.proto=proto/receipts/v1,Mapi/receipts/v1/export.proto=proto/receipts/v1:./gen \
 	  api/receipts/v1/*.proto
 
 .PHONY: generate

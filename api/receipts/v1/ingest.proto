@@ -7,6 +7,7 @@ option go_package = "github.com/joseph-ayodele/receipts-tracker/gen/proto/receip
 message IngestFileRequest {
   string profile_id = 1; // required (UUID)
   string path = 2;       // absolute or project-local file path
+  bool  skip_duplicates = 3; // optional; default true
 }
 
 message IngestResponse {
@@ -24,6 +25,7 @@ message IngestDirectoryRequest {
   string root_path = 2;          // required; directory to walk
   repeated string include_exts = 3; // optional; defaults to ["pdf","jpg","jpeg","png"] (case-insensitive)
   bool skip_hidden = 4;          // optional; default true - skip dotfiles and dot-dirs
+  bool  skip_duplicates = 5;
 }
 
 message IngestDirectoryResponse {
