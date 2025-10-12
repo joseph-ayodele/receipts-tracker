@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	v1 "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
+	"github.com/joseph-ayodele/receipts-tracker/internal/async"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
-	processor "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,14 +20,14 @@ type IngestionService struct {
 	v1.UnimplementedIngestionServiceServer
 	ingestor    ingest.Ingestor
 	profileRepo repository.ProfileRepository
-	processor   *processor.Processor
+	queue       async.Queue
 	logger      *slog.Logger
 }
 
-func NewIngestionService(ing ingest.Ingestor, proc *processor.Processor, p repository.ProfileRepository, logger *slog.Logger) *IngestionService {
+func NewIngestionService(ing ingest.Ingestor, q async.Queue, p repository.ProfileRepository, logger *slog.Logger) *IngestionService {
 	return &IngestionService{
 		ingestor:    ing,
-		processor:   proc,
+		queue:       q,
 		profileRepo: p,
 		logger:      logger,
 	}
@@ -57,6 +57,8 @@ func (s *IngestionService) IngestFile(ctx context.Context, req *v1.IngestFileReq
 		return nil, status.Error(codes.InvalidArgument, "profile not found")
 	}
 
+	skipDuplicates := req.GetSkipDuplicates()
+
 	s.logger.Info("starting file ingest", "profile_id", profileID, "path", path)
 	r, err := s.ingestor.IngestPath(ctx, profileID, path)
 	if err != nil {
@@ -74,12 +76,28 @@ func (s *IngestionService) IngestFile(ctx context.Context, req *v1.IngestFileReq
 		Error:          "",
 	}
 
-	fileUUID, _ := uuid.Parse(r.FileID)
-	s.logger.Info("starting file processing", "file_id", r.FileID)
-	if _, err := s.processor.ProcessFile(ctx, fileUUID); err != nil {
-		s.logger.Error("pipeline.failed", "file_id", r.FileID, "err", err)
-		resp.Error = err.Error()
+	if r.Err == "" && r.FileID != "" {
+		fileUUID, err := uuid.Parse(r.FileID)
+		if err != nil {
+			s.logger.Error("invalid file_id: cannot enqueue", "file_id", r.FileID, "error", err)
+			resp.Error = "invalid file_id"
+			return resp, nil
+		}
+		if skipDuplicates && r.Deduplicated {
+			s.logger.Info("skipping processing of duplicate file", "file_id", r.FileID)
+		} else {
+			// enqueue for processing
+			if err := s.queue.Enqueue(ctx, async.Job{
+				FileID:      fileUUID,
+				Force:       !skipDuplicates && r.Deduplicated,
+				SubmittedAt: time.Now(),
+			}); err != nil {
+				s.logger.Error("enqueue failed", "file_id", r.FileID, "err", err)
+				resp.Error = err.Error()
+			}
+		}
 	}
+
 	return resp, nil
 }
 
@@ -102,8 +120,12 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 
 	// default skipHidden := true when field not present (optional bool)
 	skipHidden := true
-	if req.SkipHidden != false {
+	if req.GetSkipHidden() != false {
 		skipHidden = req.GetSkipHidden()
+	}
+	skipDuplicates := true
+	if req.GetSkipDuplicates() != false {
+		skipDuplicates = req.GetSkipDuplicates()
 	}
 
 	if exists, _ := s.profileRepo.Exists(ctx, profileID); !exists {
@@ -139,18 +161,32 @@ func (s *IngestionService) IngestDirectory(ctx context.Context, req *v1.IngestDi
 			SourcePath:     r.SourcePath,
 			Error:          r.Err,
 		}
+		out.Results = append(out.Results, item)
 
-		if r.Err == "" && r.FileID != "" {
-			if fileUUID, err := uuid.Parse(r.FileID); err == nil {
-				if _, pErr := s.processor.ProcessFile(ctx, fileUUID); pErr != nil {
-					s.logger.Error("pipeline.failed", "file_id", r.FileID, "err", pErr)
-					item.Error = pErr.Error()
-					break
-				}
-			}
+		if r.Err != "" || r.FileID == "" {
+			continue
 		}
 
-		out.Results = append(out.Results, item)
+		fileUUID, err := uuid.Parse(r.FileID)
+		if err != nil {
+			s.logger.Error("invalid file_id: cannot enqueue", "file_id", r.FileID, "error", err)
+			item.Error = "invalid file_id"
+			continue
+		}
+
+		if r.Deduplicated && skipDuplicates {
+			s.logger.Info("skipping processing (duplicate)", "file_id", r.FileID, "path", r.SourcePath)
+			continue
+		}
+
+		if err := s.queue.Enqueue(ctx, async.Job{
+			FileID:      fileUUID,
+			Force:       !skipDuplicates && r.Deduplicated,
+			SubmittedAt: time.Now(),
+		}); err != nil {
+			s.logger.Error("enqueue failed for file", "file_id", r.FileID, "err", err)
+			item.Error = err.Error()
+		}
 	}
 	return out, nil
 }

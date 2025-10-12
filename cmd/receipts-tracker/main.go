@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joseph-ayodele/receipts-tracker/internal/async"
 	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
@@ -129,8 +130,14 @@ func main() {
 	receiptsService := svc.NewReceiptService(receiptsRepo, logger)
 	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
 
+	queue := async.NewProcessorQueue(processor, logger,
+		async.WithWorkers(6),
+		async.WithQueueSize(512),
+		async.WithProcessTimeout(3*time.Minute),
+	)
+
 	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)
-	ingestionService := svc.NewIngestionService(ingestor, processor, profilesRepo, logger)
+	ingestionService := svc.NewIngestionService(ingestor, queue, profilesRepo, logger)
 	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
 
 	// Register gRPC health service
@@ -148,6 +155,7 @@ func main() {
 	}()
 
 	<-ctx.Done()
+	queue.Shutdown(context.Background())
 	grpcServer.GracefulStop()
 }
 
