@@ -6,8 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
+	"github.com/joseph-ayodele/receipts-tracker/internal/receipts"
 	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,30 +14,21 @@ import (
 	receiptspb "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
 )
 
-type ReceiptService struct {
+type ReceiptServer struct {
 	receiptspb.UnimplementedReceiptsServiceServer
-	receiptRepo repository.ReceiptRepository
-	logger      *slog.Logger
+	svc    *receipts.Service
+	logger *slog.Logger
 }
 
-func NewReceiptService(receiptRepo repository.ReceiptRepository, logger *slog.Logger) *ReceiptService {
-	return &ReceiptService{
-		receiptRepo: receiptRepo,
-		logger:      logger,
+func NewReceiptServer(svc *receipts.Service, logger *slog.Logger) *ReceiptServer {
+	return &ReceiptServer{
+		svc:    svc,
+		logger: logger,
 	}
 }
 
-func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListReceiptsRequest) (*receiptspb.ListReceiptsResponse, error) {
-	if strings.TrimSpace(req.GetProfileId()) == "" {
-		s.logger.Error("list receipts request missing profile_id")
-		return nil, status.Error(codes.InvalidArgument, "profile_id is required")
-	}
-	profileID, err := uuid.Parse(req.GetProfileId())
-	if err != nil {
-		s.logger.Error("invalid profile_id format for list receipts", "profile_id", req.GetProfileId(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, "profile_id must be a UUID")
-	}
-
+func (s *ReceiptServer) ListReceipts(ctx context.Context, req *receiptspb.ListReceiptsRequest) (*receiptspb.ListReceiptsResponse, error) {
+	// Parse optional dates from gRPC request
 	var fromDate, toDate *time.Time
 	if fd := strings.TrimSpace(req.GetFromDate()); fd != "" {
 		from, err := utils.ParseYMD(fd)
@@ -57,14 +47,20 @@ func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListR
 		toDate = &to
 	}
 
-	s.logger.Info("listing receipts", "profile_id", profileID, "from_date", fromDate, "to_date", toDate)
-	recs, err := s.receiptRepo.ListReceipts(ctx, profileID, fromDate, toDate)
-	if err != nil {
-		s.logger.Error("failed to list receipts", "profile_id", profileID, "error", err)
-		return nil, status.Errorf(codes.Internal, "list receiptRepo: %v", err)
+	// Convert gRPC request to service request
+	serviceReq := receipts.ListReceiptsRequest{
+		ProfileID: req.GetProfileId(),
+		FromDate:  fromDate,
+		ToDate:    toDate,
 	}
-	s.logger.Info("receipts listed successfully", "profile_id", profileID, "count", len(recs))
 
+	// Call service layer (pure business logic)
+	recs, err := s.svc.ListReceipts(ctx, serviceReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert service response to gRPC response
 	out := make([]*receiptspb.Receipt, 0, len(recs))
 	for _, r := range recs {
 		out = append(out, utils.ToPBReceiptFromEntity(r))
@@ -72,6 +68,6 @@ func (s *ReceiptService) ListReceipts(ctx context.Context, req *receiptspb.ListR
 	return &receiptspb.ListReceiptsResponse{Receipts: out}, nil
 }
 
-func (s *ReceiptService) ExportReceipts(context.Context, *receiptspb.ExportReceiptsRequest) (*receiptspb.ExportReceiptsResponse, error) {
+func (s *ReceiptServer) ExportReceipts(context.Context, *receiptspb.ExportReceiptsRequest) (*receiptspb.ExportReceiptsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "ExportReceipts not implemented yet (Step 8)")
 }

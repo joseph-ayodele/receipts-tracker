@@ -17,6 +17,8 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
 	pipeline "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
+	"github.com/joseph-ayodele/receipts-tracker/internal/profiles"
+	"github.com/joseph-ayodele/receipts-tracker/internal/receipts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -126,10 +128,9 @@ func main() {
 	// Orchestrator
 	processor := pipeline.NewProcessor(logger, ocrPipe, parsePipe)
 
-	profilesService := svc.NewProfileService(profilesRepo, logger)
-	v1.RegisterProfilesServiceServer(grpcServer, profilesService)
-	receiptsService := svc.NewReceiptService(receiptsRepo, logger)
-	v1.RegisterReceiptsServiceServer(grpcServer, receiptsService)
+	// Create service layers (business logic)
+	profilesServiceLayer := profiles.NewService(profilesRepo, logger)
+	receiptsServiceLayer := receipts.NewService(receiptsRepo, logger)
 
 	queue := async.NewProcessorQueue(processor, logger,
 		async.WithWorkers(6),
@@ -138,8 +139,16 @@ func main() {
 	)
 
 	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)
-	ingestionService := svc.NewIngestionService(ingestor, queue, profilesRepo, logger)
-	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
+	ingestionServiceLayer := ingest.NewService(ingestor, profilesRepo, queue, logger)
+
+	// Create server layers (gRPC protocol handling)
+	profilesServer := svc.NewProfileServer(profilesServiceLayer, logger)
+	v1.RegisterProfilesServiceServer(grpcServer, profilesServer)
+	receiptsServer := svc.NewReceiptServer(receiptsServiceLayer, logger)
+	v1.RegisterReceiptsServiceServer(grpcServer, receiptsServer)
+
+	ingestionServer := svc.NewIngestionServer(ingestionServiceLayer, logger)
+	v1.RegisterIngestionServiceServer(grpcServer, ingestionServer)
 
 	exportService := export.NewService(entc, receiptsRepo, filesRepo, logger)
 	exportServer := svc.NewExportServer(exportService, logger)
