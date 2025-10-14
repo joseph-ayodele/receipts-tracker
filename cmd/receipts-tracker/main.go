@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/joseph-ayodele/receipts-tracker/internal/async"
+	"github.com/joseph-ayodele/receipts-tracker/internal/export"
 	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
 	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
@@ -139,6 +140,10 @@ func main() {
 	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)
 	ingestionService := svc.NewIngestionService(ingestor, queue, profilesRepo, logger)
 	v1.RegisterIngestionServiceServer(grpcServer, ingestionService)
+
+	exportService := export.NewService(entc, receiptsRepo, filesRepo, logger)
+	exportServer := svc.NewExportServer(exportService, logger)
+	v1.RegisterExportServiceServer(grpcServer, exportServer)
 
 	// Register gRPC health service
 	healthServer := health.NewServer()
