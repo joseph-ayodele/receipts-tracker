@@ -32,8 +32,8 @@ func NewService(ing Ingestor, p repository.ProfileRepository, q async.Queue, log
 	}
 }
 
-// IngestFileRequest represents file ingestion parameters.
-type IngestFileRequest struct {
+// FileIngestRequest represents file ingestion parameters.
+type FileIngestRequest struct {
 	ProfileID      string
 	Path           string
 	SkipDuplicates bool
@@ -46,7 +46,7 @@ type DirectoryIngestResult struct {
 }
 
 // IngestFile ingests a single file.
-func (s *Service) IngestFile(ctx context.Context, req IngestFileRequest) (IngestionResult, error) {
+func (s *Service) IngestFile(ctx context.Context, req FileIngestRequest) (IngestionResult, error) {
 	profileID, err := uuid.Parse(strings.TrimSpace(req.ProfileID))
 	if err != nil {
 		s.logger.Error("invalid profile_id format for ingest", "profile_id", req.ProfileID, "error", err)
@@ -75,8 +75,8 @@ func (s *Service) IngestFile(ctx context.Context, req IngestFileRequest) (Ingest
 	return r, nil
 }
 
-// IngestDirectoryRequest represents directory ingestion parameters.
-type IngestDirectoryRequest struct {
+// DirectoryIngestRequest represents directory ingestion parameters.
+type DirectoryIngestRequest struct {
 	ProfileID      string
 	RootPath       string
 	SkipHidden     bool
@@ -84,7 +84,7 @@ type IngestDirectoryRequest struct {
 }
 
 // IngestDirectory ingests all files in a directory.
-func (s *Service) IngestDirectory(ctx context.Context, req IngestDirectoryRequest) (*DirectoryIngestResult, error) {
+func (s *Service) IngestDirectory(ctx context.Context, req DirectoryIngestRequest) (*DirectoryIngestResult, error) {
 	profileID, err := uuid.Parse(strings.TrimSpace(req.ProfileID))
 	if err != nil {
 		s.logger.Error("invalid profile_id format for ingest directory", "profile_id", req.ProfileID, "error", err)

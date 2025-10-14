@@ -28,7 +28,7 @@ func NewIngestionServer(svc *ingest.Service, logger *slog.Logger) *IngestionServ
 // IngestFile implements v1.IngestionServiceServer
 func (s *IngestionServer) IngestFile(ctx context.Context, req *v1.IngestFileRequest) (*v1.IngestResponse, error) {
 	// Convert gRPC request to service request
-	serviceReq := ingest.IngestFileRequest{
+	serviceReq := ingest.FileIngestRequest{
 		ProfileID:      req.GetProfileId(),
 		Path:           req.GetPath(),
 		SkipDuplicates: req.GetSkipDuplicates(),
@@ -64,7 +64,7 @@ func (s *IngestionServer) IngestFile(ctx context.Context, req *v1.IngestFileRequ
 
 func (s *IngestionServer) IngestDirectory(ctx context.Context, req *v1.IngestDirectoryRequest) (*v1.IngestDirectoryResponse, error) {
 	// Convert gRPC request to service request
-	serviceReq := ingest.IngestDirectoryRequest{
+	serviceReq := ingest.DirectoryIngestRequest{
 		ProfileID:      req.GetProfileId(),
 		RootPath:       req.GetRootPath(),
 		SkipHidden:     req.GetSkipHidden(),
