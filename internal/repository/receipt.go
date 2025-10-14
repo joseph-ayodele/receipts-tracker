@@ -42,7 +42,6 @@ func NewReceiptRepository(client *ent.Client, logger *slog.Logger) ReceiptReposi
 }
 
 func (r *receiptRepository) ListReceipts(ctx context.Context, profileID uuid.UUID, fromDate, toDate *time.Time) ([]*entity.Receipt, error) {
-	// Default to current receipts only (is_current=true) - matches API expectations
 	q := r.client.Receipt.Query().
 		Where(
 			receipt.ProfileID(profileID),
