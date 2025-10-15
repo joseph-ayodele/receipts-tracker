@@ -5,7 +5,7 @@ import (
 
 	"log/slog"
 
-	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
 )
 
 type OCRAdapter struct {

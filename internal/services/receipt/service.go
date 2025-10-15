@@ -1,4 +1,4 @@
-package receipts
+package receipt
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -50,7 +50,7 @@ func (s *Service) ListReceipts(ctx context.Context, req ListReceiptsRequest) ([]
 
 	var fromDate, toDate *time.Time
 	if req.FromDate != nil {
-		from, err := utils.ParseYMD(req.FromDate.Format("2006-01-02"))
+		from, err := tools.ParseYMD(req.FromDate.Format("2006-01-02"))
 		if err != nil {
 			s.logger.Error("invalid from_date format", "from_date", req.FromDate, "error", err)
 			return nil, status.Errorf(codes.InvalidArgument, "from_date invalid (YYYY-MM-DD): %v", err)
@@ -58,7 +58,7 @@ func (s *Service) ListReceipts(ctx context.Context, req ListReceiptsRequest) ([]
 		fromDate = &from
 	}
 	if req.ToDate != nil {
-		to, err := utils.ParseYMD(req.ToDate.Format("2006-01-02"))
+		to, err := tools.ParseYMD(req.ToDate.Format("2006-01-02"))
 		if err != nil {
 			s.logger.Error("invalid to_date format", "to_date", req.ToDate, "error", err)
 			return nil, status.Errorf(codes.InvalidArgument, "to_date invalid (YYYY-MM-DD): %v", err)

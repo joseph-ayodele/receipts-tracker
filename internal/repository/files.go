@@ -9,7 +9,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	entfile "github.com/joseph-ayodele/receipts-tracker/gen/ent/receiptfile"
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 
 // CreateReceiptFileRequest wraps parameters for creating a receipt file.
@@ -47,7 +47,7 @@ func (r *receiptFileRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Re
 	if err != nil {
 		return nil, err
 	}
-	return utils.ToReceiptFile(file), nil
+	return tools.ToReceiptFile(file), nil
 }
 
 func (r *receiptFileRepo) GetByProfileAndHash(ctx context.Context, profileID uuid.UUID, hash []byte) (*entity.ReceiptFile, error) {
@@ -60,7 +60,7 @@ func (r *receiptFileRepo) GetByProfileAndHash(ctx context.Context, profileID uui
 		r.logger.Debug("receipt not found", "profile_id", profileID, "error", err)
 		return nil, err
 	}
-	return utils.ToReceiptFile(row), nil
+	return tools.ToReceiptFile(row), nil
 }
 
 func (r *receiptFileRepo) Create(ctx context.Context, request *CreateReceiptFileRequest) (*entity.ReceiptFile, error) {
@@ -77,7 +77,7 @@ func (r *receiptFileRepo) Create(ctx context.Context, request *CreateReceiptFile
 		r.logger.Error("failed to create receipt file", "profile_id", request.ProfileID, "source_path", request.SourcePath, "filename", request.Filename, "error", err)
 		return nil, err
 	}
-	return utils.ToReceiptFile(row), nil
+	return tools.ToReceiptFile(row), nil
 }
 
 func (r *receiptFileRepo) UpsertByHash(ctx context.Context, request *CreateReceiptFileRequest) (*entity.ReceiptFile, bool, error) {

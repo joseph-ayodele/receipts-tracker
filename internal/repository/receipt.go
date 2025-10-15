@@ -11,7 +11,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 
 // CreateReceiptRequest wraps parameters for creating a receipt.
@@ -61,7 +61,7 @@ func (r *receiptRepository) ListReceipts(ctx context.Context, profileID uuid.UUI
 
 	result := make([]*entity.Receipt, len(recs))
 	for i, rec := range recs {
-		result[i] = utils.ToReceipt(rec)
+		result[i] = tools.ToReceipt(rec)
 	}
 	return result, nil
 }
@@ -79,7 +79,7 @@ func (r *receiptRepository) GetCurrentByFileID(ctx context.Context, fileID uuid.
 		return nil, err
 	}
 
-	return utils.ToReceipt(rec), nil
+	return tools.ToReceipt(rec), nil
 }
 
 // UpsertFromFields creates a new receipt version, demoting any existing current receipts
@@ -198,5 +198,5 @@ func (r *receiptRepository) UpsertFromFields(ctx context.Context, request *Creat
 			"previous_versions_demoted", demotedCount)
 	}
 
-	return utils.ToReceipt(rec), nil
+	return tools.ToReceipt(rec), nil
 }

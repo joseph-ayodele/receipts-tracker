@@ -1,4 +1,4 @@
-package processor
+package pipeline
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/constants"
-	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
-	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 

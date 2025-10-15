@@ -7,11 +7,11 @@ import (
 
 	"log/slog"
 
-	processor "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/pipeline"
 )
 
 type ProcessorQueue struct {
-	proc    *processor.Processor
+	proc    *pipeline.Processor
 	logger  *slog.Logger
 	workers int
 	timeout time.Duration
@@ -48,7 +48,7 @@ func WithProcessTimeout(d time.Duration) Option {
 	}
 }
 
-func NewProcessorQueue(proc *processor.Processor, logger *slog.Logger, opts ...Option) *ProcessorQueue {
+func NewProcessorQueue(proc *pipeline.Processor, logger *slog.Logger, opts ...Option) *ProcessorQueue {
 	q := &ProcessorQueue{
 		proc:    proc,
 		logger:  logger,

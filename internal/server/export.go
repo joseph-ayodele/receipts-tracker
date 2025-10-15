@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/export"
 
 	v1 "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
-	"github.com/joseph-ayodele/receipts-tracker/internal/export"
 )
 
 type ExportServer struct {

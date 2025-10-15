@@ -6,19 +6,19 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/joseph-ayodele/receipts-tracker/internal/async"
-	"github.com/joseph-ayodele/receipts-tracker/internal/export"
-	"github.com/joseph-ayodele/receipts-tracker/internal/extract"
-	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
+	"github.com/joseph-ayodele/receipts-tracker/internal/common"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
+	processor2 "github.com/joseph-ayodele/receipts-tracker/internal/core/pipeline"
 	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
-	"github.com/joseph-ayodele/receipts-tracker/internal/ocr"
-	pipeline "github.com/joseph-ayodele/receipts-tracker/internal/pipeline"
-	"github.com/joseph-ayodele/receipts-tracker/internal/profiles"
-	"github.com/joseph-ayodele/receipts-tracker/internal/receipts"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/export"
+	ingest2 "github.com/joseph-ayodele/receipts-tracker/internal/services/ingest"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/profile"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/receipt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -29,6 +29,13 @@ import (
 )
 
 func main() {
+	// Load and validate configuration
+	cfg := common.LoadConfig()
+	if err := cfg.Validate(); err != nil {
+		slog.Error("configuration validation failed", "error", err)
+		os.Exit(1)
+	}
+
 	// Setup structured logger that outputs messages with variables but no time/level
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -43,40 +50,21 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
-		logger.Error("missing DB_URL environment variable")
-		os.Exit(1)
-	}
-	addr := os.Getenv("GRPC_ADDR")
-	if addr == "" {
-		addr = ":8080"
-	}
-	if !strings.HasPrefix(addr, ":") {
-		addr = ":" + addr
-	}
-	if os.Getenv("OPENAI_API_KEY") == "" {
-		logger.Error("OPENAI_API_KEY env var is required")
-		os.Exit(2)
-	}
-
-	heicConv := getenv("HEIC_CONVERTER", "magick")
-	tessdata := os.Getenv("TESSDATA_PREFIX")
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Use configuration from config package
 	dbConfig := repo.Config{
-		DSN:             dbURL,
-		MaxConns:        20,
-		MinConns:        5,
-		MaxConnLifetime: 30 * time.Minute,
-		MaxConnIdleTime: 5 * time.Minute,
-		DialTimeout:     3 * time.Second,
+		DSN:             cfg.Database.DSN,
+		MaxConns:        cfg.Database.MaxConns,
+		MinConns:        cfg.Database.MinConns,
+		MaxConnLifetime: cfg.Database.MaxConnLifetime,
+		MaxConnIdleTime: cfg.Database.MaxConnIdleTime,
+		DialTimeout:     cfg.Database.DialTimeout,
 	}
 	entc, pool, err := repo.Open(ctx, dbConfig, logger)
 	if err != nil {
-		logger.Error("failed to open database", "error", err, "db_url", dbURL)
+		logger.Error("failed to open database", "error", err, "dsn", cfg.Database.DSN)
 		os.Exit(1)
 	}
 	defer repo.Close(entc, pool, logger)
@@ -89,9 +77,9 @@ func main() {
 	}
 
 	// gRPC server
-	lis, err := net.Listen("tcp", addr)
+	lis, err := net.Listen("tcp", cfg.Server.GRPCAddr)
 	if err != nil {
-		logger.Error("failed to listen on address", "addr", addr, "error", err)
+		logger.Error("failed to listen on address", "addr", cfg.Server.GRPCAddr, "error", err)
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
@@ -101,36 +89,36 @@ func main() {
 	filesRepo := repo.NewReceiptFileRepository(entc, logger)
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 
-	// OCR text pipeline (already present in your codebase)
+	// OCR text pipeline
 	ocrCfg := ocr.Config{
-		HeicConverter:    heicConv, // <— key bit
-		TessdataDir:      tessdata, // optional
-		ArtifactCacheDir: "./tmp",
+		HeicConverter:    cfg.OCR.HeicConverter,
+		TessdataDir:      cfg.OCR.TessdataDir,
+		ArtifactCacheDir: cfg.OCR.ArtifactCacheDir,
 	}
 	extractor := ocr.NewExtractor(ocrCfg, logger)
 	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
-	ocrPipe := pipeline.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
+	ocrPipe := processor2.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
 
-	// LLM parse pipeline (uses your OpenAI client)
+	// LLM parse pipeline
 	openaiClient := openai.NewClient(openai.Config{
-		Model:       getenv("OPENAI_MODEL", "gpt-4o-mini"),
-		APIKey:      os.Getenv("OPENAI_API_KEY"),
-		Temperature: 0.0,
-		Timeout:     45 * time.Second,
+		Model:       cfg.LLM.Model,
+		APIKey:      cfg.LLM.APIKey,
+		Temperature: cfg.LLM.Temperature,
+		Timeout:     cfg.LLM.Timeout,
 	}, logger)
 
-	parseCfg := pipeline.Config{
+	parseCfg := processor2.Config{
 		MinConfidence:    0.60,
 		ArtifactCacheDir: "./tmp",
 	}
-	parsePipe := pipeline.NewParseStage(logger, parseCfg, jobsRepo, profilesRepo, jobsRepo, receiptsRepo, openaiClient)
+	parsePipe := processor2.NewParseStage(logger, parseCfg, jobsRepo, profilesRepo, jobsRepo, receiptsRepo, openaiClient)
 
 	// Orchestrator
-	processor := pipeline.NewProcessor(logger, ocrPipe, parsePipe)
+	processor := processor2.NewProcessor(logger, ocrPipe, parsePipe)
 
 	// Create service layers (business logic)
-	profilesServiceLayer := profiles.NewService(profilesRepo, logger)
-	receiptsServiceLayer := receipts.NewService(receiptsRepo, logger)
+	profilesServiceLayer := profile.NewService(profilesRepo, logger)
+	receiptsServiceLayer := receipt.NewService(receiptsRepo, logger)
 
 	queue := async.NewProcessorQueue(processor, logger,
 		async.WithWorkers(6),
@@ -138,8 +126,8 @@ func main() {
 		async.WithProcessTimeout(3*time.Minute),
 	)
 
-	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)
-	ingestionServiceLayer := ingest.NewService(ingestor, profilesRepo, queue, logger)
+	ingestor := ingest2.NewFSIngestor(profilesRepo, filesRepo, logger)
+	ingestionServiceLayer := ingest2.NewService(ingestor, profilesRepo, queue, logger)
 
 	// Create server layers (gRPC protocol handling)
 	profilesServer := svc.NewProfileServer(profilesServiceLayer, logger)
@@ -160,7 +148,7 @@ func main() {
 	// Set the service as serving (empty string means overall server health)
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
-	logger.Info("receipts-tracker listening", "addr", addr)
+	logger.Info("receipts-tracker listening", "addr", cfg.Server.GRPCAddr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			slog.Error("gRPC serve error", "error", err)

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	v1 "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
-	"github.com/joseph-ayodele/receipts-tracker/internal/ingest"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/ingest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

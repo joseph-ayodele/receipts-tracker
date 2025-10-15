@@ -5,17 +5,17 @@ import (
 	"log/slog"
 
 	receiptspb "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
-	"github.com/joseph-ayodele/receipts-tracker/internal/profiles"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/profile"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 
 type ProfileServer struct {
 	receiptspb.UnimplementedProfilesServiceServer
-	svc    *profiles.Service
+	svc    *profile.Service
 	logger *slog.Logger
 }
 
-func NewProfileServer(svc *profiles.Service, logger *slog.Logger) *ProfileServer {
+func NewProfileServer(svc *profile.Service, logger *slog.Logger) *ProfileServer {
 	return &ProfileServer{
 		svc:    svc,
 		logger: logger,
@@ -25,7 +25,7 @@ func NewProfileServer(svc *profiles.Service, logger *slog.Logger) *ProfileServer
 // CreateProfile creates a new profile.
 func (s *ProfileServer) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
 	// Convert gRPC request to service request
-	serviceReq := profiles.CreateProfileRequest{
+	serviceReq := profile.CreateProfileRequest{
 		Name:            req.GetName(),
 		JobTitle:        req.GetJobTitle(),
 		JobDescription:  req.GetJobDescription(),
@@ -39,7 +39,7 @@ func (s *ProfileServer) CreateProfile(ctx context.Context, req *receiptspb.Creat
 	}
 
 	return &receiptspb.CreateProfileResponse{
-		Profile: utils.ToPBProfileFromEntity(p),
+		Profile: tools.ToPBProfileFromEntity(p),
 	}, nil
 }
 
@@ -54,7 +54,7 @@ func (s *ProfileServer) ListProfiles(ctx context.Context, _ *receiptspb.ListProf
 	// Convert service response to gRPC response
 	out := make([]*receiptspb.Profile, 0, len(plist))
 	for _, p := range plist {
-		out = append(out, utils.ToPBProfileFromEntity(p))
+		out = append(out, tools.ToPBProfileFromEntity(p))
 	}
 	return &receiptspb.ListProfilesResponse{Profiles: out}, nil
 }

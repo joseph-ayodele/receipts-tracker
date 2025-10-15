@@ -1,4 +1,4 @@
-package profiles
+package profile
 
 import (
 	"context"
@@ -6,10 +6,9 @@ import (
 	"strings"
 
 	"github.com/joseph-ayodele/receipts-tracker/constants"
+	"github.com/joseph-ayodele/receipts-tracker/internal/common"
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Service handles profile business logic.
@@ -36,19 +35,22 @@ type CreateProfileRequest struct {
 
 // CreateProfile creates a new profile.
 func (s *Service) CreateProfile(ctx context.Context, req CreateProfileRequest) (*entity.Profile, error) {
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		return nil, status.Error(codes.InvalidArgument, "name is required")
+	// Validate input using common validation
+	validator := common.NewValidator()
+	validator.Field("name", req.Name, common.Required)
+	validator.Field("default_currency", req.DefaultCurrency, common.CurrencyCode)
+
+	if err := common.ValidateAndReturnError(validator); err != nil {
+		return nil, err
 	}
 
+	name := strings.TrimSpace(req.Name)
 	jobTitle := strings.TrimSpace(req.JobTitle)
 	jobDesc := strings.TrimSpace(req.JobDescription)
 
 	cur := strings.ToUpper(strings.TrimSpace(req.DefaultCurrency))
 	if cur == "" {
 		cur = constants.DefaultCurrency
-	} else if len(cur) != 3 {
-		return nil, status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
 	}
 
 	jobTitlePtr := &jobTitle
@@ -69,7 +71,7 @@ func (s *Service) CreateProfile(ctx context.Context, req CreateProfileRequest) (
 
 	p, err := s.profileRepo.GetOrCreate(ctx, profile)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get or create profile: %v", err)
+		return nil, common.InternalErrorf("get or create profile: %v", err)
 	}
 
 	s.logger.Info("profile created successfully", "profile_id", p.ID, "name", p.Name)
@@ -83,7 +85,7 @@ func (s *Service) ListProfiles(ctx context.Context) ([]*entity.Profile, error) {
 	plist, err := s.profileRepo.ListProfiles(ctx)
 	if err != nil {
 		// DB error already logged in repository layer
-		return nil, status.Errorf(codes.Internal, "list profiles: %v", err)
+		return nil, common.InternalErrorf("list profiles: %v", err)
 	}
 
 	s.logger.Info("profiles listed successfully", "count", len(plist))

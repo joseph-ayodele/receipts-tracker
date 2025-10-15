@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/joseph-ayodele/receipts-tracker/internal/receipts"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/receipt"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -16,11 +16,11 @@ import (
 
 type ReceiptServer struct {
 	receiptspb.UnimplementedReceiptsServiceServer
-	svc    *receipts.Service
+	svc    *receipt.Service
 	logger *slog.Logger
 }
 
-func NewReceiptServer(svc *receipts.Service, logger *slog.Logger) *ReceiptServer {
+func NewReceiptServer(svc *receipt.Service, logger *slog.Logger) *ReceiptServer {
 	return &ReceiptServer{
 		svc:    svc,
 		logger: logger,
@@ -31,7 +31,7 @@ func (s *ReceiptServer) ListReceipts(ctx context.Context, req *receiptspb.ListRe
 	// Parse optional dates from gRPC request
 	var fromDate, toDate *time.Time
 	if fd := strings.TrimSpace(req.GetFromDate()); fd != "" {
-		from, err := utils.ParseYMD(fd)
+		from, err := tools.ParseYMD(fd)
 		if err != nil {
 			s.logger.Error("invalid from_date format", "from_date", fd, "error", err)
 			return nil, status.Errorf(codes.InvalidArgument, "from_date invalid (YYYY-MM-DD): %v", err)
@@ -39,7 +39,7 @@ func (s *ReceiptServer) ListReceipts(ctx context.Context, req *receiptspb.ListRe
 		fromDate = &from
 	}
 	if td := strings.TrimSpace(req.GetToDate()); td != "" {
-		to, err := utils.ParseYMD(td)
+		to, err := tools.ParseYMD(td)
 		if err != nil {
 			s.logger.Error("invalid to_date format", "to_date", td, "error", err)
 			return nil, status.Errorf(codes.InvalidArgument, "to_date invalid (YYYY-MM-DD): %v", err)
@@ -48,7 +48,7 @@ func (s *ReceiptServer) ListReceipts(ctx context.Context, req *receiptspb.ListRe
 	}
 
 	// Convert gRPC request to service request
-	serviceReq := receipts.ListReceiptsRequest{
+	serviceReq := receipt.ListReceiptsRequest{
 		ProfileID: req.GetProfileId(),
 		FromDate:  fromDate,
 		ToDate:    toDate,
@@ -63,7 +63,7 @@ func (s *ReceiptServer) ListReceipts(ctx context.Context, req *receiptspb.ListRe
 	// Convert service response to gRPC response
 	out := make([]*receiptspb.Receipt, 0, len(recs))
 	for _, r := range recs {
-		out = append(out, utils.ToPBReceiptFromEntity(r))
+		out = append(out, tools.ToPBReceiptFromEntity(r))
 	}
 	return &receiptspb.ListReceiptsResponse{Receipts: out}, nil
 }
