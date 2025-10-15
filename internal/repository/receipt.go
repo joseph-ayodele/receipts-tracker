@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/receipt"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm"
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
-	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
 	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 

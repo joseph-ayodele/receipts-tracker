@@ -9,12 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joseph-ayodele/receipts-tracker/internal/async"
 	"github.com/joseph-ayodele/receipts-tracker/internal/common"
-	"github.com/joseph-ayodele/receipts-tracker/internal/core/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/async"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm/openai"
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
-	processor2 "github.com/joseph-ayodele/receipts-tracker/internal/core/pipeline"
-	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
 	"github.com/joseph-ayodele/receipts-tracker/internal/services/export"
 	ingest2 "github.com/joseph-ayodele/receipts-tracker/internal/services/ingest"
 	"github.com/joseph-ayodele/receipts-tracker/internal/services/profile"
@@ -96,8 +95,6 @@ func main() {
 		ArtifactCacheDir: cfg.OCR.ArtifactCacheDir,
 	}
 	extractor := ocr.NewExtractor(ocrCfg, logger)
-	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
-	ocrPipe := processor2.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
 
 	// LLM parse pipeline
 	openaiClient := openai.NewClient(openai.Config{
@@ -107,14 +104,8 @@ func main() {
 		Timeout:     cfg.LLM.Timeout,
 	}, logger)
 
-	parseCfg := processor2.Config{
-		MinConfidence:    0.60,
-		ArtifactCacheDir: "./tmp",
-	}
-	parsePipe := processor2.NewParseStage(logger, parseCfg, jobsRepo, profilesRepo, jobsRepo, receiptsRepo, openaiClient)
-
 	// Orchestrator
-	processor := processor2.NewProcessor(logger, ocrPipe, parsePipe)
+	processor := core.NewProcessor(logger, extractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, "./tmp")
 
 	// Create service layers (business logic)
 	profilesServiceLayer := profile.NewService(profilesRepo, logger)
@@ -159,11 +150,4 @@ func main() {
 	<-ctx.Done()
 	queue.Shutdown(context.Background())
 	grpcServer.GracefulStop()
-}
-
-func getenv(k, def string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return def
 }

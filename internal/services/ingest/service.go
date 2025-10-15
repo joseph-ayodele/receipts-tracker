@@ -8,7 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/internal/async"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/async"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

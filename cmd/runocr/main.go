@@ -8,9 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
-	"github.com/joseph-ayodele/receipts-tracker/internal/core/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core"
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
-	"github.com/joseph-ayodele/receipts-tracker/internal/core/pipeline"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -68,17 +67,16 @@ func main() {
 	filesRepo := repo.NewReceiptFileRepository(entc, logger)
 	jobsRepo := repo.NewExtractJobRepository(entc, logger)
 
-	// Build OCR extractor (Stage 1) and adapt it to TextExtractor.
+	// Build OCR extractor and processor.
 	extractor := ocr.NewExtractor(ocr.Config{
 		TessdataDir:   os.Getenv("TESSDATA_DIR"),          // optional (helps on Windows)
 		HeicConverter: getenv("HEIC_CONVERTER", "magick"), // "magick" | "heif-convert" | "sips"
 	}, logger)
-	ocrAdapter := extract.NewOCRAdapter(extractor, logger)
 
-	p := pipeline.NewOCRStage(filesRepo, jobsRepo, ocrAdapter, logger)
+	processor := core.NewProcessor(logger, extractor, nil, filesRepo, jobsRepo, nil, nil, nil, 0, "")
 
 	start := time.Now()
-	jobID, res, err := p.Run(ctx, fileID)
+	jobID, res, err := processor.RunOCROnly(ctx, fileID)
 	dur := time.Since(start)
 
 	if err != nil {

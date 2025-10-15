@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/internal/core/extract"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm/openai"
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
-	processor2 "github.com/joseph-ayodele/receipts-tracker/internal/core/pipeline"
 
-	"github.com/joseph-ayodele/receipts-tracker/internal/llm/openai"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
@@ -89,8 +88,6 @@ func main() {
 		ArtifactCacheDir: cacheDir,
 	}
 	ocrExtractor := ocr.NewExtractor(ocrCfg, logger)
-	textAdapter := extract.NewOCRAdapter(ocrExtractor, logger)
-	ocrStage := processor2.NewOCRStage(filesRepo, jobsRepo, textAdapter, logger)
 
 	openaiClient := openai.NewClient(openai.Config{
 		Model:           getenv("OPENAI_MODEL", "gpt-4o-mini"),
@@ -101,13 +98,7 @@ func main() {
 		MaxVisionMB:     10,
 	}, logger)
 
-	parseCfg := processor2.Config{
-		MinConfidence:    0.60,
-		ArtifactCacheDir: cacheDir,
-	}
-	parseStage := processor2.NewParseStage(logger, parseCfg, jobsRepo, profilesRepo, jobsRepo, receiptsRepo, openaiClient)
-
-	processor := processor2.NewProcessor(logger, ocrStage, parseStage)
+	processor := core.NewProcessor(logger, ocrExtractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, cacheDir)
 
 	// --- Loop N times on the SAME file_id
 	base := filepath.Base(fileRow.SourcePath)
