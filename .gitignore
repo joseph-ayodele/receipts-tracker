@@ -56,3 +56,5 @@ db/.env.db
 *~
 
 receipts-tracker
+llm
+runocr
