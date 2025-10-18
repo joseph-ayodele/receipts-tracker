@@ -14,6 +14,7 @@ import (
 type ProfileRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Profile, error)
 	GetOrCreate(ctx context.Context, profile *entity.Profile) (*entity.Profile, error)
+	GetOrCreateByName(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error)
 	CreateProfile(ctx context.Context, profile *entity.Profile) (*entity.Profile, error)
 	ListProfiles(ctx context.Context) ([]*entity.Profile, error)
 	Exists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -109,4 +110,24 @@ func (r *profileRepository) Exists(ctx context.Context, id uuid.UUID) (bool, err
 		return false, err
 	}
 	return exists, nil
+}
+
+func (r *profileRepository) GetOrCreateByName(ctx context.Context, name, defaultCurrency string) (*ent.Profile, error) {
+	existing, err := r.client.Profile.Query().Where(profile.Name(name)).Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			created, err := r.client.Profile.Create().
+				SetName(name).
+				SetDefaultCurrency(defaultCurrency).
+				Save(ctx)
+			if err != nil {
+				r.logger.Error("failed to create profile in GetOrCreateByName", "name", name, "error", err)
+				return nil, err
+			}
+			return created, nil
+		} else {
+			return nil, err
+		}
+	}
+	return existing, nil
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	_ "modernc.org/sqlite"
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 )
@@ -83,4 +85,53 @@ func HealthCheck(ctx context.Context, pool *pgxpool.Pool, timeout time.Duration,
 	}
 	logger.Debug("database ping successful")
 	return pool.Ping(ctx)
+}
+
+// OpenSQLiteInMemory opens a shared in-memory SQLite and returns ent.Client + *sql.DB (or nil for pool).
+func OpenSQLiteInMemory(log *slog.Logger) (*ent.Client, *sql.DB, error) {
+	log.Info("opening in-memory SQLite database", "dsn", "file:memdb1?mode=memory&cache=shared")
+
+	// Use the shared in-memory database DSN
+	db, err := sql.Open("sqlite", "file:memdb1?mode=memory&cache=shared")
+	if err != nil {
+		log.Error("failed to open SQLite database", "error", err)
+		return nil, nil, err
+	}
+
+	// Ensure database is closed on error after successful opening
+	var success bool
+	defer func() {
+		if !success {
+			if closeErr := db.Close(); closeErr != nil {
+				log.Error("failed to close database after error", "error", closeErr)
+			}
+		}
+	}()
+
+	// Enable foreign keys
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		log.Error("failed to enable foreign keys", "error", err)
+		return nil, nil, err
+	}
+
+	// Configure connection settings
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0)
+
+	// Wrap with Ent SQL driver and open with SQLite dialect
+	drv := entsql.OpenDB(dialect.SQLite, db)
+	client := ent.NewClient(ent.Driver(drv))
+
+	success = true
+	log.Info("successfully initialized in-memory SQLite database")
+	return client, db, nil
+}
+
+// MigrateSQLite runs auto-migration with Ent for SQLite (create all tables/indices).
+func MigrateSQLite(ctx context.Context, c *ent.Client) error {
+	if err := c.Schema.Create(ctx); err != nil {
+		return err
+	}
+	return nil
 }
