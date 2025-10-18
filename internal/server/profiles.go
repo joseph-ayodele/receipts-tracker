@@ -3,98 +3,58 @@ package server
 import (
 	"context"
 	"log/slog"
-	"strings"
-
-	"github.com/joseph-ayodele/receipts-tracker/constants"
-	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
-	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	receiptspb "github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/profile"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 
-type ProfileService struct {
+type ProfileServer struct {
 	receiptspb.UnimplementedProfilesServiceServer
-	profileRepo repository.ProfileRepository
-	logger      *slog.Logger
+	svc    *profile.Service
+	logger *slog.Logger
 }
 
-func NewProfileService(profileRepo repository.ProfileRepository, logger *slog.Logger) *ProfileService {
-	return &ProfileService{
-		profileRepo: profileRepo,
-		logger:      logger,
+func NewProfileServer(svc *profile.Service, logger *slog.Logger) *ProfileServer {
+	return &ProfileServer{
+		svc:    svc,
+		logger: logger,
 	}
-}
-
-func extractProfileInput(req *receiptspb.CreateProfileRequest) (*entity.Profile, error) {
-	name := strings.TrimSpace(req.GetName())
-	if name == "" {
-		return nil, status.Error(codes.InvalidArgument, "name is required")
-	}
-
-	jobTitle := strings.TrimSpace(req.GetJobTitle())
-	jobDesc := strings.TrimSpace(req.GetJobDescription())
-
-	cur := strings.ToUpper(strings.TrimSpace(req.GetDefaultCurrency()))
-	if cur == "" {
-		cur = constants.DefaultCurrency
-	} else if len(cur) != 3 {
-		return nil, status.Error(codes.InvalidArgument, "default currency must be 3 letters (ISO 4217)")
-	}
-
-	jobTitlePtr := &jobTitle
-	jobDescPtr := &jobDesc
-	if jobTitle == "" {
-		jobTitlePtr = nil
-	}
-	if jobDesc == "" {
-		jobDescPtr = nil
-	}
-
-	return &entity.Profile{
-		Name:            name,
-		DefaultCurrency: cur,
-		JobTitle:        jobTitlePtr,
-		JobDescription:  jobDescPtr,
-	}, nil
 }
 
 // CreateProfile creates a new profile.
-func (s *ProfileService) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
-	profile, err := extractProfileInput(req)
-	if err != nil || profile == nil {
+func (s *ProfileServer) CreateProfile(ctx context.Context, req *receiptspb.CreateProfileRequest) (*receiptspb.CreateProfileResponse, error) {
+	// Convert gRPC request to service request
+	serviceReq := profile.CreateProfileRequest{
+		Name:            req.GetName(),
+		JobTitle:        req.GetJobTitle(),
+		JobDescription:  req.GetJobDescription(),
+		DefaultCurrency: req.GetDefaultCurrency(),
+	}
+
+	// Call service layer (pure business logic)
+	p, err := s.svc.CreateProfile(ctx, serviceReq)
+	if err != nil {
 		return nil, err
 	}
 
-	p, err := s.profileRepo.GetOrCreate(ctx, profile)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "get or create profile: %v", err)
-	}
-
-	s.logger.Info("profile created successfully", "profile_id", p.ID, "name", p.Name)
-
 	return &receiptspb.CreateProfileResponse{
-		Profile: utils.ToPBProfileFromEntity(p),
+		Profile: tools.ToPBProfileFromEntity(p),
 	}, nil
 }
 
-// ListProfiles lists all the profileRepo.
-func (s *ProfileService) ListProfiles(ctx context.Context, _ *receiptspb.ListProfilesRequest) (*receiptspb.ListProfilesResponse, error) {
-	s.logger.Info("listing profiles")
-
-	plist, err := s.profileRepo.ListProfiles(ctx)
+// ListProfiles lists all the profiles.
+func (s *ProfileServer) ListProfiles(ctx context.Context, _ *receiptspb.ListProfilesRequest) (*receiptspb.ListProfilesResponse, error) {
+	// Call service layer (pure business logic)
+	plist, err := s.svc.ListProfiles(ctx)
 	if err != nil {
-		// DB error already logged in repository layer
-		return nil, status.Errorf(codes.Internal, "list profileRepo: %v", err)
+		return nil, err
 	}
 
-	s.logger.Info("profiles listed successfully", "count", len(plist))
-
+	// Convert service response to gRPC response
 	out := make([]*receiptspb.Profile, 0, len(plist))
 	for _, p := range plist {
-		out = append(out, utils.ToPBProfileFromEntity(p))
+		out = append(out, tools.ToPBProfileFromEntity(p))
 	}
 	return &receiptspb.ListProfilesResponse{Profiles: out}, nil
 }

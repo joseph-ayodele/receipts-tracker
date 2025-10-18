@@ -54,3 +54,7 @@ db/.env.db
 *.log
 *.swp
 *~
+
+receipts-tracker
+llm
+runocr

@@ -10,7 +10,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/extractjob"
-	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm"
 )
 
 type OCROutcome struct {

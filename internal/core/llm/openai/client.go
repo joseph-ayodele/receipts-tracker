@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joseph-ayodele/receipts-tracker/internal/llm"
+	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm"
 )
 
 // ExtractFields implements llm.FieldExtractor using text-only chat/completions.

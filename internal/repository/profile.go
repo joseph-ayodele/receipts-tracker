@@ -8,7 +8,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
 	"github.com/joseph-ayodele/receipts-tracker/gen/ent/profile"
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
-	"github.com/joseph-ayodele/receipts-tracker/internal/utils"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 
 type ProfileRepository interface {
@@ -39,7 +39,7 @@ func (r *profileRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.
 	if err != nil {
 		return nil, err
 	}
-	return utils.ToProfile(p), nil
+	return tools.ToProfile(p), nil
 }
 
 func (r *profileRepository) GetOrCreate(ctx context.Context, p *entity.Profile) (*entity.Profile, error) {
@@ -60,12 +60,12 @@ func (r *profileRepository) GetOrCreate(ctx context.Context, p *entity.Profile) 
 				r.logger.Error("failed to create profile in GetOrCreate", "name", p.Name, "error", err)
 				return nil, err
 			}
-			return utils.ToProfile(created), nil
+			return tools.ToProfile(created), nil
 		} else {
 			return nil, err
 		}
 	}
-	return utils.ToProfile(existing), nil
+	return tools.ToProfile(existing), nil
 }
 
 func (r *profileRepository) CreateProfile(ctx context.Context, profile *entity.Profile) (*entity.Profile, error) {
@@ -85,7 +85,7 @@ func (r *profileRepository) CreateProfile(ctx context.Context, profile *entity.P
 		r.logger.Error("failed to create profile", "name", profile.Name, "currency", profile.DefaultCurrency, "error", err)
 		return nil, err
 	}
-	return utils.ToProfile(p), nil
+	return tools.ToProfile(p), nil
 }
 
 func (r *profileRepository) ListProfiles(ctx context.Context) ([]*entity.Profile, error) {
@@ -97,7 +97,7 @@ func (r *profileRepository) ListProfiles(ctx context.Context) ([]*entity.Profile
 
 	result := make([]*entity.Profile, len(plist))
 	for i, p := range plist {
-		result[i] = utils.ToProfile(p)
+		result[i] = tools.ToProfile(p)
 	}
 	return result, nil
 }
