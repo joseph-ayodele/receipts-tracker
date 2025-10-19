@@ -52,6 +52,12 @@ func BuildSystemPrompt(req ExtractRequest) string {
 		"Sum non-tax, non-tip surcharges into 'other_fees' (e.g., booking, airport, regulatory).",
 		"Include 'discount' if visible (positive amount representing the discount).",
 
+		// Money/tender disambiguation:
+		"Discounts/coupons/promotions reduce price → put in 'discount' as a positive amount.",
+		"Gift cards, store credit, or promo balance are PAYMENT TENDERS, not discounts — they MUST NOT reduce 'total'.",
+		"If a receipt shows 'Grand Total: $0.00' due to a tender line (e.g., 'Gift Card Amount: -$X'), set 'total' to (subtotal + tax + other_fees + tip − discount). Ignore tender amounts when computing 'total'.",
+		"When both discount and tender lines appear, apply the discount to price; then compute total; then ignore tender lines.",
+
 		// Formatting hygiene:
 		"Never output null. If a field is not present, omit it.",
 	}

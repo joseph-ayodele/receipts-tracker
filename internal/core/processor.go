@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -210,6 +213,9 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 		return job.ID, fmt.Errorf("llm extract: %w", err)
 	}
 
+	// Apply post-LLM tender offset correction if needed
+	adjustTotalsForTenderOffsets(*job.OcrText, &fields, p.logger)
+
 	// Resolve category using canonical mapping
 	needsReview := false
 	canon, ok := constants.Canonicalize(fields.Category)
@@ -261,4 +267,95 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 		"confidence", fields.ModelConfidence,
 	)
 	return job.ID, nil
+}
+
+// Tender offset keywords for detecting gift cards, store credit, promo balance
+var tenderKeywords = []string{
+	"gift card", "gift-card", "giftcard",
+	"promo balance", "promotion balance", "promo credit",
+	"store credit", "store-card balance",
+}
+
+// adjustTotalsForTenderOffsets corrects totals when payment is fully offset by gift cards/store credit
+func adjustTotalsForTenderOffsets(ocrText string, f *llm.ReceiptFields, log *slog.Logger) {
+	if f == nil || f.Total == "" {
+		return
+	}
+	// If LLM produced a nonzero total, keep it.
+	if val, ok := parseMoney(f.Total); ok && val > 0 {
+		return
+	}
+	text := strings.ToLower(ocrText)
+	if !containsAny(text, tenderKeywords...) {
+		return
+	}
+
+	// Parse candidates from OCR/plain text (Amazon-like patterns included).
+	subtotal, _ := findMoneyAfter(text, "item(s) subtotal", "subtotal")
+	tax, _ := findMoneyAfter(text, "estimated tax", "tax")
+	fees, _ := findMoneyAfter(text, "other fees", "fees", "surcharges", "service fee")
+	tip, _ := findMoneyAfter(text, "tip")
+	disc, _ := findMoneyAfter(text, "discount", "promotion", "coupon")
+
+	// Compute economic total ignoring tender lines.
+	// Apply discount first (if negative, it reduces the subtotal), then add tax/fees/tip
+	total := subtotal + tax + fees + tip + disc // disc is negative for discounts, positive for surcharges
+	if total > 0.0 {
+		f.Total = fmt.Sprintf("%.2f", total)
+		if f.CurrencyCode == "" {
+			f.CurrencyCode = "USD"
+		}
+		if log != nil {
+			log.Info("post LLM adjustment applied",
+				"stage", "post_llm_adjust",
+				"reason", "tender_offset",
+				"new_total", f.Total,
+				"had_tender", true,
+			)
+		}
+	}
+}
+
+// Minimal regex helpers for money parsing
+var moneyRe = regexp.MustCompile(`(?i)(-?)\$?\s*(\d+(?:\.\d{1,2})?)`)
+
+func parseMoney(s string) (float64, bool) {
+	m := moneyRe.FindStringSubmatch(s)
+	if len(m) < 3 {
+		return 0, false
+	}
+	// Combine the negative sign and number
+	numStr := m[1] + m[2]
+	v, err := strconv.ParseFloat(numStr, 64)
+	return v, err == nil
+}
+
+func findMoneyAfter(text string, labels ...string) (float64, bool) {
+	idx := -1
+	for _, lb := range labels {
+		if i := strings.Index(text, lb); i >= 0 {
+			if idx == -1 || i < idx {
+				idx = i
+			}
+		}
+	}
+	if idx == -1 {
+		return 0, false
+	}
+	// Ensure we don't go beyond string length
+	end := idx + 200
+	if end > len(text) {
+		end = len(text)
+	}
+	seg := text[idx:end] // small window
+	return parseMoney(seg)
+}
+
+func containsAny(s string, needles ...string) bool {
+	for _, n := range needles {
+		if strings.Contains(s, n) {
+			return true
+		}
+	}
+	return false
 }
