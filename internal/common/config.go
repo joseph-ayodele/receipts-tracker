@@ -1,9 +1,14 @@
 package common
 
 import (
+	"context"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/joseph-ayodele/receipts-tracker/gen/ent"
+	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 )
 
 // Config holds all application configuration
@@ -82,15 +87,6 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-func getEnvAsInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intVal, err := strconv.Atoi(value); err == nil {
-			return intVal
-		}
-	}
-	return defaultValue
-}
-
 func getEnvAsInt32(key string, defaultValue int32) int32 {
 	if value := os.Getenv(key); value != "" {
 		if intVal, err := strconv.ParseInt(value, 10, 32); err == nil {
@@ -130,4 +126,100 @@ func (c *Config) Validate() error {
 		return NewAppError("CONFIG_ERROR", "GRPC_ADDR is required", ErrInvalidInput)
 	}
 	return nil
+}
+
+// ShouldUseInMemory returns true if the application should use in-memory SQLite
+func ShouldUseInMemory(cfg *Config, useInmemFlag bool) bool {
+	return useInmemFlag || cfg.Database.DSN == ""
+}
+
+// DatabaseResult holds the initialized database client and cleanup function
+type DatabaseResult struct {
+	Client  *ent.Client
+	Cleanup func()
+}
+
+// InitDatabase initializes either SQLite in-memory or Postgres database
+func InitDatabase(ctx context.Context, cfg *Config, useInmemFlag bool, logger *slog.Logger) (*DatabaseResult, error) {
+	useInMemory := ShouldUseInMemory(cfg, useInmemFlag)
+
+	if useInMemory {
+		return initSQLiteInMemory(ctx, logger)
+	}
+
+	return initPostgres(ctx, cfg, logger)
+}
+
+// initSQLiteInMemory initializes SQLite in-memory database
+func initSQLiteInMemory(ctx context.Context, logger *slog.Logger) (*DatabaseResult, error) {
+	logger.Info("initializing in-memory SQLite database")
+
+	entc, db, err := repo.OpenSQLiteInMemory(logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// Run migrations for SQLite
+	err = repo.MigrateSQLite(ctx, entc)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cleanup function for in-memory mode
+	cleanup := func() {
+		if entc != nil {
+			err := entc.Close()
+			if err != nil {
+				return
+			}
+		}
+		if db != nil {
+			err := db.Close()
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	logger.Info("in-memory SQLite database initialized successfully")
+	return &DatabaseResult{
+		Client:  entc,
+		Cleanup: cleanup,
+	}, nil
+}
+
+// initPostgres initializes Postgres database
+func initPostgres(ctx context.Context, cfg *Config, logger *slog.Logger) (*DatabaseResult, error) {
+	logger.Info("initializing Postgres database", "dsn", cfg.Database.DSN)
+
+	dbConfig := repo.Config{
+		DSN:             cfg.Database.DSN,
+		MaxConns:        cfg.Database.MaxConns,
+		MinConns:        cfg.Database.MinConns,
+		MaxConnLifetime: cfg.Database.MaxConnLifetime,
+		MaxConnIdleTime: cfg.Database.MaxConnIdleTime,
+		DialTimeout:     cfg.Database.DialTimeout,
+	}
+
+	entc, pool, err := repo.Open(ctx, dbConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ping DB to ensure connectivity
+	err = repo.HealthCheck(ctx, pool, 5*time.Second, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cleanup function for Postgres mode
+	cleanup := func() {
+		repo.Close(entc, pool, logger)
+	}
+
+	logger.Info("Postgres database initialized successfully")
+	return &DatabaseResult{
+		Client:  entc,
+		Cleanup: cleanup,
+	}, nil
 }

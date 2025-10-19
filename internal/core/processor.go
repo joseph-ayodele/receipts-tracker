@@ -14,6 +14,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm"
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
 	"github.com/joseph-ayodele/receipts-tracker/internal/repository"
+	"github.com/joseph-ayodele/receipts-tracker/internal/tools"
 )
 
 // Processor coordinates OCR (text extract) then LLM parse (fields).
@@ -84,6 +85,12 @@ func (p *Processor) ProcessFile(ctx context.Context, fileID uuid.UUID) (uuid.UUI
 	)
 
 	// 2) LLM parse stage → reads job.ocr_text, decides whether to attach file (based on confidence), and upserts receipt.
+	// Skip LLM parsing if no LLM client is configured
+	if p.llmExtractor == nil {
+		p.logger.Info("skipping LLM parse - no LLM client configured", "job_id", jobID)
+		return jobID, nil
+	}
+
 	if _, err := p.runLLMParse(ctx, jobID); err != nil {
 		p.logger.Error("processor.parse.failed", "job_id", jobID, "err", err)
 		return jobID, err
@@ -187,8 +194,8 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 		ArtifactCacheDir:  p.artifactCacheDir,
 		Profile: llm.ProfileContext{
 			ProfileName:    prof.Name,
-			JobTitle:       *prof.JobTitle,
-			JobDescription: *prof.JobDescription,
+			JobTitle:       tools.StrOrEmpty(prof.JobTitle),
+			JobDescription: tools.StrOrEmpty(prof.JobDescription),
 		},
 	}
 

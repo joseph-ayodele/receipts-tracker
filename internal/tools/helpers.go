@@ -9,7 +9,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/entity"
 )
 
-func strOrEmpty(p *string) string {
+func StrOrEmpty(p *string) string {
 	if p == nil {
 		return ""
 	}
@@ -20,8 +20,8 @@ func ToPBProfile(p *ent.Profile) *receiptspb.Profile {
 	return &receiptspb.Profile{
 		Id:              p.ID.String(),
 		Name:            p.Name,
-		JobTitle:        strOrEmpty(p.JobTitle),
-		JobDescription:  strOrEmpty(p.JobDescription),
+		JobTitle:        StrOrEmpty(p.JobTitle),
+		JobDescription:  StrOrEmpty(p.JobDescription),
 		DefaultCurrency: p.DefaultCurrency,
 		CreatedAt:       p.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:       p.UpdatedAt.UTC().Format(time.RFC3339),
@@ -45,8 +45,8 @@ func ToPBProfileFromEntity(p *entity.Profile) *receiptspb.Profile {
 	return &receiptspb.Profile{
 		Id:              p.ID.String(),
 		Name:            p.Name,
-		JobTitle:        strOrEmpty(p.JobTitle),
-		JobDescription:  strOrEmpty(p.JobDescription),
+		JobTitle:        StrOrEmpty(p.JobTitle),
+		JobDescription:  StrOrEmpty(p.JobDescription),
 		DefaultCurrency: p.DefaultCurrency,
 		CreatedAt:       p.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:       p.UpdatedAt.UTC().Format(time.RFC3339),

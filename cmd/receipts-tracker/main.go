@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"net"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	_ "modernc.org/sqlite"
 
 	"github.com/joseph-ayodele/receipts-tracker/gen/proto/receipts/v1"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
@@ -52,28 +54,19 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Use configuration from config package
-	dbConfig := repo.Config{
-		DSN:             cfg.Database.DSN,
-		MaxConns:        cfg.Database.MaxConns,
-		MinConns:        cfg.Database.MinConns,
-		MaxConnLifetime: cfg.Database.MaxConnLifetime,
-		MaxConnIdleTime: cfg.Database.MaxConnIdleTime,
-		DialTimeout:     cfg.Database.DialTimeout,
-	}
-	entc, pool, err := repo.Open(ctx, dbConfig, logger)
-	if err != nil {
-		logger.Error("failed to open database", "error", err, "dsn", cfg.Database.DSN)
-		os.Exit(1)
-	}
-	defer repo.Close(entc, pool, logger)
+	// Parse CLI flags
+	inmem := flag.Bool("inmem", false, "use in-memory SQLite database")
+	flag.Parse()
 
-	// Ping DB to ensure connectivity
-	err = repo.HealthCheck(ctx, pool, 5*time.Second, logger)
+	// Initialize database using common utility
+	dbResult, err := common.InitDatabase(ctx, cfg, *inmem, logger)
 	if err != nil {
-		logger.Error("failed to ping database", "error", err)
+		logger.Error("failed to initialize database", "error", err)
 		os.Exit(1)
 	}
+	defer dbResult.Cleanup()
+
+	entc := dbResult.Client
 
 	// gRPC server
 	lis, err := net.Listen("tcp", cfg.Server.GRPCAddr)
