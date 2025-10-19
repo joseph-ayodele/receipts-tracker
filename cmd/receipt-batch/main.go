@@ -16,7 +16,7 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/ocr"
 	repo "github.com/joseph-ayodele/receipts-tracker/internal/repository"
 	"github.com/joseph-ayodele/receipts-tracker/internal/services/export"
-	ingest2 "github.com/joseph-ayodele/receipts-tracker/internal/services/ingest"
+	"github.com/joseph-ayodele/receipts-tracker/internal/services/ingest"
 )
 
 // printError prints an error message to stderr, falling back to stdout if stderr fails
@@ -29,7 +29,7 @@ func printError(format string, args ...interface{}) {
 func main() {
 	// Parse CLI flags
 	var (
-		inmem   = flag.Bool("inmem", false, "use in-memory SQLite database")
+		inMem   = flag.Bool("in-mem", true, "use in-memory SQLite database")
 		dir     = flag.String("dir", "", "directory to process receipts from (required)")
 		out     = flag.String("out", "", "output XLSX file path (optional, defaults to parent directory)")
 		fromStr = flag.String("from", "", "from date YYYY-MM-DD")
@@ -80,7 +80,7 @@ func main() {
 	cfg := common.LoadConfig()
 
 	// Initialize database using common utility
-	dbResult, err := common.InitDatabase(ctx, cfg, *inmem, logger)
+	dbResult, err := common.InitDatabase(ctx, cfg, *inMem, logger)
 	if err != nil {
 		logger.Error("failed to initialize database", "error", err)
 		os.Exit(1)
@@ -113,25 +113,26 @@ func main() {
 	}
 	extractor := ocr.NewExtractor(ocrCfg, logger)
 
-	// Setup OpenAI client (graceful if missing)
-	var openaiClient *openai.Client
-	if cfg.LLM.APIKey != "" {
-		openaiClient = openai.NewClient(openai.Config{
-			Model:       cfg.LLM.Model,
-			APIKey:      cfg.LLM.APIKey,
-			Temperature: cfg.LLM.Temperature,
-			Timeout:     cfg.LLM.Timeout,
-		}, logger)
-		logger.Info("OpenAI client initialized", "model", cfg.LLM.Model)
-	} else {
-		logger.Warn("OpenAI API key not configured, LLM parsing will be skipped")
+	// Validate OpenAI API key is present (required for batch processing)
+	if cfg.LLM.APIKey == "" {
+		logger.Error("OpenAI API key is required for batch processing", "env_var", "OPENAI_API_KEY")
+		os.Exit(1)
 	}
+
+	// Setup OpenAI client
+	openaiClient := openai.NewClient(openai.Config{
+		Model:       cfg.LLM.Model,
+		APIKey:      cfg.LLM.APIKey,
+		Temperature: cfg.LLM.Temperature,
+		Timeout:     cfg.LLM.Timeout,
+	}, logger)
+	logger.Info("OpenAI client initialized", "model", cfg.LLM.Model)
 
 	// Setup processor
 	processor := core.NewProcessor(logger, extractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, "./tmp")
 
 	// Setup ingestor
-	ingestor := ingest2.NewFSIngestor(profilesRepo, filesRepo, logger)
+	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)
 
 	// Ingest directory
 	logger.Info("starting ingestion", "dir", *dir, "profile", profile.ID)
