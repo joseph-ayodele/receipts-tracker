@@ -38,13 +38,22 @@ func BuildSystemPrompt(req ExtractRequest) string {
 	parts := []string{
 		"You are a receipts parser. Return ONLY JSON that matches the provided JSON Schema.",
 		"Use ISO-8601 dates (YYYY-MM-DD).",
+
+		// Date selection precedence (single receipt, multiple candidate dates)
+		"For 'tx_date', prefer in order: (1) the 'Credit Card transaction' date for this order, (2) the 'Order placed' or 'Invoice' date, (3) the earliest clearly marked purchase/billing date on the receipt.",
+		"Do NOT use 'Shipped on', 'Printed on', 'Delivery', or page footer timestamps as 'tx_date'.",
+
 		"Currency must be a 3-letter ISO 4217 code; default to " + defCur + " if uncertain.",
 		catLine,
 		"Category selection rubric: " + rubric,
 		"Business context: " + strings.Join(ctxBits, " "),
 
-		// Description guidance (concise, tax-appropriate)
-		"For 'description', list the visible item names (comma-separated) and then add a concise, tax-appropriate business need (about 8–16 words). Avoid personal names, addresses, or timestamps.",
+		// Multi-order focus and boilerplate ignore
+		"If multiple orders appear on the page, focus ONLY on the order that matches the order ID in the filename when present; otherwise use the first complete order block.",
+		"Ignore boilerplate and footers (legal/privacy/help/navigation/ads). Do not copy those into any field.",
+
+		// Description → items list only (replace previous business-purpose guidance)
+		"For 'description', output a concise, comma-separated list of the purchased ITEM NAMES, verbatim as shown on the receipt. No commentary, no adjectives, no business purpose. If >3 items, list the first 3 then append '…'.",
 
 		// Money fields behavior:
 		"If a tip appears, include it under 'tip'.",
@@ -52,11 +61,12 @@ func BuildSystemPrompt(req ExtractRequest) string {
 		"Sum non-tax, non-tip surcharges into 'other_fees' (e.g., booking, airport, regulatory).",
 		"Include 'discount' if visible (positive amount representing the discount).",
 
-		// Money/tender disambiguation:
-		"Discounts/coupons/promotions reduce price → put in 'discount' as a positive amount.",
-		"Gift cards, store credit, or promo balance are PAYMENT TENDERS, not discounts — they MUST NOT reduce 'total'.",
-		"If a receipt shows 'Grand Total: $0.00' due to a tender line (e.g., 'Gift Card Amount: -$X'), set 'total' to (subtotal + tax + other_fees + tip − discount). Ignore tender amounts when computing 'total'.",
-		"When both discount and tender lines appear, apply the discount to price; then compute total; then ignore tender lines.",
+		// Money rules (replace this whole tender/discount block)
+		"'discount' is the absolute value of all discounts/coupons/promotions shown on the receipt (a positive decimal string).",
+		"When computing 'total', always use: total = subtotal + tax + other_fees + tip − discount.",
+		"Gift cards are PAYMENT TENDERS (e.g., 'Gift Card Amount: -$X'); they NEVER reduce 'total'. Ignore gift card lines when computing 'total'.",
+		"If a receipt shows 'Grand Total: $0.00' due to a gift card, compute 'total' from components using the formula above.",
+		"Do not treat 'store credit', 'promo balance', or 'rewards points' as discounts unless the receipt explicitly labels them as a discount/coupon.",
 
 		// Formatting hygiene:
 		"Never output null. If a field is not present, omit it.",
@@ -100,6 +110,9 @@ func BuildUserPrompt(req ExtractRequest, imageAttached bool) string {
 		// Small nudge that helps reduce variance in category choice without exposing chain-of-thought.
 		b.WriteString("\nNote: An image of the receipt is attached. Use visible item names and the rubric to pick exactly one category from the enum; if uncertain, choose 'Other'.\n")
 	}
+
+	// At the end of BuildUserPrompt (before returning)
+	b.WriteString("If a filename contains an order ID, match fields to that order ID when choosing items, totals, and dates.\n")
 
 	return b.String()
 }
