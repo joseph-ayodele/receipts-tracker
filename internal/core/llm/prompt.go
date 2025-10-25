@@ -61,6 +61,10 @@ func BuildSystemPrompt(req ExtractRequest) string {
 		"Sum non-tax, non-tip surcharges into 'other_fees' (e.g., booking, airport, regulatory).",
 		"Include 'discount' if visible (positive amount representing the discount).",
 
+		// Numeric formatting and fee aggregation:
+		"For all numeric fields (subtotal, tax, discount, other_fees, tip, total), output plain digits with optional decimal point — no currency symbols, no commas, no spaces, no parentheses.",
+		"If multiple fee lines appear (e.g., Cleaning fee, Service fee, Resort/Booking/Host/Processing fees), sum them into 'other_fees' and output the sum as a single decimal string.",
+
 		// Money rules (replace this whole tender/discount block)
 		"'discount' is the absolute value of all discounts/coupons/promotions shown on the receipt (a positive decimal string).",
 		"When computing 'total', always use: total = subtotal + tax + other_fees + tip − discount.",
@@ -70,6 +74,7 @@ func BuildSystemPrompt(req ExtractRequest) string {
 
 		// Formatting hygiene:
 		"Never output null. If a field is not present, omit it.",
+		"Do not append an ellipsis unless there are actually more than 3 distinct items. Do not truncate a single item name.",
 	}
 
 	if tz := strings.TrimSpace(req.Timezone); tz != "" {
