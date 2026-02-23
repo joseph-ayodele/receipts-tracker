@@ -109,9 +109,27 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	content := strings.TrimSpace(cc.Choices[0].Message.Content)
 	rawContent := []byte(content)
 
-	// 6) validate strictly → optional lenient sanitize
+	// 6) validate strictly → optional lenient sanitize → numeric normalization retry
 	if err := llm.ValidateJSONAgainstSchema(schema, rawContent); err != nil {
-		if c.cfg.LenientOptional {
+		// First try: numeric normalization retry for pattern failures on money fields
+		if isPatternFailureOnMoney(err) {
+			normalized := normalizeMoneyFields(rawContent)
+			if err2 := llm.ValidateJSONAgainstSchema(schema, normalized); err2 == nil {
+				c.logger.Info("llm numeric normalization applied",
+					"stage", "llm_normalize",
+					"normalized", true,
+					"fields", []string{"subtotal", "tax", "discount", "other_fees", "tip", "total"},
+				)
+				rawContent = normalized
+			} else {
+				c.logger.Error("llm extract schema_validation_failed_after_normalize",
+					"req_id", reqID, "error", err2, "content", string(rawContent),
+					"elapsed_ms", time.Since(start).Milliseconds(),
+				)
+				return llm.ReceiptFields{}, rawContent, fmt.Errorf("schema validation failed after normalize: %w", err2)
+			}
+		} else if c.cfg.LenientOptional {
+			// Second try: lenient sanitize for other validation errors
 			cleaned, dropped, sErr := llm.NormalizeAndSanitizeJSON(rawContent, c.logger)
 			if sErr == nil {
 				if vErr := llm.ValidateJSONAgainstSchema(schema, cleaned); vErr == nil {
@@ -168,4 +186,51 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 func mustJSON(v any) string {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	return string(b)
+}
+
+// normalizeMoneyFields strips currency symbols, commas, spaces, and parentheses from numeric fields
+func normalizeMoneyFields(raw []byte) []byte {
+	var obj map[string]any
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return raw
+	}
+
+	norm := func(s string) string {
+		// strip currency symbols, commas, spaces; turn (123.45) into -123.45
+		s = strings.TrimSpace(s)
+		if strings.HasPrefix(s, "(") && strings.HasSuffix(s, ")") {
+			s = "-" + strings.TrimSuffix(strings.TrimPrefix(s, "("), ")")
+		}
+		s = strings.ReplaceAll(s, ",", "")
+		s = strings.TrimPrefix(s, "$")
+		s = strings.ReplaceAll(s, " ", "")
+		return s
+	}
+	keys := []string{"subtotal", "tax", "discount", "other_fees", "tip", "total"}
+	for _, k := range keys {
+		if v, ok := obj[k]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				obj[k] = norm(str)
+			}
+		}
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// isPatternFailureOnMoney detects if validation error is due to pattern mismatch on money fields
+func isPatternFailureOnMoney(err error) bool {
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "pattern") {
+		return false
+	}
+	for _, k := range []string{"/subtotal", "/tax", "/discount", "/other_fees", "/tip", "/total"} {
+		if strings.Contains(msg, k) {
+			return true
+		}
+	}
+	return false
 }

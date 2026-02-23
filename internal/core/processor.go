@@ -5,7 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"math"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -246,6 +250,24 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 		return job.ID, fmt.Errorf("llm extract: %w", err)
 	}
 
+	// sanitize item list
+	fields.Description = sanitizeDescription(fields.Description)
+
+	// If other_fees missing/zero but OCR shows fee lines, aggregate them
+	if parseDecimal(fields.OtherFees) == 0 && strings.Contains(strings.ToLower(*job.OcrText), "fee") {
+		if fees, ok := aggregateFeesFromOCR(*job.OcrText); ok && fees > 0 {
+			fields.OtherFees = fmt.Sprintf("%.2f", fees)
+			p.logger.Info("post LLM adjustment applied",
+				"stage", "post_llm_adjust",
+				"reason", "fees_aggregated",
+				"other_fees", fields.OtherFees,
+			)
+		}
+	}
+
+	// Reconcile totals deterministically
+	reconcileTotals(*job.OcrText, &fields, p.logger)
+
 	// Resolve category using canonical mapping
 	needsReview := false
 	canon, ok := constants.Canonicalize(fields.Category)
@@ -297,4 +319,129 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 		"confidence", fields.ModelConfidence,
 	)
 	return job.ID, nil
+}
+
+// Tender offset keywords for detecting gift cards only
+var tenderKeywords = []string{"gift card", "gift-card", "giftcard", "payment", "installment"}
+
+var moneyRe = regexp.MustCompile(`(?i)[\$\s]*(-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|-\d+(?:\.\d{1,2})?)`)
+
+var feeLineRe = regexp.MustCompile(`(?i)\b(Cleaning|Service|Resort|Booking|Host|Processing)\s+fee\b.*?([$\(]?-?\s*\d[\d,]*(?:\.\d{1,2})?\)?)`)
+
+func parseDecimal(s string) float64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	m := moneyRe.FindStringSubmatch(s)
+	if len(m) < 2 {
+		return 0
+	}
+	clean := strings.ReplaceAll(m[1], ",", "")
+	v, err := strconv.ParseFloat(clean, 64)
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+func computeArithmeticTotal(f *llm.ReceiptFields) (float64, bool) {
+	if f == nil {
+		return 0, false
+	}
+	sub := parseDecimal(f.Subtotal)
+	tax := parseDecimal(f.Tax)
+	fees := parseDecimal(f.OtherFees)
+	disc := parseDecimal(f.Discount)
+	known := 0
+	for _, v := range []float64{sub, tax, fees, disc} {
+		if v != 0 {
+			known++
+		}
+	}
+	if known == 0 {
+		return 0, false
+	}
+	total := sub + tax + fees - disc
+	// clamp tiny float noise
+	if math.Abs(total) < 0.005 {
+		total = 0
+	}
+	return total, true
+}
+
+func containsAnyLower(s string, needles ...string) bool {
+	s = strings.ToLower(s)
+	for _, n := range needles {
+		if strings.Contains(s, n) {
+			return true
+		}
+	}
+	return false
+}
+
+func aggregateFeesFromOCR(ocr string) (float64, bool) {
+	var sum float64
+	var found bool
+	for _, m := range feeLineRe.FindAllStringSubmatch(ocr, -1) {
+		amt := parseDecimal(m[2])
+		if amt > 0 {
+			sum += amt
+			found = true
+		}
+	}
+	// clamp tiny noise
+	if math.Abs(sum) < 0.005 {
+		return 0, false
+	}
+	return sum, found
+}
+
+func reconcileTotals(ocrText string, f *llm.ReceiptFields, log *slog.Logger) {
+	if f == nil {
+		return
+	}
+	model := parseDecimal(f.Total)
+	arith, ok := computeArithmeticTotal(f)
+	hadGiftCard := containsAnyLower(ocrText, tenderKeywords...)
+
+	shouldOverride := false
+	reason := ""
+	if ok && math.Abs(arith-model) > 0.01 {
+		shouldOverride = true
+		reason = "component_mismatch"
+	}
+	if ok && hadGiftCard {
+		// When gift card present, prefer arithmetic even if model ~ subtotal/0
+		shouldOverride = true
+		if reason == "" {
+			reason = "tender_offset"
+		}
+	}
+
+	if shouldOverride && arith > 0 {
+		f.Total = fmt.Sprintf("%.2f", arith)
+		if f.CurrencyCode == "" {
+			f.CurrencyCode = "USD"
+		}
+		if log != nil {
+			log.Info("post LLM adjustment applied",
+				"stage", "post_llm_adjust",
+				"reason", reason,
+				"new_total", f.Total,
+				"had_gift_card", hadGiftCard,
+			)
+		}
+	}
+}
+
+// Optional: remove dangling ellipsis when only one item is present
+func sanitizeDescription(desc string) string {
+	d := strings.TrimSpace(desc)
+	// If only one token (no commas/newlines), strip trailing ellipsis
+	if !strings.Contains(d, ",") && !strings.Contains(d, "\n") {
+		d = strings.TrimSuffix(d, "…")
+		d = strings.TrimSuffix(d, "...")
+	}
+	return d
 }

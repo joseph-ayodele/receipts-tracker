@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -93,12 +94,6 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 			}
 		}
 
-		// Choose Item/Service (for now merchant name). If you later add ItemName, prefer it.
-		item := r.MerchantName
-		if item == "" {
-			item = "—"
-		}
-
 		// Amount & Deduction Amount (for now fully deductible)
 		amount := fmt.Sprintf("%v", r.Total)
 		deduction := amount
@@ -118,6 +113,7 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 		write(2, r.CategoryName)
 
 		// 3) Item/Service
+		item := derivePrimaryItem(r.Description, r.MerchantName)
 		write(3, item)
 
 		// 4) Amount
@@ -154,6 +150,26 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 		"elapsed_ms", time.Since(start).Milliseconds(),
 	)
 	return buf.Bytes(), nil
+}
+
+func derivePrimaryItem(desc, fallback string) string {
+	s := strings.TrimSpace(desc)
+	if s != "" {
+		parts := strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == '\n' })
+		for _, p := range parts {
+			item := strings.TrimSpace(p)
+			if item == "" {
+				continue
+			}
+			// strip stray ellipsis from token edges
+			item = strings.TrimSuffix(item, "…")
+			item = strings.TrimSuffix(item, "...")
+			if len(item) >= 3 {
+				return item
+			}
+		}
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func truncate(s string, n int) string {
