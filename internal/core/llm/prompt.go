@@ -71,7 +71,7 @@ func BuildSystemPrompt(req ExtractRequest) string {
 		"Payment tenders are not discounts. Gift cards, store credit, rewards points, promo balance, promotional credits, and other applied payment offsets are funding sources; ignore them when computing 'total'.",
 		"Examples of tender lines to ignore: 'Gift Card Applied: -$30.00', 'Rewards Redeemed: -$15.00', 'Promo Balance: -$10.00'.",
 		"If printed 'Grand Total', 'Charged to card', or 'Order Total' is 0.00 (or lower than subtotal) because a gift card/credit/tender was applied, disregard that printed total and compute from components.",
-		"'discount' is ONLY a merchant price reduction on items (coupon, sale price, promotional markdown), never a gift card/credit/payment offset applied at checkout.",
+		"'discount' is ONLY a merchant price reduction on individual items applied before the subtotal (coupons, sale prices, bundle markdowns). Do NOT put gift card amounts, store credit, rewards, or any payment tender into 'discount'. If the only reduction on the receipt is a payment tender, omit 'discount' entirely.",
 
 		// Formatting hygiene:
 		"Never output null. If a field is not present, omit it.",

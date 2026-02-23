@@ -334,8 +334,10 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 	return job.ID, nil
 }
 
-// Tender offset keywords for detecting gift cards only
-var tenderKeywords = []string{"gift card", "gift-card", "giftcard", "payment", "installment"}
+// Tender offset keywords for detecting payment offsets (gift cards, store credit, etc.).
+// Intentionally narrow — "payment" and "installment" are too generic and cause false
+// positives on any receipt that mentions a payment method.
+var tenderKeywords = []string{"gift card", "gift-card", "giftcard", "store credit", "promo balance", "rewards redeemed"}
 
 // First alternative handles comma-formatted numbers (e.g. "1,302.41").
 // Second alternative handles plain integers/decimals of any length (e.g. "1302.41", "-50.00").
