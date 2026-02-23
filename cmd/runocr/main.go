@@ -73,7 +73,7 @@ func main() {
 		HeicConverter: getenv("HEIC_CONVERTER", "magick"), // "magick" | "heif-convert" | "sips"
 	}, logger)
 
-	processor := core.NewProcessor(logger, extractor, nil, filesRepo, jobsRepo, nil, nil, nil, 0, "")
+	processor := core.NewProcessor(logger, extractor, nil, filesRepo, jobsRepo, nil, nil, nil, 0, "", false)
 
 	start := time.Now()
 	jobID, res, err := processor.RunOCROnly(ctx, fileID)

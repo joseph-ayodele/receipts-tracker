@@ -29,11 +29,12 @@ func printError(format string, args ...interface{}) {
 func main() {
 	// Parse CLI flags
 	var (
-		inMem   = flag.Bool("in-mem", true, "use in-memory SQLite database")
-		dir     = flag.String("dir", "", "directory to process receipts from (required)")
-		out     = flag.String("out", "", "output XLSX file path (optional, defaults to parent directory)")
-		fromStr = flag.String("from", "", "from date YYYY-MM-DD")
-		toStr   = flag.String("to", "", "to date YYYY-MM-DD")
+		inMem        = flag.Bool("in-mem", true, "use in-memory SQLite database")
+		dir          = flag.String("dir", "", "directory to process receipts from (required)")
+		out          = flag.String("out", "", "output XLSX file path (optional, defaults to parent directory)")
+		fromStr      = flag.String("from", "", "from date YYYY-MM-DD")
+		toStr        = flag.String("to", "", "to date YYYY-MM-DD")
+		visionDirect = flag.Bool("vision-direct", false, "skip OCR and send files directly to LLM as vision input")
 	)
 	flag.Parse()
 
@@ -129,7 +130,7 @@ func main() {
 	logger.Info("OpenAI client initialized", "model", cfg.LLM.Model)
 
 	// Setup processor
-	processor := core.NewProcessor(logger, extractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, "./tmp")
+	processor := core.NewProcessor(logger, extractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, "./tmp", *visionDirect)
 
 	// Setup ingestor
 	ingestor := ingest.NewFSIngestor(profilesRepo, filesRepo, logger)

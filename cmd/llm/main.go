@@ -98,7 +98,7 @@ func main() {
 		MaxVisionMB:     10,
 	}, logger)
 
-	processor := core.NewProcessor(logger, ocrExtractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, cacheDir)
+	processor := core.NewProcessor(logger, ocrExtractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, cacheDir, false)
 
 	// --- Loop N times on the SAME file_id
 	base := filepath.Base(fileRow.SourcePath)

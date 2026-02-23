@@ -42,6 +42,12 @@ type ExtractRequest struct {
 	ContentHashHex   string `json:"-"`
 	ArtifactCacheDir string `json:"-"`
 
+	// Vision-direct mode: skip OCR confidence gate and attach the file directly.
+	ForceVision bool
+	// Pre-rendered image paths for multi-page vision (PDF pages rendered via pdftoppm).
+	// When set, these are used instead of FilePath for vision attachment.
+	VisionImagePaths []string
+
 	Profile ProfileContext
 }
 

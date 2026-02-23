@@ -9,10 +9,31 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/constants"
 )
 
+// ResolveVisionContent returns base64 data URLs to attach as vision inputs.
+// It handles both single-image files and multi-page PDFs (via VisionImagePaths).
+// Returns nil if no vision attachment should be made.
+func ResolveVisionContent(req ExtractRequest) []string {
+	if len(req.VisionImagePaths) > 0 {
+		var urls []string
+		for _, p := range req.VisionImagePaths {
+			u, _, err := readAsDataURL(p)
+			if err == nil {
+				urls = append(urls, u)
+			}
+		}
+		return urls
+	}
+	attach, dataURL, _ := ShouldAttachImage(req)
+	if attach {
+		return []string{dataURL}
+	}
+	return nil
+}
+
 func ShouldAttachImage(req ExtractRequest) (attach bool, dataURL, mimeType string) {
 	attach = req.FilePath != "" &&
 		constants.MapExtToFormat(filepath.Ext(req.FilePath)) == constants.IMAGE &&
-		req.PrepConfidence < constants.ImageConfidenceThreshold
+		(req.ForceVision || req.PrepConfidence < constants.ImageConfidenceThreshold)
 
 	if !attach {
 		return false, "", ""

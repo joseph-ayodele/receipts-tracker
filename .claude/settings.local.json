@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(cd /c/Users/joseph/code/receipts-tracker && go build ./cmd/receipt-batch/ 2>&1)"
+    ]
+  }
+}

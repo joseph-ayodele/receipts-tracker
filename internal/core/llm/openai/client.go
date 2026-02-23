@@ -30,22 +30,27 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		"timezone", req.Timezone,
 	)
 
-	// decide whether to attach the image (low OCR confidence + image + vision enabled)
-	attach, dataURL, _ := llm.ShouldAttachImage(req)
+	// resolve vision attachments (single image or multiple PDF pages)
+	visionURLs := llm.ResolveVisionContent(req)
+	attached := len(visionURLs) > 0
 
 	// build schema + prompts
 	schema := llm.BuildReceiptJSONSchema(req.AllowedCategories)
 	sys := llm.BuildSystemPrompt(req)
-	user := llm.BuildUserPrompt(req, attach)
+	user := llm.BuildUserPrompt(req, attached)
 
 	// 3) build messages for /chat/completions
 	//    - we keep the schema as a separate system message (your pattern)
 	var userContent any
-	if attach {
-		userContent = []map[string]any{
-			{"type": "text", "text": user},
-			{"type": "image_url", "image_url": map[string]any{"url": dataURL}},
+	if attached {
+		parts := []map[string]any{{"type": "text", "text": user}}
+		for _, u := range visionURLs {
+			parts = append(parts, map[string]any{
+				"type":      "image_url",
+				"image_url": map[string]any{"url": u},
+			})
 		}
+		userContent = parts
 	} else {
 		userContent = user
 	}
@@ -60,7 +65,7 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 			{"role": "user", "content": userContent},
 		},
 	}
-	c.logger.Debug("openai request payload", "attach", attach, "ocr_conf", req.PrepConfidence,
+	c.logger.Debug("openai request payload", "attached", attached, "vision_images", len(visionURLs), "ocr_conf", req.PrepConfidence,
 		"model", c.cfg.Model)
 
 	// 4) POST

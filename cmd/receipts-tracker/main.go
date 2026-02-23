@@ -56,6 +56,7 @@ func main() {
 
 	// Parse CLI flags
 	inmem := flag.Bool("inmem", false, "use in-memory SQLite database")
+	visionDirect := flag.Bool("vision-direct", false, "skip OCR and send files directly to LLM as vision input")
 	flag.Parse()
 
 	// Initialize database using common utility
@@ -98,7 +99,7 @@ func main() {
 	}, logger)
 
 	// Orchestrator
-	processor := core.NewProcessor(logger, extractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, "./tmp")
+	processor := core.NewProcessor(logger, extractor, openaiClient, filesRepo, jobsRepo, profilesRepo, receiptsRepo, jobsRepo, 0.60, "./tmp", *visionDirect)
 
 	// Create service layers (business logic)
 	profilesServiceLayer := profile.NewService(profilesRepo, logger)

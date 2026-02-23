@@ -80,6 +80,39 @@ func (e *Extractor) extractPDF(ctx context.Context, path string) (ExtractionResu
 	}, nil
 }
 
+// RenderPDFPages rasterizes a PDF to PNG files using pdftoppm and returns their
+// paths along with a cleanup function. The caller must invoke cleanup() when done.
+// maxPages=0 means no limit.
+func (e *Extractor) RenderPDFPages(ctx context.Context, path string, maxPages int) (pages []string, cleanup func(), err error) {
+	tmpDir, mkErr := os.MkdirTemp("", "rt-vision-*")
+	if mkErr != nil {
+		return nil, nil, mkErr
+	}
+	cleanup = func() {
+		if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
+			e.logger.Warn("failed to remove vision temp dir", "path", tmpDir, "error", rmErr)
+		}
+	}
+
+	prefix := filepath.Join(tmpDir, "page")
+	_, errb, runErr := e.runner.Run(ctx, e.cfg.Pdftoppm, e.logger, "-r", fmt.Sprintf("%d", e.cfg.DPI), "-png", path, prefix)
+	if runErr != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("pdftoppm: %w: %s", runErr, string(errb))
+	}
+
+	matches, _ := filepath.Glob(prefix + "-*.png")
+	sort.Strings(matches)
+	if maxPages > 0 && len(matches) > maxPages {
+		matches = matches[:maxPages]
+	}
+	if len(matches) == 0 {
+		cleanup()
+		return nil, nil, fmt.Errorf("pdftoppm produced no images for %q", path)
+	}
+	return matches, cleanup, nil
+}
+
 func (e *Extractor) pdfToText(ctx context.Context, path string) (text string, pages int, warnings []string, err error) {
 	// pdftotext -layout -enc UTF-8 -eol unix <path> -
 	out, errb, err := e.runner.Run(ctx, e.cfg.Pdftotext, e.logger, "-layout", "-enc", "UTF-8", "-eol", "unix", path, "-")

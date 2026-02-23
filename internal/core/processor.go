@@ -29,6 +29,7 @@ type Processor struct {
 	extractJobRepo   repository.ExtractJobRepository
 	minConfidence    float32
 	artifactCacheDir string
+	visionDirect     bool // skip OCR; send files directly to LLM as vision input
 }
 
 func NewProcessor(
@@ -42,6 +43,7 @@ func NewProcessor(
 	extractJobRepo repository.ExtractJobRepository,
 	minConfidence float32,
 	artifactCacheDir string,
+	visionDirect bool,
 ) *Processor {
 	if logger == nil {
 		logger = slog.Default()
@@ -63,6 +65,7 @@ func NewProcessor(
 		extractJobRepo:   extractJobRepo,
 		minConfidence:    minConfidence,
 		artifactCacheDir: artifactCacheDir,
+		visionDirect:     visionDirect,
 	}
 }
 
@@ -119,6 +122,20 @@ func (p *Processor) runOCR(ctx context.Context, fileID uuid.UUID) (uuid.UUID, oc
 	job, err := p.jobsRepo.Start(ctx, row.ID, row.ProfileID, format, string(constants.JobStatusRunning))
 	if err != nil {
 		return uuid.Nil, ocr.ExtractionResult{}, err
+	}
+
+	// In vision-direct mode skip OCR entirely; mark job as OCR_OK with empty text
+	// so runLLMParse can proceed and attach the raw file as a vision input.
+	if p.visionDirect {
+		p.logger.Info("vision-direct: skipping OCR", "file_id", fileID, "job_id", job.ID, "format", format)
+		if err := p.jobsRepo.FinishOCR(ctx, job.ID, repository.OCROutcome{
+			OCRText:    "",
+			Method:     "vision-direct",
+			Confidence: 0,
+		}); err != nil {
+			return job.ID, ocr.ExtractionResult{}, err
+		}
+		return job.ID, ocr.ExtractionResult{Method: "vision-direct"}, nil
 	}
 
 	// OCR
@@ -197,6 +214,25 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 			JobTitle:       tools.StrOrEmpty(prof.JobTitle),
 			JobDescription: tools.StrOrEmpty(prof.JobDescription),
 		},
+	}
+
+	// Vision-direct: attach the file instead of relying on OCR text.
+	if p.visionDirect {
+		switch job.Format {
+		case constants.IMAGE:
+			req.ForceVision = true
+		case constants.PDF:
+			// Rasterize PDF pages and attach them as vision images.
+			const maxVisionPages = 5
+			pages, cleanup, rErr := p.ocrExtractor.RenderPDFPages(ctx, file.SourcePath, maxVisionPages)
+			if rErr != nil {
+				p.logger.Warn("vision-direct: pdf render failed, falling back to empty text", "job_id", job.ID, "err", rErr)
+			} else {
+				defer cleanup()
+				req.VisionImagePaths = pages
+				p.logger.Debug("vision-direct: pdf rendered", "job_id", job.ID, "pages", len(pages))
+			}
+		}
 	}
 
 	p.logger.Debug("parse fields start",
