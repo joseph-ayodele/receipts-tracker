@@ -224,6 +224,19 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 	if p.visionDirect {
 		switch job.Format {
 		case constants.IMAGE:
+			// HEIC files must be converted to PNG before vision attachment —
+			// OpenAI cannot process HEIC and ShouldAttachImage requires a cached PNG.
+			if constants.IsHEICExt(filepath.Ext(file.SourcePath)) {
+				pngPath, heicCleanup, convErr := p.ocrExtractor.ConvertHEICForVision(ctx, file.SourcePath, req.ContentHashHex)
+				if convErr != nil {
+					p.logger.Warn("vision-direct: heic→png failed, vision unavailable", "job_id", job.ID, "err", convErr)
+				} else {
+					if heicCleanup != nil {
+						defer heicCleanup()
+					}
+					p.logger.Debug("vision-direct: heic converted", "job_id", job.ID, "png", pngPath)
+				}
+			}
 			req.ForceVision = true
 		case constants.PDF:
 			// Rasterize PDF pages and attach them as vision images.
@@ -324,9 +337,11 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 // Tender offset keywords for detecting gift cards only
 var tenderKeywords = []string{"gift card", "gift-card", "giftcard", "payment", "installment"}
 
-var moneyRe = regexp.MustCompile(`(?i)[\$\s]*(-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|-\d+(?:\.\d{1,2})?)`)
+// First alternative handles comma-formatted numbers (e.g. "1,302.41").
+// Second alternative handles plain integers/decimals of any length (e.g. "1302.41", "-50.00").
+var moneyRe = regexp.MustCompile(`(?i)[$\s]*(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|-?\d+(?:\.\d{1,2})?)`)
 
-var feeLineRe = regexp.MustCompile(`(?i)\b(Cleaning|Service|Resort|Booking|Host|Processing)\s+fee\b.*?([$\(]?-?\s*\d[\d,]*(?:\.\d{1,2})?\)?)`)
+var feeLineRe = regexp.MustCompile(`(?i)\b(Cleaning|Service|Resort|Booking|Host|Processing)\s+fee\b.*?([$(]?-?\s*\d[\d,]*(?:\.\d{1,2})?\)?)`)
 
 func parseDecimal(s string) float64 {
 	s = strings.TrimSpace(s)
@@ -407,7 +422,10 @@ func reconcileTotals(ocrText string, f *llm.ReceiptFields, log *slog.Logger) {
 
 	shouldOverride := false
 	reason := ""
-	if ok && math.Abs(arith-model) > 0.01 {
+	// Only override when arithmetic > model: the LLM under-reported total (e.g. anchored
+	// on a $0 gift-card-reduced charge). When arith < model the LLM likely read the true
+	// total correctly but mis-extracted a component — trust the model total in that case.
+	if ok && arith > model+0.01 {
 		shouldOverride = true
 		reason = "component_mismatch"
 	}

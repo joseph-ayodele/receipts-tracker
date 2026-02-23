@@ -140,3 +140,11 @@ func convertHEICtoPNG(
 	// No cache parameters → return temp path and cleanup func
 	return out, nil, cleanup, nil
 }
+
+// ConvertHEICForVision converts a HEIC file to a cached PNG so it can be attached
+// as a vision input to the LLM. Intended for vision-direct mode where OCR is skipped.
+// Returns the PNG path; cleanup is nil when the PNG is persisted to the artifact cache.
+func (e *Extractor) ConvertHEICForVision(ctx context.Context, path, hashHex string) (pngPath string, cleanup func(), err error) {
+	pngPath, _, cleanup, err = convertHEICtoPNG(ctx, e.runner, e.logger, e.cfg.HeicConverter, path, e.cfg.ArtifactCacheDir, hashHex)
+	return
+}

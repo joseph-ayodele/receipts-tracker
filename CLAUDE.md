@@ -30,6 +30,14 @@ go run ./cmd/receipt-batch  # Batch-process receipts
 go run ./cmd/dbhealth       # Check DB connectivity
 ```
 
+### Testing & Linting
+```bash
+go test ./...                                          # Run all tests
+go test ./internal/services/export/...                 # Run a single package
+go test ./internal/services/export/... -run TestName   # Run a specific test
+go vet ./...                                           # Static analysis
+```
+
 ### Database
 ```bash
 make db/health              # Ping DB and run ent query (requires db/.env.db)

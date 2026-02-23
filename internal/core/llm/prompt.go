@@ -65,12 +65,13 @@ func BuildSystemPrompt(req ExtractRequest) string {
 		"For all numeric fields (subtotal, tax, discount, other_fees, tip, total), output plain digits with optional decimal point — no currency symbols, no commas, no spaces, no parentheses.",
 		"If multiple fee lines appear (e.g., Cleaning fee, Service fee, Resort/Booking/Host/Processing fees), sum them into 'other_fees' and output the sum as a single decimal string.",
 
-		// Money rules (replace this whole tender/discount block)
-		"'discount' is the absolute value of all discounts/coupons/promotions shown on the receipt (a positive decimal string).",
-		"When computing 'total', always use: total = subtotal + tax + other_fees + tip − discount.",
-		"Gift cards are PAYMENT TENDERS (e.g., 'Gift Card Amount: -$X'); they NEVER reduce 'total'. Ignore gift card lines when computing 'total'.",
-		"If a receipt shows 'Grand Total: $0.00' due to a gift card, compute 'total' from components using the formula above.",
-		"Do not treat 'store credit', 'promo balance', or 'rewards points' as discounts unless the receipt explicitly labels them as a discount/coupon.",
+		// Money rules: separate cost of goods from payment tender application.
+		"'total' represents the cost of goods/services purchased, NOT the amount charged to any single payment method.",
+		"Always compute: total = subtotal + tax + other_fees + tip - discount.",
+		"Payment tenders are not discounts. Gift cards, store credit, rewards points, promo balance, promotional credits, and other applied payment offsets are funding sources; ignore them when computing 'total'.",
+		"Examples of tender lines to ignore: 'Gift Card Applied: -$30.00', 'Rewards Redeemed: -$15.00', 'Promo Balance: -$10.00'.",
+		"If printed 'Grand Total', 'Charged to card', or 'Order Total' is 0.00 (or lower than subtotal) because a gift card/credit/tender was applied, disregard that printed total and compute from components.",
+		"'discount' is ONLY a merchant price reduction on items (coupon, sale price, promotional markdown), never a gift card/credit/payment offset applied at checkout.",
 
 		// Formatting hygiene:
 		"Never output null. If a field is not present, omit it.",

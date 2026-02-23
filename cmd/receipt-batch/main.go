@@ -44,10 +44,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// If output file not specified, use parent directory with default filename
+	// If output file not specified, use parent directory with timestamped default filename
 	if *out == "" {
 		parentDir := filepath.Dir(*dir)
-		*out = filepath.Join(parentDir, "receipts.xlsx")
+		ts := time.Now().Format("20060102-150405")
+		*out = filepath.Join(parentDir, "receipts-"+ts+".xlsx")
 	}
 
 	// Parse date filters

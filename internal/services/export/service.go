@@ -73,7 +73,6 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 		"Expense Category",
 		"Item/Service",
 		"Amount",
-		"Deduction Amount",
 		"Purpose/Notes",
 		"Receipt/File Path",
 	}
@@ -94,9 +93,8 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 			}
 		}
 
-		// Amount & Deduction Amount (for now fully deductible)
+		// Amount
 		amount := fmt.Sprintf("%v", r.Total)
-		deduction := amount
 
 		write := func(col int, v any) {
 			cell, _ := excelize.CoordinatesToCellName(col, row)
@@ -119,14 +117,11 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 		// 4) Amount
 		write(4, amount)
 
-		// 5) Deduction Amount (same as Amount for now)
-		write(5, deduction)
+		// 5) Purpose/Notes
+		write(5, truncate(fmt.Sprintf("%v", r.Description), 140))
 
-		// 6) Purpose/Notes
-		write(6, truncate(fmt.Sprintf("%v", r.Description), 140))
-
-		// 7) Receipt/File Path
-		write(7, filePath)
+		// 6) Receipt/File Path
+		write(6, filePath)
 
 		row++
 	}
@@ -135,9 +130,9 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 	_ = f.SetColWidth(sheet, "A", "A", 14) // date
 	_ = f.SetColWidth(sheet, "B", "B", 22) // category
 	_ = f.SetColWidth(sheet, "C", "C", 28) // item
-	_ = f.SetColWidth(sheet, "D", "E", 14) // amounts
-	_ = f.SetColWidth(sheet, "F", "F", 48) // notes
-	_ = f.SetColWidth(sheet, "G", "G", 60) // path
+	_ = f.SetColWidth(sheet, "D", "D", 14) // amount
+	_ = f.SetColWidth(sheet, "E", "E", 48) // notes
+	_ = f.SetColWidth(sheet, "F", "F", 60) // path
 
 	buf, err := f.WriteToBuffer()
 	if err != nil {

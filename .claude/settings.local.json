@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(cd:*)",
-      "Bash(cd /c/Users/joseph/code/receipts-tracker && go build ./cmd/receipt-batch/ 2>&1)"
+      "Bash(cd /c/Users/joseph/code/receipts-tracker && go build ./cmd/receipt-batch/ 2>&1)",
+      "Bash(go run:*)",
+      "Bash(python3:*)",
+      "Bash(pdftotext:*)",
+      "Bash(magick:*)",
+      "Bash(go build:*)",
+      "Bash(OPENAI_MODEL=gpt-4o OPENAI_TEMPERATURE=0 go run:*)"
     ]
   }
 }
