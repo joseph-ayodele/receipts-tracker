@@ -127,6 +127,7 @@ func main() {
 		APIKey:      cfg.LLM.APIKey,
 		Temperature: cfg.LLM.Temperature,
 		Timeout:     cfg.LLM.Timeout,
+		MaxRetries:  cfg.LLM.Retries,
 	}, logger)
 	logger.Info("OpenAI client initialized", "model", cfg.LLM.Model)
 

@@ -11,6 +11,15 @@ import (
 	"github.com/joseph-ayodele/receipts-tracker/internal/core/llm"
 )
 
+// isRetriable returns true for transient errors worth retrying:
+// network/timeout errors and 429/5xx HTTP responses.
+func isRetriable(status int, err error) bool {
+	if err != nil && status == 0 {
+		return true // network-level error (timeout, connection reset, etc.)
+	}
+	return status == 429 || status == 502 || status == 503 || status == 504
+}
+
 // ExtractFields implements llm.FieldExtractor using text-only chat/completions.
 // If PrepConfidence is low and FilePath is provided, we LOG that a vision path
 // would be preferable, but we DO NOT switch behavior yet (future step).
@@ -73,14 +82,38 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 	c.logger.Debug("openai request payload", "attached", attached, "vision_images", len(visionURLs), "ocr_conf", req.PrepConfidence,
 		"model", c.cfg.Model)
 
-	// 4) POST
+	// 4) POST with retry
 	endpoint := strings.TrimRight(c.cfg.BaseURL, "/") + "/chat/completions"
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.cfg.APIKey,
 		"Content-Type":  "application/json",
 	}
 
-	raw, status, httpErr := llm.SendJSON(ctx, c.http, endpoint, body, headers, c.logger)
+	maxAttempts := c.cfg.MaxRetries + 1
+	var raw []byte
+	var status int
+	var httpErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second // 1s, 2s, 4s, 8s …
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+			c.logger.Warn("llm extract retrying",
+				"req_id", reqID, "attempt", attempt+1, "max", maxAttempts,
+				"backoff_s", backoff.Seconds(), "last_status", status, "last_err", httpErr,
+			)
+			select {
+			case <-ctx.Done():
+				return llm.ReceiptFields{}, nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+		raw, status, httpErr = llm.SendJSON(ctx, c.http, endpoint, body, headers, c.logger)
+		if httpErr == nil || !isRetriable(status, httpErr) {
+			break
+		}
+	}
 	if httpErr != nil {
 		c.logger.Error("llm extract http_error",
 			"req_id", reqID, "status", status, "error", httpErr,

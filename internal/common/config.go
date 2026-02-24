@@ -48,6 +48,7 @@ type LLMConfig struct {
 	APIKey      string
 	Temperature float32
 	Timeout     time.Duration
+	Retries     int
 }
 
 // LoadConfig loads configuration from environment variables
@@ -75,6 +76,7 @@ func LoadConfig() *Config {
 			APIKey:      getEnv("OPENAI_API_KEY", ""),
 			Temperature: getEnvAsFloat32("OPENAI_TEMPERATURE", 0.0),
 			Timeout:     getEnvAsDuration("OPENAI_TIMEOUT", 45*time.Second),
+			Retries:     int(getEnvAsInt32("OPENAI_RETRIES", 5)),
 		},
 	}
 }
