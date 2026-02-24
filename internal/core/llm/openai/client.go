@@ -55,15 +55,20 @@ func (c *Client) ExtractFields(ctx context.Context, req llm.ExtractRequest) (llm
 		userContent = user
 	}
 
+	// GPT-5 family only supports temperature=1 (the default); omit the field
+	// entirely for those models so the API uses its default.
+	isGPT5 := strings.HasPrefix(c.cfg.Model, "gpt-5")
 	body := map[string]any{
 		"model":           c.cfg.Model,
-		"temperature":     c.cfg.Temperature,
 		"response_format": map[string]any{"type": "json_object"},
 		"messages": []map[string]any{
 			{"role": "system", "content": sys},
 			{"role": "system", "content": "JSON Schema:\n" + mustJSON(schema)},
 			{"role": "user", "content": userContent},
 		},
+	}
+	if !isGPT5 {
+		body["temperature"] = c.cfg.Temperature
 	}
 	c.logger.Debug("openai request payload", "attached", attached, "vision_images", len(visionURLs), "ocr_conf", req.PrepConfidence,
 		"model", c.cfg.Model)

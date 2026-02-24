@@ -75,6 +75,7 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 		"Amount",
 		"Purpose/Notes",
 		"Receipt/File Path",
+		"Needs Review",
 	}
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
@@ -123,6 +124,11 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 		// 6) Receipt/File Path
 		write(6, filePath)
 
+		// 7) Needs Review
+		if r.NeedsReview {
+			write(7, "Yes")
+		}
+
 		row++
 	}
 
@@ -133,6 +139,7 @@ func (s *Service) ExportReceiptsXLSX(ctx context.Context, profileID uuid.UUID, f
 	_ = f.SetColWidth(sheet, "D", "D", 14) // amount
 	_ = f.SetColWidth(sheet, "E", "E", 48) // notes
 	_ = f.SetColWidth(sheet, "F", "F", 60) // path
+	_ = f.SetColWidth(sheet, "G", "G", 14) // needs review
 
 	buf, err := f.WriteToBuffer()
 	if err != nil {

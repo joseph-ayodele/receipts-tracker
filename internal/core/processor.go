@@ -128,10 +128,10 @@ func (p *Processor) runOCR(ctx context.Context, fileID uuid.UUID) (uuid.UUID, oc
 		return uuid.Nil, ocr.ExtractionResult{}, err
 	}
 
-	// In vision-direct mode skip OCR entirely; mark job as OCR_OK with empty text
-	// so runLLMParse can proceed and attach the raw file as a vision input.
-	if p.visionDirect {
-		p.logger.Info("vision-direct: skipping OCR", "file_id", fileID, "job_id", job.ID, "format", format)
+	// In vision-direct mode, skip OCR only for IMAGE files (JPEG/PNG/HEIC).
+	// PDFs always run through pdftotext so the LLM receives deterministic text input.
+	if p.visionDirect && format == constants.IMAGE {
+		p.logger.Info("vision-direct: skipping OCR for image", "file_id", fileID, "job_id", job.ID)
 		if err := p.jobsRepo.FinishOCR(ctx, job.ID, repository.OCROutcome{
 			OCRText:    "",
 			Method:     "vision-direct",
@@ -220,36 +220,23 @@ func (p *Processor) runLLMParse(ctx context.Context, jobID uuid.UUID) (uuid.UUID
 		},
 	}
 
-	// Vision-direct: attach the file instead of relying on OCR text.
-	if p.visionDirect {
-		switch job.Format {
-		case constants.IMAGE:
-			// HEIC files must be converted to PNG before vision attachment —
-			// OpenAI cannot process HEIC and ShouldAttachImage requires a cached PNG.
-			if constants.IsHEICExt(filepath.Ext(file.SourcePath)) {
-				pngPath, heicCleanup, convErr := p.ocrExtractor.ConvertHEICForVision(ctx, file.SourcePath, req.ContentHashHex)
-				if convErr != nil {
-					p.logger.Warn("vision-direct: heic→png failed, vision unavailable", "job_id", job.ID, "err", convErr)
-				} else {
-					if heicCleanup != nil {
-						defer heicCleanup()
-					}
-					p.logger.Debug("vision-direct: heic converted", "job_id", job.ID, "png", pngPath)
-				}
-			}
-			req.ForceVision = true
-		case constants.PDF:
-			// Rasterize PDF pages and attach them as vision images.
-			const maxVisionPages = 5
-			pages, cleanup, rErr := p.ocrExtractor.RenderPDFPages(ctx, file.SourcePath, maxVisionPages)
-			if rErr != nil {
-				p.logger.Warn("vision-direct: pdf render failed, falling back to empty text", "job_id", job.ID, "err", rErr)
+	// Vision-direct: for IMAGE files, attach as vision input instead of relying on OCR text.
+	// PDFs use pdftotext OCR text (deterministic); no vision rasterization for PDFs.
+	if p.visionDirect && job.Format == constants.IMAGE {
+		// HEIC files must be converted to PNG before vision attachment —
+		// OpenAI cannot process HEIC and ShouldAttachImage requires a cached PNG.
+		if constants.IsHEICExt(filepath.Ext(file.SourcePath)) {
+			pngPath, heicCleanup, convErr := p.ocrExtractor.ConvertHEICForVision(ctx, file.SourcePath, req.ContentHashHex)
+			if convErr != nil {
+				p.logger.Warn("vision-direct: heic→png failed, vision unavailable", "job_id", job.ID, "err", convErr)
 			} else {
-				defer cleanup()
-				req.VisionImagePaths = pages
-				p.logger.Debug("vision-direct: pdf rendered", "job_id", job.ID, "pages", len(pages))
+				if heicCleanup != nil {
+					defer heicCleanup()
+				}
+				p.logger.Debug("vision-direct: heic converted", "job_id", job.ID, "png", pngPath)
 			}
 		}
+		req.ForceVision = true
 	}
 
 	p.logger.Debug("parse fields start",

@@ -46,7 +46,8 @@ func (r *receiptRepository) ListReceipts(ctx context.Context, profileID uuid.UUI
 		Where(
 			receipt.ProfileID(profileID),
 			receipt.IsCurrent(true),
-		)
+		).
+		WithJobs()
 	if fromDate != nil {
 		q = q.Where(receipt.TxDateGTE(*fromDate))
 	}
@@ -61,7 +62,15 @@ func (r *receiptRepository) ListReceipts(ctx context.Context, profileID uuid.UUI
 
 	result := make([]*entity.Receipt, len(recs))
 	for i, rec := range recs {
-		result[i] = tools.ToReceipt(rec)
+		e := tools.ToReceipt(rec)
+		// Propagate needs_review from the most recent extract job.
+		for _, j := range rec.Edges.Jobs {
+			if j.NeedsReview {
+				e.NeedsReview = true
+				break
+			}
+		}
+		result[i] = e
 	}
 	return result, nil
 }

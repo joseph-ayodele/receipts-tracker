@@ -20,6 +20,7 @@ type Receipt struct {
 	CategoryName string     `json:"category_name"`
 	Description  string     `json:"description"`
 	FilePath     *string    `json:"file_path,omitempty"`
+	NeedsReview  bool       `json:"needs_review"`
 	IsCurrent    bool       `json:"is_current"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
